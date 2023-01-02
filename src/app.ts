@@ -11,7 +11,6 @@ import {
   CommandExecutor,
   CommandFactory
 } from '@modules/discord/commands';
-import { DiscordMessenger } from '@modules/discord/runtime';
 import { BotDataRepository } from '@modules/discord/data/repositories';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 import { 
