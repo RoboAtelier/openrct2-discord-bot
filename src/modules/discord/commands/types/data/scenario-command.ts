@@ -55,6 +55,12 @@ export class ScenarioCommand extends BotCommand<
             .setDescription('The type of scenario files to return.')
             .setChoices(...FileTypeOptionChoices)
         )
+        .addIntegerOption(option => 
+          option
+            .setName(this.reflectOptionName('page'))
+            .setDescription('The starting page of the search result listing.')
+            .setMinValue(1)
+        )
       )
       .addSubcommand(subcommand =>
         subcommand
