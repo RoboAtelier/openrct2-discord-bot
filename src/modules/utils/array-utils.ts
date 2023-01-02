@@ -50,7 +50,7 @@ export function getArraySectionWithDetails<T>(
     };
   };
   return {
-    section: array.slice(selectedIndex, selectedIndex + sectionElementsLimit - 1),
+    section: array.slice(selectedIndex, selectedIndex + sectionElementsLimit),
     sectionIndex: selectedIndex / sectionElementsLimit,
     totalSections: Math.ceil(array.length / sectionElementsLimit)
   };
