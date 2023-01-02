@@ -2,10 +2,8 @@ import {
   ChannelType,
   Client,
   MessagePayload,
-  Snowflake,
-  TextBasedChannelFields,
+  Snowflake
 } from 'discord.js';
-import { EOL } from 'os';
 import { Mutex } from 'async-mutex';
 
 export class DiscordMessenger {
@@ -27,9 +25,8 @@ export class DiscordMessenger {
   async sendMessageToTextChannel(channelId: Snowflake, messagePayload: string | MessagePayload) {
     const channel = this.resolveTextChannel(channelId);
     // expose send() method that should exist
-    const sendableChannel = channel as unknown as TextBasedChannelFields;
     return this.messageMutex.runExclusive(async () => {
-      const msg = await sendableChannel.send(messagePayload);
+      const msg = await channel.send(messagePayload);
       await new Promise(resolve => {
         setTimeout(resolve, 250);
       });

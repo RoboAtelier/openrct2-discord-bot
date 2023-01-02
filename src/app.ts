@@ -67,7 +67,7 @@ async function main() {
     if (isStringNullOrWhiteSpace(guildInfo.guildId)) {
       const guilds = [...discordClient.guilds.cache.values()];
       if (guilds.length > 0) {
-        guildInfo.guildId = (guilds[0] as any).id; // expose id
+        guildInfo.guildId = guilds[0].id;
         await botDataRepo.updateGuildInfo(guildInfo);
       } else {
         throw new Error('Bot client is not in a guild.');
@@ -76,7 +76,7 @@ async function main() {
 
     const rest = new REST({ version: '10' }).setToken(config.getValue('token'));
     await rest.put(
-      (Routes as any).applicationGuildCommands(config.getValue('clientId'), guildInfo.guildId),
+      Routes.applicationGuildCommands(config.getValue('clientId'), guildInfo.guildId),
       { body: commandFactory.commandDataArray }
     );
 

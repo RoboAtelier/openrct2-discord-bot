@@ -9,6 +9,7 @@ import {
   ButtonBuilder,
   ButtonInteraction,
   ButtonStyle,
+  CacheType,
   ChatInputCommandInteraction,
   Colors,
   ComponentType,
@@ -59,7 +60,11 @@ class VoteSession<T> {
   readonly interaction: ChatInputCommandInteraction;
 
   /** Gets or sets the button interaction collector that collects votes via buttons. */
-  interactionCollector: InteractionCollector<ButtonInteraction> | null = null;
+  interactionCollector: 
+    | InteractionCollector<ButtonInteraction<CacheType>>
+    | InteractionCollector<ButtonInteraction<'cached'>>
+    | null
+    = null;
 
   /** Gets or sets a value specifying if this vote session is active. */
   active = true;
@@ -510,7 +515,7 @@ export class VoteCommand extends BotCommand<
       await voteSession.setupNewVoteRound();
       await voteMessage.edit(this.formatScenarioVoteEmbed(serverId, voteSession));
       const voteCollector = voteMessage.createMessageComponentCollector<ComponentType.Button>(
-        { time: voteSession.duration * 10000 }
+        { time: voteSession.duration * 60000 }
       );
       voteSession.stoppable = true;
       voteSession.interactionCollector = voteCollector;
