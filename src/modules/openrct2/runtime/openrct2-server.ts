@@ -59,7 +59,7 @@ export class ServerEventArgs<T> {
 
 /** Represents an OpenRCT2 game server instance. */
 export class OpenRCT2Server extends EventEmitter {
-  private static readonly pollingTimeMs = 10000;
+  private static readonly pollingTimeMs = 15000;
 
   private scenarioName: string;
   private currentScenarioFileName: string;
@@ -126,7 +126,7 @@ export class OpenRCT2Server extends EventEmitter {
    * 
    */
   private async pollScenarioData() {
-    while (this.gameInstance.exitCode !== null) {
+    while (this.gameInstance.exitCode === null) {
       try {
         const baseScenarioData = await this.pluginAdapter!.executeAction('scenario', `${this.id}`);
         this.scenarioName = baseScenarioData.name;
@@ -146,7 +146,7 @@ export class OpenRCT2Server extends EventEmitter {
               scenarioStatus: baseScenarioData.status
             }
           );
-          this.emit('scenario.updated', args);
+          this.emit('scenario.update', args);
         };
       } catch (err) {
         // logging
