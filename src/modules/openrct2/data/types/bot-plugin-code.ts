@@ -1,0 +1,73 @@
+export const ServerAdapterPluginCode =
+`var serverId = 0;
+var port = 0;
+
+function main() {\
+	var server = network.createListener();
+	server.on('connection', function (conn) {
+		conn.on('data', function(data) {
+			try {
+				var dataString = data.toString('utf8');
+				conn.write(dataString);
+				var args = dataString.split(';');
+				var actionQuery = args[0];
+				var userId = args[1];
+				
+				if ('chat' === actionQuery) {
+					network.sendMessage(args[2]);
+					conn.write('chat'.concat(
+						';',
+						userId
+					));
+				} else if ('scenario' === actionQuery) {
+					conn.write('scenario'.concat(
+						';',
+						userId,
+						';',
+						JSON.stringify({
+							name: scenario.name,
+							details: scenario.details,
+							filename: scenario.filename,
+							status: scenario.status
+						})
+					));
+				} else if ('screenshot' === actionQuery) {
+					var screenshotFileName = scenario.name.concat('.png');
+					var screenshotParams = {
+						filename: screenshotFileName,
+						zoom: 2,
+						rotation: 0,
+						transparent: true
+						// width: map.size.x * 1.8 * 32,
+						// height: map.size.y * 0.9 * 32,
+						// position: { x: map.size.x / 2 * 32, y: map.size.y / 2 * 32 }
+					};
+					context.captureImage(screenshotParams);
+					conn.write('screenshot'.concat(
+						';',
+						userId,
+						';',
+						screenshotFileName
+					));
+				};
+			} catch (err) {
+				console.log(data);
+			};
+		});
+	});
+	server.listen(port, 'localhost');
+	console.log('Server adapter plugin for server '.concat(
+		serverId,
+		' has started!'
+	));
+};
+
+registerPlugin({
+	name: 'Server Adapter OpenRCT2 Plugin',
+	version: '0.1',
+	authors: ['Robo'],
+	type: 'remote',
+	licence: 'MIT',
+	targetApiVersion: 34,
+	main: main
+})`;

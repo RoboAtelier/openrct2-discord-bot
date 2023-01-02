@@ -1,0 +1,18 @@
+{
+  "guildId": "",
+  "debugChannelId": "",
+  "eventChannelId": "5",
+  "scenarioChannelId": "",
+  "votingChannelId": "",
+  "botChannelIds": [
+    ""
+  ],
+  "gameServerChannelIds": [
+    {
+      "serverId": 1,
+      "channelId": ""
+    }
+  ],
+  "trustedRoleIds": [],
+  "restrictedUserIds": []
+}

@@ -1,0 +1,12 @@
+{
+  "token": "",
+  "clientId": "",
+  "dirs": {
+    "bot": "",
+    "scenario": "",
+    "serverHost": "",
+    "plugin": ""
+  },
+  "openRCT2ExecutablePath": "",
+  "ipAddress": ""
+}

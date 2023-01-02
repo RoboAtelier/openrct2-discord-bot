@@ -1,0 +1,21 @@
+{
+  "name": "openrct2-discord-bot",
+  "version": "0.0.1",
+  "description": "OpenRCT2 Discord Bot",
+  "author": "",
+  "dependencies": {
+    "async-mutex": "^0.3.2",
+    "discord.js": "14.6",
+    "fuse.js": "^6.5.3",
+    "module-alias": "^2.2.2"
+  },
+  "main": "dist/src/app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "license": "ISC",
+  "type": "commonjs",
+  "_moduleAliases": {
+    "@modules": "dist/modules"
+  }
+}

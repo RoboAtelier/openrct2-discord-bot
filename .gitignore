@@ -1,0 +1,12 @@
+/.vs
+/.vscode
+/bin
+/dist
+/host
+/node_modules
+/obj
+/data
+/logs
+/plugins
+/resources
+/scenarios
