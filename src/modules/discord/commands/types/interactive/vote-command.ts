@@ -689,7 +689,7 @@ export class VoteCommand extends BotCommand<
       if (channel && channel.isTextBased()) {
         return await channel.send(messagePayload);
       };
-      throw new Error(`Could not send message to a text channel. Id: ${guildInfo.votingChannelId}`);
+      throw new Error('Could not post vote session to a text channel.');
     } catch (err) {
       // logging
     };

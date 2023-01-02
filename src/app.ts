@@ -11,6 +11,7 @@ import {
   CommandExecutor,
   CommandFactory
 } from '@modules/discord/commands';
+import { EventNotifier } from '@modules/discord/runtime';
 import { BotDataRepository } from '@modules/discord/data/repositories';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 import { 
@@ -54,6 +55,7 @@ async function main() {
     openRCT2ServerController
   );
   const commandExecutor = new CommandExecutor(discordClient, commandFactory, botDataRepo);
+  new EventNotifier(discordClient, botDataRepo, openRCT2ServerController);
 
   discordClient.on(Events.ClientReady, async () => {
     if (discordClient.user === null) {

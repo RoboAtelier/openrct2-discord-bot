@@ -1,1 +1,1 @@
-export * from './discord-messenger';
+export * from './event-notifier';
