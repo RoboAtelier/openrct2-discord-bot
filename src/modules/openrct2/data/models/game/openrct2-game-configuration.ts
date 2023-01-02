@@ -1,3 +1,4 @@
+import { EOL } from 'os';
 import { SerializableObject } from '@modules/io';
 import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
 
@@ -107,7 +108,7 @@ export class OpenRCT2GameConfiguration extends SerializableObject<OpenRCT2GameCo
     const requiredCategories: string[] = Object.values(OpenRCT2GameConfigurationCategory);
     
     let currentCategory = requiredCategories[0];
-    const dataLines = dataStr.split('\n');
+    const dataLines = dataStr.split(EOL);
     for (const dataLine of dataLines) {
       if (dataLine.startsWith('[') && dataLine.endsWith(']')) {
         const matchedCategory = requiredCategories.find(category => {
@@ -158,6 +159,6 @@ export class OpenRCT2GameConfiguration extends SerializableObject<OpenRCT2GameCo
       };
       dataArray.push('');
     };
-    return dataArray.join('\n');
+    return dataArray.join(EOL);
   };
 };
