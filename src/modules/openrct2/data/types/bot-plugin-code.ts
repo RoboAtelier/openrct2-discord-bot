@@ -8,7 +8,6 @@ function main() {\
 		conn.on('data', function(data) {
 			try {
 				var dataString = data.toString('utf8');
-				conn.write(dataString);
 				var args = dataString.split(';');
 				var actionQuery = args[0];
 				var userId = args[1];
