@@ -13,7 +13,6 @@ import {
   CommandPermissionLevel,
   CommandResponseBuilder
 } from '@modules/discord/commands';
-import { DiscordMessenger } from '@modules/discord/runtime';
 import { BotDataRepository } from '@modules/discord/data/repositories';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 import { ServerHostRepository } from '@modules/openrct2/data/repositories';
@@ -26,13 +25,11 @@ type SnapshotCommandOptions = 'server-id' | 'finalize'
 
 /** Represents a command for creating screenshots and save snapshots of OpenRCT2 game server scenarios. */
 export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, null> {
-  private readonly discordMessenger: DiscordMessenger;
   private readonly botDataRepo: BotDataRepository;
   private readonly serverHostRepo: ServerHostRepository;
   private readonly openRCT2ServerController: OpenRCT2ServerController;
 
   constructor(
-    discordMessenger: DiscordMessenger,
     botDataRepo: BotDataRepository,
     serverHostRepository: ServerHostRepository,
     openRCT2ServerController: OpenRCT2ServerController
@@ -53,7 +50,6 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
           .setDescription('Specifies to create both a screenshot and save file snapshot.')
       );
 
-    this.discordMessenger = discordMessenger;
     this.botDataRepo = botDataRepo;
     this.openRCT2ServerController = openRCT2ServerController;
     this.serverHostRepo = serverHostRepository;
@@ -105,7 +101,7 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
       messagePayload.files = attachments;
 
       if (finalize) {
-        const snapshotMessage = await this.postServerScenarioSnapshot(messagePayload);
+        const snapshotMessage = await this.postServerScenarioSnapshot(interaction, messagePayload);
         if (snapshotMessage) {
           await interaction.editReply(snapshotMessage.url);
         } else {
@@ -187,10 +183,14 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
    * Posts a message with the snapshot files.
    * @param messagePayload
    */
-  private async postServerScenarioSnapshot(messagePayload: MessagePayload) {
+  private async postServerScenarioSnapshot(interaction: ChatInputCommandInteraction, messagePayload: MessagePayload) {
     try {
       const guildInfo = await this.botDataRepo.getGuildInfo();
-      return await this.discordMessenger.sendMessageToTextChannel(guildInfo.scenarioChannelId, messagePayload);
+      const channel = await interaction.guild?.channels.fetch(guildInfo.scenarioChannelId);
+      if (channel && channel.isTextBased()) {
+        return await channel.send(messagePayload);
+      };
+      throw new Error(`Could not send message to a text channel. Id: ${guildInfo.votingChannelId}`);
     } catch (err) {
       // logging
     };

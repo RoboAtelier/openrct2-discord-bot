@@ -39,7 +39,6 @@ async function main() {
       ]
     }
   );
-  const discordMessenger = new DiscordMessenger(discordClient);
   const botDataRepo = new BotDataRepository(config);
   const pluginRepo = new PluginRepository(config);
   const scenarioRepo = new ScenarioRepository(config);
@@ -48,7 +47,6 @@ async function main() {
   const openRCT2ServerController = new OpenRCT2ServerController(config, scenarioRepo, serverHostRepo);
   const commandFactory = new CommandFactory(
     config,
-    discordMessenger,
     botDataRepo,
     pluginRepo,
     scenarioRepo,

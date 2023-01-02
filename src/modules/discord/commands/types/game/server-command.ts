@@ -11,7 +11,6 @@ import {
   CommandPermissionLevel,
   CommandResponseBuilder
 } from '@modules/discord/commands';
-import { DiscordMessenger } from '@modules/discord/runtime';
 import { BotDataRepository } from '@modules/discord/data/repositories';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 import {
@@ -52,7 +51,6 @@ export class ServerCommand extends BotCommand<
   ServerCommandSubcommands,
   ServerCommandSubcommandGroups
 > {
-  private readonly discordMessenger: DiscordMessenger;
   private readonly botDataRepo: BotDataRepository;
   private readonly pluginRepo: PluginRepository;
   private readonly scenarioRepo: ScenarioRepository;
@@ -60,7 +58,6 @@ export class ServerCommand extends BotCommand<
   private readonly openRCT2ServerController: OpenRCT2ServerController;
 
   constructor(
-    discordMessenger: DiscordMessenger,
     botDataRepo: BotDataRepository,
     pluginRepo: PluginRepository,
     scenarioRepo: ScenarioRepository,
@@ -237,16 +234,11 @@ export class ServerCommand extends BotCommand<
           )
       );
 
-    this.discordMessenger = discordMessenger;
     this.botDataRepo = botDataRepo;
     this.pluginRepo = pluginRepo;
     this.scenarioRepo = scenarioRepo;
     this.serverHostRepo = serverHostRepo;
     this.openRCT2ServerController = openRCT2ServerController;
-    this.openRCT2ServerController.on('server.start', args => this.onServerStart(args));
-    this.openRCT2ServerController.on('server.restart', args => this.onServerRestart(args));
-    this.openRCT2ServerController.on('server.stop', args => this.onServerStop(args));
-    this.openRCT2ServerController.on('server.close', args => this.onServerClose(args));
   };
 
   /** @override */
@@ -669,51 +661,51 @@ export class ServerCommand extends BotCommand<
     return errorMsgSegments.join(EOL);
   };
 
-  private async onServerStart(args: ServerEventArgs<ScenarioFile>) {
-    const serverMsg = `${
-      underscore(italic(`Server ${args.serverId}`))
-    } is hosting the ${bold(args.data.nameNoExtension)} scenario.`;
-    await this.postOnEventChannel(serverMsg);
-  };
+  // private async onServerStart(args: ServerEventArgs<ScenarioFile>) {
+  //   const serverMsg = `${
+  //     underscore(italic(`Server ${args.serverId}`))
+  //   } is hosting the ${bold(args.data.nameNoExtension)} scenario.`;
+  //   await this.postOnEventChannel(serverMsg);
+  // };
 
-  private async onServerRestart(args: ServerEventArgs<{ autosaveIndex: number }>) {
-    const serverMsg = 0 === args.data.autosaveIndex
-      ? `${underscore(italic(`Server ${args.serverId}`))} was restarted on the latest autosave.`
-      : `${underscore(italic(`Server ${args.serverId}`))} was restarted on autosave ${args.data.autosaveIndex + 1}.`
-    await this.postOnEventChannel(serverMsg);
-  };
+  // private async onServerRestart(args: ServerEventArgs<{ autosaveIndex: number }>) {
+  //   const serverMsg = 0 === args.data.autosaveIndex
+  //     ? `${underscore(italic(`Server ${args.serverId}`))} was restarted on the latest autosave.`
+  //     : `${underscore(italic(`Server ${args.serverId}`))} was restarted on autosave ${args.data.autosaveIndex + 1}.`
+  //   await this.postOnEventChannel(serverMsg);
+  // };
 
-  private async onServerStop(args: ServerEventArgs<{ success: boolean }>) {
-    if (args.data.success) {
-      const serverMsg = `${underscore(italic(`Server ${args.serverId}`))} has been stopped.`;
-      await this.postOnEventChannel(serverMsg);
-    };
-  };
+  // private async onServerStop(args: ServerEventArgs<{ success: boolean }>) {
+  //   if (args.data.success) {
+  //     const serverMsg = `${underscore(italic(`Server ${args.serverId}`))} has been stopped.`;
+  //     await this.postOnEventChannel(serverMsg);
+  //   };
+  // };
 
-  private async onServerClose(args: ServerEventArgs<{ code: number | null, signal: NodeJS.Signals | null }>) {
-    // logging
-  };
+  // private async onServerClose(args: ServerEventArgs<{ code: number | null, signal: NodeJS.Signals | null }>) {
+  //   // logging
+  // };
 
-  private async onServerChat(args: ServerEventArgs<string>) {
-    try {
-      const guildInfo = await this.botDataRepo.getGuildInfo();
-      const serverChannel = guildInfo.gameServerChannelIds.find(channel => {
-        return channel.serverId === args.serverId;
-      });
-      if (serverChannel) {
-        await this.discordMessenger.sendMessageToTextChannel(serverChannel.channelId, args.data);
-      };
-    } catch (err) {
-      // logging
-    };
-  };
+  // private async onServerChat(args: ServerEventArgs<string>) {
+  //   try {
+  //     const guildInfo = await this.botDataRepo.getGuildInfo();
+  //     const serverChannel = guildInfo.gameServerChannelIds.find(channel => {
+  //       return channel.serverId === args.serverId;
+  //     });
+  //     if (serverChannel) {
+  //       await this.discordMessenger.sendMessageToTextChannel(serverChannel.channelId, args.data);
+  //     };
+  //   } catch (err) {
+  //     // logging
+  //   };
+  // };
 
-  private async postOnEventChannel(message: string) {
-    try {
-      const guildInfo = await this.botDataRepo.getGuildInfo();
-      return await this.discordMessenger.sendMessageToTextChannel(guildInfo.eventChannelId, message);
-    } catch (err) {
-      // logging
-    };
-  };
+  // private async postOnEventChannel(message: string) {
+  //   try {
+  //     const guildInfo = await this.botDataRepo.getGuildInfo();
+  //     return await this.discordMessenger.sendMessageToTextChannel(guildInfo.eventChannelId, message);
+  //   } catch (err) {
+  //     // logging
+  //   };
+  // };
 };

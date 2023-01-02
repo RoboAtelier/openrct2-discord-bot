@@ -25,7 +25,6 @@ import {
   CommandPermissionLevel,
   CommandResponseBuilder
 } from '@modules/discord/commands';
-import { DiscordMessenger } from '@modules/discord/runtime';
 import { BotDataRepository } from '@modules/discord/data/repositories';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 import {
@@ -191,7 +190,6 @@ export class VoteCommand extends BotCommand<
   VoteCommandSubcommands,
   VoteCommandSubcommandGroups
 > {
-  private readonly discordMessenger: DiscordMessenger;
   private readonly botDataRepo: BotDataRepository;
   private readonly scenarioRepo: ScenarioRepository;
   private readonly serverHostRepo: ServerHostRepository;
@@ -199,7 +197,6 @@ export class VoteCommand extends BotCommand<
   private readonly activeVotes = new Map<number, VoteSession<unknown>>();
 
   constructor(
-    discordMessenger: DiscordMessenger,
     botDataRepo: BotDataRepository,
     scenarioRepo: ScenarioRepository,
     serverHostRepo: ServerHostRepository,
@@ -262,7 +259,6 @@ export class VoteCommand extends BotCommand<
           )
       );
     
-    this.discordMessenger = discordMessenger;
     this.botDataRepo = botDataRepo;
     this.scenarioRepo = scenarioRepo;
     this.serverHostRepo = serverHostRepo;
@@ -348,7 +344,7 @@ export class VoteCommand extends BotCommand<
         interaction,
         this.formatScenarioVoteEmbed(serverId, voteSession)
       );
-      const voteMessage = await this.postVoteSession(payload);
+      const voteMessage = await this.postVoteSession(interaction, payload);
   
       if (voteMessage) {
         const voteCollector = voteMessage.createMessageComponentCollector<ComponentType.Button>(
@@ -686,10 +682,14 @@ export class VoteCommand extends BotCommand<
    * Posts a starting vote session.
    * @param messagePayload
    */
-  private async postVoteSession(messagePayload: MessagePayload) {
+  private async postVoteSession(interaction: ChatInputCommandInteraction, messagePayload: MessagePayload) {
     try {
       const guildInfo = await this.botDataRepo.getGuildInfo();
-      return await this.discordMessenger.sendMessageToTextChannel(guildInfo.votingChannelId, messagePayload);
+      const channel = await interaction.guild?.channels.fetch(guildInfo.votingChannelId);
+      if (channel && channel.isTextBased()) {
+        return await channel.send(messagePayload);
+      };
+      throw new Error(`Could not send message to a text channel. Id: ${guildInfo.votingChannelId}`);
     } catch (err) {
       // logging
     };
