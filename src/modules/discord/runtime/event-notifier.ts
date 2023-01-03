@@ -18,7 +18,6 @@ export class EventNotifier {
   private readonly discordClient: Client<true>;
   private readonly messageMutex = new Mutex();
   private readonly botDataRepo: BotDataRepository;
-  private readonly openRCT2ServerController: OpenRCT2ServerController;
 
   constructor(
     discordClient: Client<true>,
@@ -27,35 +26,43 @@ export class EventNotifier {
   ) {
     this.discordClient = discordClient;
     this.botDataRepo = botDataRepo;
-    this.openRCT2ServerController = openRCT2ServerController;
-    this.openRCT2ServerController.on('server.start', args => this.onServerStart(args));
-    this.openRCT2ServerController.on('server.restart', args => this.onServerRestart(args));
-    this.openRCT2ServerController.on('server.stop', args => this.onServerStop(args));
-    this.openRCT2ServerController.on('server.close', args => this.onServerClose(args));
+    openRCT2ServerController.on('server.start', args => this.onServerStart(args));
+    openRCT2ServerController.on('server.restart', args => this.onServerRestart(args));
+    openRCT2ServerController.on('server.stop', args => this.onServerStop(args));
+    openRCT2ServerController.on('server.close', args => this.onServerClose(args));
+    openRCT2ServerController.on('server.error', args => this.onServerError(args));
+    //openRCT2ServerController.on('server.network.chat', args => this.onServerChat(args));
+    openRCT2ServerController.on('server.defer.start', args => this.onServerDeferStart(args));
+    openRCT2ServerController.on('server.defer.stop', args => this.onServerDeferStop(args));
+    openRCT2ServerController.on('server.scenario.complete', args => this.onServerScenarioComplete(args));
   };
 
   private async onServerStart(args: ServerEventArgs<ScenarioFile>) {
-    const serverMsg = `${
+    const eventMsg = `${
       underscore(italic(`Server ${args.serverId}`))
     } is hosting the ${bold(args.data.nameNoExtension)} scenario.`;
-    await this.postEvent(serverMsg);
+    await this.postEvent(eventMsg);
   };
 
   private async onServerRestart(args: ServerEventArgs<{ autosaveIndex: number }>) {
-    const serverMsg = 0 === args.data.autosaveIndex
+    const eventMsg = 0 === args.data.autosaveIndex
       ? `${underscore(italic(`Server ${args.serverId}`))} was restarted on the latest autosave.`
-      : `${underscore(italic(`Server ${args.serverId}`))} was restarted on autosave ${args.data.autosaveIndex + 1}.`
-    await this.postEvent(serverMsg);
+      : `${underscore(italic(`Server ${args.serverId}`))} was restarted on autosave ${args.data.autosaveIndex + 1}.`;
+    await this.postEvent(eventMsg);
   };
 
   private async onServerStop(args: ServerEventArgs<{ success: boolean }>) {
     if (args.data.success) {
-      const serverMsg = `${underscore(italic(`Server ${args.serverId}`))} has been stopped.`;
-      await this.postEvent(serverMsg);
+      const eventMsg = `${underscore(italic(`Server ${args.serverId}`))} has been stopped.`;
+      await this.postEvent(eventMsg);
     };
   };
 
   private async onServerClose(args: ServerEventArgs<{ code: number | null, signal: NodeJS.Signals | null }>) {
+    // logging
+  };
+
+  private async onServerError(args: ServerEventArgs<Error>) {
     // logging
   };
 
@@ -72,6 +79,30 @@ export class EventNotifier {
   //     // logging
   //   };
   // };
+
+  private async onServerDeferStart(args: ServerEventArgs<{ scenarioFile: ScenarioFile, delayDuration: number }>) {
+    const eventMsg = `${underscore(italic(`Server ${args.serverId}`))} is starting the ${
+      bold(args.data.scenarioFile.nameNoExtension)
+    } scenario in ${args.data.delayDuration} ${args.data.delayDuration > 1 ? 'minutes' : 'minute'}.`;
+    await this.postEvent(eventMsg);
+  };
+
+  private async onServerDeferStop(args: ServerEventArgs<ScenarioFile>) {
+    const eventMsg = `${underscore(italic(`Server ${args.serverId}`))} is no longer starting the ${bold(args.data.nameNoExtension)} scenario.`;
+    await this.postEvent(eventMsg);
+  };
+
+  private async onServerScenarioComplete(
+    args: ServerEventArgs<{ 
+      scenarioFile: ScenarioFile | undefined,
+      scenarioStatus: 'completed' | 'failed'
+    }>
+  ) {
+    const eventMsg = `${underscore(italic(`Server ${args.serverId}`))} has ${args.data.scenarioStatus} ${
+      args.data.scenarioFile ? `the ${bold(args.data.scenarioFile.nameNoExtension)} scenario` : 'its current scenario'
+    }.`;
+    await this.postEvent(eventMsg);
+  };
 
   private async postEvent(messagePayload: MessagePayload | string) {
     try {

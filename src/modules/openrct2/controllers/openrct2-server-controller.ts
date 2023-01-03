@@ -66,7 +66,7 @@ export interface OpenRCT2ServerControllerEvents {
   };
   'server.defer.stop': ScenarioFile;
   'server.scenario.complete': {
-    scenarioFileName: string,
+    scenarioFile: ScenarioFile | undefined,
     scenarioStatus: "completed" | "failed"
   };
 };
@@ -515,10 +515,11 @@ export class OpenRCT2ServerController extends EventEmitter {
         };
       };
 
+      const scenarioFile = await this.scenarioRepo.getScenarioByName(status.currentScenarioFileName);
       const newArgs = new ServerEventArgs(
         args.serverId,
         { 
-          scenarioFileName: args.data.currentScenarioFileName,
+          scenarioFile: scenarioFile,
           scenarioStatus: args.data.scenarioStatus
         }
       );
