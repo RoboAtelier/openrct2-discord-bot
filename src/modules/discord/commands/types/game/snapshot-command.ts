@@ -60,7 +60,6 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
     let commandResponse = new CommandResponseBuilder();
     let attachments: RawFile[] = [];
 
-    await interaction.deferReply();
     const guildInfo = await this.botDataRepo.getGuildInfo();
     if (isStringNullOrWhiteSpace(guildInfo.scenarioChannelId)) {
       await interaction.reply(`Assign the ${italic('Scenario Channel')} with the ${inlineCode('/channel')} command first.`);
@@ -78,22 +77,10 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
     } else if (finalize && userLevel < CommandPermissionLevel.Trusted) {
       commandResponse.appendToError(this.formatOptionPermissionError('finalize'));
     } else {
-      const screenshotResult = await this.createScreenshot(serverId, interaction.user.id);
-      commandResponse = screenshotResult.commandResponse;
-      if (screenshotResult.attachmentFile) {
-        attachments.push(screenshotResult.attachmentFile);
-      };
-      
-      if (finalize) {
-        const scenarioName = screenshotResult.screenshot
-          ? screenshotResult.screenshot.scenarioName
-          : null;
-        const finalSave = await this.createFinalizedSave(serverId, scenarioName);
-        commandResponse = finalSave.commandResponse;
-        if (finalSave.attachmentFile) {
-          attachments.push(finalSave.attachmentFile);
-        };
-      };
+      await interaction.deferReply();
+      const result = await this.createServerSnapshot(interaction, serverId, finalize);
+      commandResponse = result.commandResponse;
+      attachments = result.attachments;
     };
 
     if (0 === commandResponse.resolve().length) {
@@ -116,6 +103,34 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
       } else {
         await interaction.editReply(messagePayload);
       };
+    };
+  };
+
+  private async createServerSnapshot(
+    interaction: ChatInputCommandInteraction,
+    serverId: number,
+    finalize: boolean
+  ) {
+    const attachments: RawFile[] = [];
+    let commandResponse = new CommandResponseBuilder();
+
+    const screenshotResult = await this.createScreenshot(serverId, interaction.user.id);
+    commandResponse = screenshotResult.commandResponse;
+    if (screenshotResult.attachmentFile) {
+      attachments.push(screenshotResult.attachmentFile);
+    };
+    
+    if (finalize) {
+      const finalSave = await this.createFinalizedSave(serverId, screenshotResult);
+      commandResponse = finalSave.commandResponse;
+      if (finalSave.attachmentFile) {
+        attachments.push(finalSave.attachmentFile);
+      };
+    };
+
+    return {
+      commandResponse: commandResponse,
+      attachments: attachments
     };
   };
 
@@ -150,14 +165,23 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
     };
   };
 
-  private async createFinalizedSave(serverId: number, scenarioName: string | null) {
+  private async createFinalizedSave(
+    serverId: number,
+    screenshotResult: {
+      screenshot: {
+        screenshotFilePath: string;
+        scenarioName: string;
+      } | null;
+      attachmentFile: RawFile | null;
+    }
+  ) {
     const commandResponse = new CommandResponseBuilder();
     let saveAttachment = null;
 
     try {
       const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
       const latestAutosave = await serverDir.getScenarioAutosave();
-      const finalScenarioName = scenarioName ? scenarioName : `S${serverId} Scenario`;
+      const finalScenarioName = screenshotResult.screenshot ? screenshotResult.screenshot.scenarioName : `scenario`;
       const finalSaveFileName = `${finalScenarioName}_final_${createDateTimestamp()}${latestAutosave.fileExtension}`;
       await serverDir.addFileExclusive(
         latestAutosave.path,
@@ -169,7 +193,7 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
         name: `s${serverId}_${finalSaveFileName}`,
       });
       commandResponse.appendToMessage(`${underscore(italic(`Server ${serverId}`))} - ${bold(finalScenarioName)} - Snapshot`);
-      if (!scenarioName) {
+      if (!screenshotResult.attachmentFile) {
         commandResponse.appendToMessage(italic('Screenshot unavailable.'));
       };
       
@@ -179,7 +203,7 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
           (
             !this.openRCT2ServerController.getActiveGameServerById(serverId)
             || !startupOptions.useBotPlugins
-          ) && scenarioName
+          ) && screenshotResult.attachmentFile
             ? 'and screenshot may be inaccurate as they are'
             : 'may be inaccurate as it is'
         } based off of the most recent autosave, not the current scenario state.`
