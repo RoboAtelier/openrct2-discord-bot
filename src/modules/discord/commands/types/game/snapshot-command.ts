@@ -91,7 +91,11 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
     };
 
     if (commandResponse.hasError) {
-      await interaction.editReply(commandResponse.error);
+      if (interaction.deferred) {
+        await interaction.editReply(commandResponse.resolve());
+      } else {
+        await interaction.reply(commandResponse.resolve());
+      };
     } else {
       const messagePayload = new MessagePayload(interaction, { content: commandResponse.resolve() });
       messagePayload.files = attachments.screenshot ? [attachments.screenshot] : [];
