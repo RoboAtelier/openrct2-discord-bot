@@ -406,7 +406,6 @@ export class VoteCommand extends BotCommand<
     const voteSession = this.activeVotes.get(voteId);
     const voteName = 0 === voteId ? 'current custom vote' : `scenario vote for ${underscore(italic(`Server ${voteId}`))}`;
     if (voteSession) {
-      
       if (voteSession.stoppable && voteSession.interactionCollector) {
         voteSession.cancelledBy = canceller;
         voteSession.interactionCollector.stop('cancel');
@@ -508,13 +507,12 @@ export class VoteCommand extends BotCommand<
               await serverDir.updateQueue(queue);
             };
           };
-          
-          this.activeVotes.delete(serverId);
         };
       };
     } catch (err) {
-      this.activeVotes.delete(serverId);
       // logging
+    } finally {
+      this.activeVotes.delete(serverId);
     };
   };
 
