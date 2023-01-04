@@ -224,7 +224,7 @@ export class VoteCommand extends BotCommand<
           .addIntegerOption(option =>
             option
               .setName(this.reflectOptionName('id'))
-              .setDescription('The id number of the vote session to stop.')
+              .setDescription('The id number of the vote session to end.')
               .setMinValue(0)
           )
       )
@@ -279,7 +279,7 @@ export class VoteCommand extends BotCommand<
       if (userLevel > CommandPermissionLevel.Trusted) {
         const voteId = this.doesInteractionHaveOption(interaction, 'id')
           ? this.getInteractionOption(interaction, 'id').value as number
-          : 0;
+          : 1;
         commandResponse = await this.stopActiveVote(voteId, interaction.user);
       } else {
         commandResponse.appendToError(this.formatSubcommandPermissionError(null, 'stop'));
@@ -287,14 +287,14 @@ export class VoteCommand extends BotCommand<
     } else if (this.isInteractionUnderSubcommandGroup(interaction, 'start')) {
       if (this.isInteractionUsingSubcommand(interaction, 'scenario')) {
         const serverId = this.doesInteractionHaveOption(interaction, 'server-id')
-        ? this.getInteractionOption(interaction, 'server-id').value as number
-        : 1;
+          ? this.getInteractionOption(interaction, 'server-id').value as number
+          : 1;
         const candidateCount = this.doesInteractionHaveOption(interaction, 'list-limit')
           ? this.getInteractionOption(interaction, 'list-limit').value as number
           : 10;
         const voteDuration = this.doesInteractionHaveOption(interaction, 'time')
           ? this.getInteractionOption(interaction, 'time').value as number
-          : 1;
+          : 2;
           
         if (serverId !== 1 && userLevel < CommandPermissionLevel.Moderator) {
           commandResponse.appendToError(`You can only interact with ${underscore(italic(`Server 1`))}.`)
@@ -307,7 +307,8 @@ export class VoteCommand extends BotCommand<
             voteDuration,
             async () => {
               const metadata = await this.scenarioRepo.getScenarioMetadata();
-              return metadata.filter(scenarioData => scenarioData.active);
+              const activeMetadata = metadata.filter(scenarioData => scenarioData.active);
+              return fisherYatesShuffle(activeMetadata);
             }
           );
           commandResponse = await this.startScenarioVote(
