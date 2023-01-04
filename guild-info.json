@@ -1,12 +1,10 @@
 {
   "guildId": "",
   "debugChannelId": "",
-  "eventChannelId": "5",
+  "eventChannelId": "",
   "scenarioChannelId": "",
   "votingChannelId": "",
-  "botChannelIds": [
-    ""
-  ],
+  "botChannelIds": [],
   "gameServerChannelIds": [
     {
       "serverId": 1,
