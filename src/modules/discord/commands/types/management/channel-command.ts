@@ -165,6 +165,7 @@ export class ChannelCommand extends BotCommand<
     if (0 === commandResponse.resolve().length) {
       commandResponse.appendToError('Unknown or unimplemented command specified.');
     };
+    
     await interaction.reply(commandResponse.resolve());
   };
 

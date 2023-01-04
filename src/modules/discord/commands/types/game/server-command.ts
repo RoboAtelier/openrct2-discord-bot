@@ -245,6 +245,7 @@ export class ServerCommand extends BotCommand<
   async execute(interaction: ChatInputCommandInteraction, userLevel: CommandPermissionLevel) {
     let commandResponse = new CommandResponseBuilder();
 
+    await interaction.deferReply();
     const guildInfo = await this.botDataRepo.getGuildInfo();
     if (isStringNullOrWhiteSpace(guildInfo.eventChannelId)) {
       await interaction.reply(`Assign the ${italic('Event Channel')} with the ${inlineCode('/channel')} command first.`);
@@ -300,8 +301,6 @@ export class ServerCommand extends BotCommand<
         };
 
       } else {
-        await interaction.deferReply();
-
         if (this.isInteractionUnderSubcommandGroup(interaction, 'start')) {
           if (userLevel > CommandPermissionLevel.Trusted) {
             if (this.isInteractionUsingSubcommand(interaction, 'scenario')) {

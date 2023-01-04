@@ -60,6 +60,7 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
     let commandResponse = new CommandResponseBuilder();
     let attachments: RawFile[] = [];
 
+    await interaction.deferReply();
     const guildInfo = await this.botDataRepo.getGuildInfo();
     if (isStringNullOrWhiteSpace(guildInfo.scenarioChannelId)) {
       await interaction.reply(`Assign the ${italic('Scenario Channel')} with the ${inlineCode('/channel')} command first.`);
@@ -77,8 +78,6 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
     } else if (finalize && userLevel < CommandPermissionLevel.Trusted) {
       commandResponse.appendToError(this.formatOptionPermissionError('finalize'));
     } else {
-      await interaction.deferReply();
-      
       const screenshot = await this.createScreenshot(serverId, interaction.user.id);
       commandResponse = screenshot.commandResponse;
       if (screenshot.attachmentFile) {
@@ -92,6 +91,10 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
           attachments.push(finalSave.attachmentFile);
         };
       };
+    };
+
+    if (0 === commandResponse.resolve().length) {
+      commandResponse.appendToError('Unknown or unimplemented command specified.');
     };
 
     if (commandResponse.hasError) {
