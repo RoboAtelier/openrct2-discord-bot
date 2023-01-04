@@ -129,7 +129,7 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
       const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
       const startupOptions = await serverDir.getStartupOptions();
       if (!this.openRCT2ServerController.getActiveGameServerById(serverId) || !startupOptions.useBotPlugins) {
-        commandResponse.appendToMessage(`${bold('IMPORTANT')}: This screenshot may be outdated as it is based off of the most recent autosave.`);
+        commandResponse.appendToMessage(`${bold('IMPORTANT')}: This screenshot may be inaccurate as it is based off of the most recent autosave.`);
       };
     } catch {
       commandResponse.appendToError(`Failed to capture a screenshot of ${underscore(italic(`Server ${serverId}`))}.`);
@@ -165,8 +165,8 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
       commandResponse.appendToMessage(
         `${bold('IMPORTANT')}: The finalized file ${
           !this.openRCT2ServerController.getActiveGameServerById(serverId) || !startupOptions.useBotPlugins
-            ? 'and screenshot may be outdated as they are'
-            : 'may be outdated as it is'
+            ? 'and screenshot may be inaccurate as they are'
+            : 'may be inaccurate as it is'
         } based off of the most recent autosave.`
       );
     } catch {
