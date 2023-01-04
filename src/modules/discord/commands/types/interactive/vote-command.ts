@@ -41,7 +41,7 @@ type VoteCommandOptions =
   | 'id' // stop
   | 'server-id' | 'list-limit' | 'time' // scenario
 type VoteCommandSubcommands =
-  | 'scenario' // start
+  | 'scenario-random' // start
   | 'stop'
   | 'end'
 type VoteCommandSubcommandGroups =
@@ -234,7 +234,7 @@ export class VoteCommand extends BotCommand<
           .setDescription('Starts a new server vote.')
           .addSubcommand(subcommand =>
             subcommand
-              .setName(this.reflectSubcommandName('scenario'))
+              .setName(this.reflectSubcommandName('scenario-random'))
               .setDescription('Starts a vote on a random list of scenarios to pick from to enqueue on an OpenRCT2 server.')
               .addIntegerOption(option =>
                 option
@@ -285,7 +285,7 @@ export class VoteCommand extends BotCommand<
         commandResponse.appendToError(this.formatSubcommandPermissionError(null, 'stop'));
       };
     } else if (this.isInteractionUnderSubcommandGroup(interaction, 'start')) {
-      if (this.isInteractionUsingSubcommand(interaction, 'scenario')) {
+      if (this.isInteractionUsingSubcommand(interaction, 'scenario-random')) {
         const serverId = this.doesInteractionHaveOption(interaction, 'server-id')
           ? this.getInteractionOption(interaction, 'server-id').value as number
           : 1;
