@@ -349,8 +349,9 @@ export class OpenRCT2ServerController extends EventEmitter {
         } else {
           const latestAutosave = await serverDir.getScenarioAutosave();
           const status = await serverDir.getStatus();
+          const initiatedScenario = await this.scenarioRepo.getScenarioByName(status.initiatedScenarioFileName);
           result.screenshotFilePath = await this.createScenarioScreenshot(latestAutosave, `s${serverId}`);
-          result.scenarioName = new ScenarioFile(status.initiatedScenarioFileName).nameNoExtension;
+          result.scenarioName = initiatedScenario ? initiatedScenario.nameNoExtension : latestAutosave.nameNoExtension;
         };
 
         return result;
@@ -412,7 +413,7 @@ export class OpenRCT2ServerController extends EventEmitter {
     startupOptions: StartupOptions
   ) {
     const params = ['host', scenarioFile.path, '--user-data-path', openRCT2DataPath, '--port'];
-    if (startupOptions.port < 10001 || startupOptions.port > Math.pow(2, 16) - 1) {
+    if (startupOptions.port < Math.pow(2, 10) + 1 || startupOptions.port > Math.pow(2, 16) - 1) {
       throw new Error(`Invalid port number specified: ${startupOptions.port}`);
     };
     params.push(startupOptions.port.toString());
