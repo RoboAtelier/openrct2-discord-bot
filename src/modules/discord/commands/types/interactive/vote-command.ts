@@ -269,7 +269,6 @@ export class VoteCommand extends BotCommand<
   async execute(interaction: ChatInputCommandInteraction, userLevel: CommandPermissionLevel) {
     let commandResponse = new CommandResponseBuilder();
 
-    await interaction.deferReply();
     const guildInfo = await this.botDataRepo.getGuildInfo();
     if (isStringNullOrWhiteSpace(guildInfo.scenarioChannelId)) {
       await interaction.reply(`Assign the ${italic('Vote Channel')} with the ${inlineCode('/channel')} command first.`);
@@ -302,6 +301,8 @@ export class VoteCommand extends BotCommand<
         } else if (this.activeVotes.has(serverId)) {
           commandResponse.appendToError(`A vote is currently active for ${underscore(italic(`Server ${serverId}`))}.`);
         } else {
+          await interaction.deferReply();
+
           const voteSession = new VoteSession(
             interaction,
             candidateCount,
