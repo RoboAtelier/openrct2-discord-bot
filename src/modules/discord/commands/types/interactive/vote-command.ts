@@ -284,6 +284,15 @@ export class VoteCommand extends BotCommand<
       } else {
         commandResponse.appendToError(this.formatSubcommandPermissionError(null, 'stop'));
       };
+    } else if (this.isInteractionUsingSubcommand(interaction, 'end')) {
+      if (userLevel > CommandPermissionLevel.Trusted) {
+        const voteId = this.doesInteractionHaveOption(interaction, 'id')
+          ? this.getInteractionOption(interaction, 'id').value as number
+          : 1;
+        commandResponse = await this.endActiveVote(voteId, interaction.user);
+      } else {
+        commandResponse.appendToError(this.formatSubcommandPermissionError(null, 'end'));
+      };
     } else if (this.isInteractionUnderSubcommandGroup(interaction, 'start')) {
       if (this.isInteractionUsingSubcommand(interaction, 'scenario-random')) {
         const serverId = this.doesInteractionHaveOption(interaction, 'server-id')
@@ -412,7 +421,7 @@ export class VoteCommand extends BotCommand<
     return commandResponse;
   };
 
-  private async endActiveServerVote(voteId: number, ender: User) {
+  private async endActiveVote(voteId: number, ender: User) {
     const commandResponse = new CommandResponseBuilder();
 
     const voteSession = this.activeVotes.get(voteId);
