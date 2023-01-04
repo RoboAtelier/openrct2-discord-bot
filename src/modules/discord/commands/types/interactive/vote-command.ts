@@ -325,8 +325,12 @@ export class VoteCommand extends BotCommand<
     if (0 === commandResponse.resolve().length) {
       commandResponse.appendToError('Unknown or unimplemented command specified.');
     };
-    
-    await interaction.reply(commandResponse.resolve());
+
+    if (interaction.deferred) {
+      await interaction.editReply(commandResponse.resolve());
+    } else {
+      await interaction.reply(commandResponse.resolve());
+    };
   };
 
   private async startScenarioVote(
