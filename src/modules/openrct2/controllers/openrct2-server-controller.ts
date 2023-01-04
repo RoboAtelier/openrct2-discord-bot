@@ -460,7 +460,7 @@ export class OpenRCT2ServerController extends EventEmitter {
       });
     });
 
-    let pluginAdapter: OpenRCT2PluginAdapter | null = null;
+    let pluginAdapter = null;
     if (startupOptions.useBotPlugins) {
       const client = new Socket();
       await client.connect(startupOptions.port, 'localhost');
