@@ -58,7 +58,10 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
   /** @override */
   async execute(interaction: ChatInputCommandInteraction, userLevel: CommandPermissionLevel) {
     let commandResponse = new CommandResponseBuilder();
-    let attachments: RawFile[] = [];
+    let attachments: {
+      screenshot: RawFile | null,
+      finalizedSave: RawFile | null
+    } = { screenshot: null, finalizedSave: null };
 
     const guildInfo = await this.botDataRepo.getGuildInfo();
     if (isStringNullOrWhiteSpace(guildInfo.scenarioChannelId)) {
@@ -87,13 +90,14 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
       commandResponse.appendToError('Unknown or unimplemented command specified.');
     };
 
-    if (commandResponse.hasError && attachments.length === 0) {
+    if (commandResponse.hasError) {
       await interaction.editReply(commandResponse.error);
     } else {
       const messagePayload = new MessagePayload(interaction, { content: commandResponse.resolve() });
-      messagePayload.files = attachments;
+      messagePayload.files = attachments.screenshot ? [attachments.screenshot] : [];
 
-      if (finalize) {
+      if (attachments.finalizedSave) {
+        messagePayload.files.push(attachments.finalizedSave);
         const snapshotMessage = await this.postServerScenarioSnapshot(interaction, messagePayload);
         if (snapshotMessage) {
           await interaction.editReply(snapshotMessage.url);
@@ -111,20 +115,25 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
     serverId: number,
     finalize: boolean
   ) {
-    const attachments: RawFile[] = [];
     let commandResponse = new CommandResponseBuilder();
+    let attachments: { 
+      screenshot: RawFile | null,
+      finalizedSave: RawFile | null
+    } = { screenshot: null, finalizedSave: null };
 
     const screenshotResult = await this.createScreenshot(serverId, interaction.user.id);
     commandResponse = screenshotResult.commandResponse;
     if (screenshotResult.attachmentFile) {
-      attachments.push(screenshotResult.attachmentFile);
+      attachments.screenshot = screenshotResult.attachmentFile;
     };
     
     if (finalize) {
       const finalSave = await this.createFinalizedSave(serverId, screenshotResult);
-      commandResponse = finalSave.commandResponse;
       if (finalSave.attachmentFile) {
-        attachments.push(finalSave.attachmentFile);
+        commandResponse = finalSave.commandResponse;
+        attachments.finalizedSave = finalSave.attachmentFile;
+      } else {
+        commandResponse.appendToMessage(italic('Save file could not generated.'));
       };
     };
 
@@ -193,9 +202,6 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
         name: `s${serverId}_${finalSaveFileName}`,
       });
       commandResponse.appendToMessage(`${underscore(italic(`Server ${serverId}`))} - ${bold(finalScenarioName)} - Snapshot`);
-      if (!screenshotResult.attachmentFile) {
-        commandResponse.appendToMessage(italic('Screenshot unavailable.'));
-      };
       
       const startupOptions = await serverDir.getStartupOptions();
       commandResponse.appendToMessage(
@@ -208,6 +214,10 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
             : 'may be inaccurate as it is'
         } based off of the most recent autosave, not the current scenario state.`
       );
+
+      if (!screenshotResult.attachmentFile) {
+        commandResponse.appendToMessage(italic('Screenshot could not be generated.'));
+      };
     } catch {
       commandResponse.appendToError(`Failed to finalize a save file of ${underscore(italic(`Server ${serverId}`))}.`);
     };
