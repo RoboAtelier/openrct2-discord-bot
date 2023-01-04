@@ -492,20 +492,25 @@ export class VoteCommand extends BotCommand<
             const winningCandidate = voteResult.winningCandidates.length > 1
               ? fisherYatesShuffle(voteResult.winningCandidates)[0]
               : voteResult.winningCandidates[0];
-            const resultMessageBody = this.formatCompletedVoteMessage(
+            let resultMessageBody = this.formatCompletedVoteMessage(
               winningCandidate.fileName,
               voteResult.winningCandidates,
               voteResult.highestVoteCount
             );
-            await voteMessage.reply(resultMessageBody);
-
+            
+            const scenarioFile = (await this.scenarioRepo.getScenarioByName(winningCandidate.fileName))!;
             if (queue.scenarioQueueSize < 1) {
-              const scenarioFile = (await this.scenarioRepo.getScenarioByName(winningCandidate.fileName))!;
               this.openRCT2ServerController.startGameServerOnScenarioDeferred(serverId, scenarioFile);
+              resultMessageBody += `${EOL}${scenarioFile.nameNoExtension} will start on ${underscore(italic(`Server ${serverId}`))} shortly.`;
             } else if (queue.scenarioQueue.length < queue.scenarioQueueSize) {
-              queue.scenarioQueue.push(winningCandidate.fileName);
-              await serverDir.updateQueue(queue);
+              this.openRCT2ServerController.addToServerScenarioQueue(serverId, scenarioFile);
+              resultMessageBody += `${EOL}${scenarioFile.nameNoExtension} has been added to the ${underscore(italic(`Server ${serverId}`))} scenario queue.`;
+            } else {
+              resultMessageBody += `${EOL}Unfortunately, ${scenarioFile.nameNoExtension} could not be added as the ${
+                underscore(italic(`Server ${serverId}`))
+              } scenario queue is full.`;
             };
+            await voteMessage.reply(resultMessageBody);
           };
         };
       };

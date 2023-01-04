@@ -319,7 +319,6 @@ export class OpenRCT2ServerController extends EventEmitter {
     if (queue.scenarioQueueSize > 0 && queue.scenarioQueue.length < queue.scenarioQueueSize) {
       queue.scenarioQueue.push(scenarioFile.name);
       await serverDir.updateQueue(queue);
-
       const status = await serverDir.getStatus();
       if (status.isCurrentScenarioCompleted) {
         this.startGameServerFromQueue(serverId, true);
