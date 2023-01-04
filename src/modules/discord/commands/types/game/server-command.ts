@@ -189,7 +189,7 @@ export class ServerCommand extends BotCommand<
                 option
                   .setName(this.reflectOptionName('port'))
                   .setDescription('The new port number.')
-                  .setMinValue(10001)
+                  .setMinValue(Math.pow(2, 10) + 1)
                   .setMaxValue(Math.pow(2, 16) - 1)
               )
               .addBooleanOption(option =>
@@ -369,7 +369,7 @@ export class ServerCommand extends BotCommand<
       const performUpdates = async () => { for (const action of updateActions) { await action(); }; };
 
       if (portNumber !== null) {
-        if (portNumber < 10001 || portNumber > Math.pow(2, 16) - 1) {
+        if (portNumber < Math.pow(2, 10) + 1 || portNumber > Math.pow(2, 16) - 1) {
           commandResponse.appendToError(`Invalid port number specified: ${portNumber}`);
         } else {
           startupOptions.port = portNumber;
