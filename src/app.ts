@@ -84,7 +84,6 @@ async function main() {
 
   discordClient.on(Events.Error, err => {
     console.log(err);
-    discordClient.destroy();
   });
 
   discordClient.on(Events.InteractionCreate, async (interaction) => {
