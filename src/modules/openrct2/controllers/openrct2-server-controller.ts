@@ -468,7 +468,7 @@ export class OpenRCT2ServerController extends EventEmitter {
     let pluginAdapter = null;
     if (pluginOptions.useBotPlugins) {
       const client = new Socket();
-      client.connect(startupOptions.port, 'localhost');
+      client.connect(pluginOptions.adapterPluginPort, 'localhost');
       await new Promise<void>((resolve, reject) => {
         client.once('error', err => {
           reject(err);
