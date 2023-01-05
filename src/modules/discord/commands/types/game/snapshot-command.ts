@@ -160,9 +160,7 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
       });
       commandResponse.appendToMessage(`${underscore(italic(`Server ${serverId}`))} - ${bold(screenshot.scenarioName)} - Screenshot`);
 
-      const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
-      const pluginOptions = await serverDir.getPluginOptions();
-      if (!this.openRCT2ServerController.getActiveGameServerById(serverId) || !pluginOptions.useBotPlugins) {
+      if (!screenshot.usedPlugin) {
         commandResponse.appendToMessage(`${
           bold('IMPORTANT')
         }: This screenshot may be inaccurate as it is based off of the most recent autosave, not the current scenario state.`);
@@ -184,6 +182,7 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
       screenshot: {
         screenshotFilePath: string;
         scenarioName: string;
+        usedPlugin: boolean;
       } | null;
       attachmentFile: RawFile | null;
     }
@@ -210,10 +209,8 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
       const pluginOptions = await serverDir.getPluginOptions();
       commandResponse.appendToMessage(
         `${bold('IMPORTANT')}: The finalized file ${
-          (
-            !this.openRCT2ServerController.getActiveGameServerById(serverId)
-            || !pluginOptions.useBotPlugins
-          ) && screenshotResult.attachmentFile
+          screenshotResult.attachmentFile
+          && !screenshotResult.screenshot!.usedPlugin
             ? 'and screenshot may be inaccurate as they are'
             : 'may be inaccurate as it is'
         } based off of the most recent autosave, not the current scenario state.`

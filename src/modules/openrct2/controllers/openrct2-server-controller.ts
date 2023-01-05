@@ -339,17 +339,19 @@ export class OpenRCT2ServerController extends EventEmitter {
   async createServerScreenshot(serverId: number, userId: string) {
     const gameServer = this.gameServers.get(serverId);
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+    const startupOptions = await serverDir.getStartupOptions();
 
     if (!this.isGameServerProcessRunning(serverId)) {
       this.activeProcesses.set(serverId, true);
 
       try {
-        const result = { screenshotFilePath: '', scenarioName: '' };
+        const result = { screenshotFilePath: '', scenarioName: '', usedPlugin: false };
 
-        if (gameServer && gameServer.pluginAdapter) {
+        if (gameServer && gameServer.pluginAdapter && !startupOptions.headless) {
           const screenshotFileName = await gameServer.pluginAdapter.executeAction('screenshot', userId);
           result.screenshotFilePath = await serverDir.getScreenshotByName(screenshotFileName);
           result.scenarioName = await gameServer.getScenarioName();
+          result.usedPlugin = true;
         } else {
           const latestAutosave = await serverDir.getScenarioAutosave();
           const status = await serverDir.getStatus();
