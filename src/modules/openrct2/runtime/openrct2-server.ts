@@ -1,4 +1,3 @@
-import path from 'path';
 import { ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { 
@@ -6,6 +5,7 @@ import {
   PluginEventArgs
 } from '@modules/openrct2/adapters';
 import { ScenarioFile } from 'modules/openrct2/data/models';
+import { wait } from '@modules/utils/runtime-utils';
 
 export declare interface OpenRCT2Server {
 
@@ -59,7 +59,7 @@ export class ServerEventArgs<T> {
 
 /** Represents an OpenRCT2 game server instance. */
 export class OpenRCT2Server extends EventEmitter {
-  private static readonly pollingTimeMs = 15000;
+  private static readonly pollingTimeMs = 60000;
 
   private scenarioName: string;
   private currentScenarioFileName: string;
@@ -151,7 +151,7 @@ export class OpenRCT2Server extends EventEmitter {
       } catch (err) {
         // logging
       };
-      await new Promise<void>(resolve => setTimeout(resolve, OpenRCT2Server.pollingTimeMs));
+      await wait(OpenRCT2Server.pollingTimeMs);
     };
   };
 
