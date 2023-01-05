@@ -10,6 +10,7 @@ import {
 import { 
   OpenRCT2GameConfiguration,
   PluginFile,
+  PluginOptions,
   ScenarioFile,
   ServerQueue,
   ServerStatus,
@@ -94,10 +95,10 @@ export class ServerHostRepository extends FileSystemCachedRepository<number, Ope
   /** 
    * Gets all OpenRCT2 game server data directories within the server host data folder.
    * @async
-   * @returns A `Map` object of all OpenRCT2 game server data directories.
+   * @returns An array of all of the OpenRCT2 game server data directories.
    */
   async getAllOpenRCT2ServerRepositories() {
-    return Array.from(this.dataCache.values());
+    return Array.from(this.dataCache.entries());
   };
 
   /**
@@ -149,11 +150,13 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
   private static readonly serverDirNameRegex = /^[sS]([1-9][0-9]*)(?:_(.+))?/;
   private static readonly gameConfigFileName = 'config.ini';
   private static readonly queueFileName = 'queue.json';
-  private static readonly startupFileName = 'startup.json';
+  private static readonly pluginFileName = 'plugin-config.json';
+  private static readonly startupFileName = 'startup-config.json';
   private static readonly statusFileName = 'status.json';
 
   private readonly configFile: ConcurrentObjectFile<OpenRCT2GameConfiguration>;
   private readonly queueFile: ConcurrentObjectFile<ServerQueue>;
+  private readonly pluginFile: ConcurrentObjectFile<PluginOptions>;
   private readonly startupFile: ConcurrentObjectFile<StartupOptions>;
   private readonly statusFile: ConcurrentObjectFile<ServerStatus>;
   private readonly autosaveSubdir: ConcurrentDirectory;
@@ -172,6 +175,10 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
       path.join(this.path, OpenRCT2ServerDirectory.queueFileName),
       new ServerQueue()
     );
+    this.pluginFile = new ConcurrentObjectFile(
+      path.join(this.path, OpenRCT2ServerDirectory.pluginFileName),
+      new PluginOptions()
+    )
     this.startupFile = new ConcurrentObjectFile(
       path.join(this.path, OpenRCT2ServerDirectory.startupFileName),
       new StartupOptions()
@@ -258,6 +265,24 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
   };
 
   /** 
+   * Gets the current managed plugin options for the OpenRCT2 game server.
+   * @async
+   * @returns A plugin options data object.
+   */
+  async getPluginOptions() {
+    return this.pluginFile.readExclusive();
+  };
+
+  /**
+   * Updates the managed plugin options for the OpenRCT2 game server.
+   * @async
+   * @param pluginOptions The updated plugin options.
+   */
+  async updatePluginOptions(pluginOptions: PluginOptions) {
+    return this.pluginFile.writeExclusive(pluginOptions);
+  };
+
+  /** 
    * Gets the current startup options for the OpenRCT2 game server.
    * @async
    * @returns A startup options data object.
@@ -269,10 +294,10 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
   /**
    * Updates the server startup options for the OpenRCT2 game server.
    * @async
-   * @param startup The updated server startup options.
+   * @param startupOptions The updated server startup options.
    */
-  async updateStartupOptions(startup: StartupOptions) {
-    return this.startupFile.writeExclusive(startup);
+  async updateStartupOptions(startupOptions: StartupOptions) {
+    return this.startupFile.writeExclusive(startupOptions);
   };
   
   /** 

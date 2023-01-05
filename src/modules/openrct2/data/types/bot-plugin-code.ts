@@ -55,9 +55,9 @@ function main() {\
 		});
 	});
 	server.listen(port, 'localhost');
-	console.log('Server adapter plugin for server '.concat(
+	console.log('Adapter plugin for server '.concat(
 		serverId,
-		' has started!'
+		' is active!'
 	));
 };
 

@@ -14,16 +14,15 @@ import {
 import { BotDataRepository } from '@modules/discord/data/repositories';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 import {
-  ScenarioFile,
   StartupOptions,
-  ServerQueue
+  ServerQueue,
+  PluginOptions
 } from '@modules/openrct2/data/models';
 import { 
   PluginRepository,
   ScenarioRepository,
   ServerHostRepository
 } from '@modules/openrct2/data/repositories';
-import { ServerEventArgs } from '@modules/openrct2/runtime';
 import { BotPluginFileName } from '@modules/openrct2/data/types';
 import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
 
@@ -32,14 +31,15 @@ type ServerCommandOptions =
   | 'name' // scenario
   | 'index' // autosave, restart
   | 'defer' // start queue
-  | 'port' | 'headless' | 'plugin' // set startup
+  | 'port' | 'headless' // set startup
   | 'size' | 'clear' // set queue
+  | 'use' | 'adapter-port' // set plugin
 type ServerCommandSubcommands =
   | 'create'
   | 'restart'
   | 'stop'
   | 'scenario' | 'autosave' | 'queue' // start
-  | 'startup' | 'queue' // set, check
+  | 'queue' | 'plugin' | 'startup' // set, check
 type ServerCommandSubcommandGroups =
   | 'start'
   | 'check'
@@ -156,8 +156,8 @@ export class ServerCommand extends BotCommand<
           .setDescription('Checks OpenRCT2 game server settings or values.')
           .addSubcommand(subcommand =>
             subcommand
-              .setName(this.reflectSubcommandName('startup'))
-              .setDescription('Checks the current startup options for a OpenRCT2 game server.')
+              .setName(this.reflectSubcommandName('queue'))
+              .setDescription('Checks the current queue for a OpenRCT2 game server.')
               .addIntegerOption(option =>
                 option
                   .setName(this.reflectOptionName('server-id'))
@@ -167,8 +167,19 @@ export class ServerCommand extends BotCommand<
           )
           .addSubcommand(subcommand =>
             subcommand
-              .setName(this.reflectSubcommandName('queue'))
-              .setDescription('Checks the current queue for a OpenRCT2 game server.')
+              .setName(this.reflectSubcommandName('plugin'))
+              .setDescription('Checks the current bot plugin options for a OpenRCT2 game server.')
+              .addIntegerOption(option =>
+                option
+                  .setName(this.reflectOptionName('server-id'))
+                  .setDescription('The id number of the server to check.')
+                  .setMinValue(1)
+              )
+          )
+          .addSubcommand(subcommand =>
+            subcommand
+              .setName(this.reflectSubcommandName('startup'))
+              .setDescription('Checks the current startup options for a OpenRCT2 game server.')
               .addIntegerOption(option =>
                 option
                   .setName(this.reflectOptionName('server-id'))
@@ -181,34 +192,6 @@ export class ServerCommand extends BotCommand<
         subcommandGroup
           .setName(this.reflectSubcommandGroupName('set'))
           .setDescription('Sets a server property.')
-          .addSubcommand(subcommand =>
-            subcommand
-              .setName(this.reflectSubcommandName('startup'))
-              .setDescription('Sets the startup options of an OpenRCT2 server.')
-              .addIntegerOption(option =>
-                option
-                  .setName(this.reflectOptionName('port'))
-                  .setDescription('The new port number.')
-                  .setMinValue(Math.pow(2, 10) + 1)
-                  .setMaxValue(Math.pow(2, 16) - 1)
-              )
-              .addBooleanOption(option =>
-                option
-                  .setName(this.reflectOptionName('headless'))
-                  .setDescription('To run headless or not.')
-              )
-              .addBooleanOption(option =>
-                option
-                  .setName(this.reflectOptionName('plugin'))
-                  .setDescription('To run bot plugins or not.')
-              )
-              .addIntegerOption(option =>
-                option
-                  .setName(this.reflectOptionName('server-id'))
-                  .setDescription('The id number of the server to modify.')
-                  .setMinValue(1)
-              )
-          )
           .addSubcommand(subcommand =>
             subcommand
               .setName(this.reflectSubcommandName('queue'))
@@ -224,6 +207,52 @@ export class ServerCommand extends BotCommand<
                 option
                   .setName(this.reflectOptionName('clear'))
                   .setDescription('Clears out the queue.')
+              )
+              .addIntegerOption(option =>
+                option
+                  .setName(this.reflectOptionName('server-id'))
+                  .setDescription('The id number of the server to modify.')
+                  .setMinValue(1)
+              )
+          )
+          .addSubcommand(subcommand =>
+            subcommand
+              .setName(this.reflectSubcommandName('plugin'))
+              .setDescription('Sets the bot plugin options of an OpenRCT2 server.')
+              .addBooleanOption(option =>
+                option
+                  .setName(this.reflectOptionName('use'))
+                  .setDescription('To use bot plugins or not.')
+              )
+              .addIntegerOption(option =>
+                option
+                  .setName(this.reflectOptionName('adapter-port'))
+                  .setDescription('The new port number for the server adapter plugin.')
+                  .setMinValue(Math.pow(2, 10) + 1)
+                  .setMaxValue(Math.pow(2, 16) - 1)
+              )
+              .addIntegerOption(option =>
+                option
+                  .setName(this.reflectOptionName('server-id'))
+                  .setDescription('The id number of the server to modify.')
+                  .setMinValue(1)
+              )
+          )
+          .addSubcommand(subcommand =>
+            subcommand
+              .setName(this.reflectSubcommandName('startup'))
+              .setDescription('Sets the startup options of an OpenRCT2 server.')
+              .addIntegerOption(option =>
+                option
+                  .setName(this.reflectOptionName('port'))
+                  .setDescription('The new port number.')
+                  .setMinValue(Math.pow(2, 10) + 1)
+                  .setMaxValue(Math.pow(2, 16) - 1)
+              )
+              .addBooleanOption(option =>
+                option
+                  .setName(this.reflectOptionName('headless'))
+                  .setDescription('To run headless or not.')
               )
               .addIntegerOption(option =>
                 option
@@ -264,18 +293,7 @@ export class ServerCommand extends BotCommand<
 
       if (this.isInteractionUnderSubcommandGroup(interaction, 'set')) {
         if (userLevel > CommandPermissionLevel.Trusted) {
-          if (this.isInteractionUsingSubcommand(interaction, 'startup')) {
-            const portNumber = this.doesInteractionHaveOption(interaction, 'port') 
-              ? this.getInteractionOption(interaction, 'port').value as number
-              : null;
-            const headless = this.doesInteractionHaveOption(interaction, 'headless') 
-              ? this.getInteractionOption(interaction, 'headless').value as boolean
-              : null;
-            const useBotPlugins = this.doesInteractionHaveOption(interaction, 'plugin') 
-              ? this.getInteractionOption(interaction, 'plugin').value as boolean
-              : null;
-            commandResponse = await this.setServerStartupOptions(serverId, portNumber, headless, useBotPlugins);
-          } else if (this.isInteractionUsingSubcommand(interaction, 'queue')) {
+          if (this.isInteractionUsingSubcommand(interaction, 'queue')) {
             const queueSize = this.doesInteractionHaveOption(interaction, 'size') 
               ? this.getInteractionOption(interaction, 'size').value as number
               : null;
@@ -283,20 +301,42 @@ export class ServerCommand extends BotCommand<
               ? this.getInteractionOption(interaction, 'clear').value as boolean
               : null;
             commandResponse = await this.setServerScenarioQueue(serverId, queueSize, clearFlag);
+          } else if (this.isInteractionUsingSubcommand(interaction, 'plugin')) {
+            const useBotPlugins = this.doesInteractionHaveOption(interaction, 'use') 
+              ? this.getInteractionOption(interaction, 'use').value as boolean
+              : null;
+            const adapterPluginPortNumber = this.doesInteractionHaveOption(interaction, 'adapter-port') 
+              ? this.getInteractionOption(interaction, 'adapter-port').value as number
+              : null;
+            commandResponse = await this.setServerPluginOptions(serverId, useBotPlugins, adapterPluginPortNumber);
+          } else if (this.isInteractionUsingSubcommand(interaction, 'startup')) {
+            const portNumber = this.doesInteractionHaveOption(interaction, 'port') 
+              ? this.getInteractionOption(interaction, 'port').value as number
+              : null;
+            const headless = this.doesInteractionHaveOption(interaction, 'headless') 
+              ? this.getInteractionOption(interaction, 'headless').value as boolean
+              : null;
+            commandResponse = await this.setServerStartupOptions(serverId, portNumber, headless);
           };
         } else {
           commandResponse.appendToError(this.formatSubcommandGroupPermissionError('set'));
         };
 
       } else if (this.isInteractionUnderSubcommandGroup(interaction, 'check')) {
-        if (this.isInteractionUsingSubcommand(interaction, 'startup')) {
+        if (this.isInteractionUsingSubcommand(interaction, 'queue')) {
+          commandResponse = await this.showServerQueue(serverId);
+        } else if (this.isInteractionUsingSubcommand(interaction, 'plugin')) {
+          if (userLevel > CommandPermissionLevel.Trusted) {
+            commandResponse = await this.showServerPluginOptions(serverId);
+          } else {
+            commandResponse.appendToError(this.formatSubcommandPermissionError('check', 'plugin'));
+          };
+        } else if (this.isInteractionUsingSubcommand(interaction, 'startup')) {
           if (userLevel > CommandPermissionLevel.Trusted) {
             commandResponse = await this.showServerStartupOptions(serverId);
           } else {
             commandResponse.appendToError(this.formatSubcommandPermissionError('check', 'startup'));
           };
-        } else if (this.isInteractionUsingSubcommand(interaction, 'queue')) {
-          commandResponse = await this.showServerQueue(serverId);
         };
 
       } else {
@@ -353,63 +393,32 @@ export class ServerCommand extends BotCommand<
   private async setServerStartupOptions(
     serverId: number,
     portNumber: number | null,
-    headless: boolean | null,
-    useBotPlugins: boolean | null
+    headless: boolean | null
   ) {
     const commandResponse = new CommandResponseBuilder();
 
-    if (
-      portNumber === null
-      && headless === null
-      && useBotPlugins === null
-    ) {
+    const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+    const startupOptions = await serverDir.getStartupOptions();
+
+    if (portNumber !== null) {
+      if (portNumber < Math.pow(2, 10) + 1 || portNumber > Math.pow(2, 16) - 1) {
+        commandResponse.appendToError(`Invalid port number specified: ${portNumber}`);
+      } else {
+        startupOptions.port = portNumber;
+        commandResponse.appendToMessage(`Updated ${underscore(italic(`Server ${serverId}`))} to use port number ${italic(`${portNumber}`)}.`);
+      };
+    };
+
+    if (headless !== null) {
+      startupOptions.headless = headless;
+      commandResponse.appendToMessage(`Updated ${underscore(italic(`Server ${serverId}`))} to${headless ? '' : ' not'} run as a headless server.`);
+    };
+
+    if (isStringNullOrWhiteSpace(commandResponse.message)) {
       commandResponse.appendToMessage('No changes were made.');
-    } else {
-      const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
-      const startupOptions = await serverDir.getStartupOptions();
-      const updateActions: (() => Promise<void>)[] = [];
-      const performUpdates = async () => { for (const action of updateActions) { await action(); }; };
-
-      if (portNumber !== null) {
-        if (portNumber < Math.pow(2, 10) + 1 || portNumber > Math.pow(2, 16) - 1) {
-          commandResponse.appendToError(`Invalid port number specified: ${portNumber}`);
-        } else {
-          startupOptions.port = portNumber;
-          commandResponse.appendToMessage(`Updated ${underscore(italic(`Server ${serverId}`))} to use port number ${italic(`${portNumber}`)}.`);
-        };
-      };
-
-      if (headless !== null) {
-        startupOptions.headless = headless;
-        commandResponse.appendToMessage(`Updated ${underscore(italic(`Server ${serverId}`))} to${headless ? '' : ' not'} run as a headless server.`);
-      };
-
-      if (useBotPlugins !== null) {
-        startupOptions.useBotPlugins = useBotPlugins;
-
-        let botPlugins = await this.pluginRepo.getPluginFiles();
-        if (useBotPlugins) {
-          updateActions.push(async () => {
-            await serverDir.addPluginFiles(...botPlugins);
-            const adapterPlugin = await serverDir.getPluginFileByName(BotPluginFileName.ServerAdapter);
-            await adapterPlugin.setGlobalVariables(
-              ['serverId', serverId],
-              ['port', startupOptions.port]
-            );
-          });
-        } else {
-          updateActions.push(() => serverDir.removePluginFiles(...botPlugins.map(botPlugin => botPlugin.name)));
-        };
-        commandResponse.appendToMessage(`Updated ${underscore(italic(`Server ${serverId}`))} to${useBotPlugins ? '' : ' not'} run bot plugins.`);
-      };
-
-      if (isStringNullOrWhiteSpace(commandResponse.message)) {
-        commandResponse.appendToMessage('No changes were made.');
-      } else if (!commandResponse.hasError) {
-        await performUpdates();
-        await serverDir.updateStartupOptions(startupOptions);
-        commandResponse.appendToMessage(`${EOL}These changes may require a server restart or backend configuration to apply correctly.`);
-      };
+    } else if (!commandResponse.hasError) {
+      await serverDir.updateStartupOptions(startupOptions);
+      commandResponse.appendToMessage(`${EOL}These changes may require a server restart or backend configuration to apply correctly.`);
     };
 
     return commandResponse;
@@ -422,69 +431,131 @@ export class ServerCommand extends BotCommand<
   ) {
     const commandResponse = new CommandResponseBuilder();
 
-    if (
-      queueSize === null
-      && clear === null
-    ) {
-      commandResponse.appendToError('No changes were made.');
-    } else {
-      const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
-      const queue = await serverDir.getQueue();
+    const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+    const queue = await serverDir.getQueue();
 
-      if (clear !== null) {
-        if (queue.scenarioQueue.length > 0) {
-          const removed = queue.scenarioQueue.splice(0);
-          const formattedRemoved = removed.map(scenarioFileName => italic(scenarioFileName));
+    if (clear !== null) {
+      if (queue.scenarioQueue.length > 0) {
+        const removed = queue.scenarioQueue.splice(0);
+        const formattedRemoved = removed.map(scenarioFileName => italic(scenarioFileName));
+        commandResponse.appendToMessage(
+          `The scenario queue has been cleared out:`,
+          ...formattedRemoved,
+          ''
+        );
+      } else {
+        commandResponse.appendToMessage('The scenario queue is already empty.');
+      };
+      queue.scenarioQueue = [];
+    };
+
+    if (queueSize !== null) {
+      queue.scenarioQueueSize = queueSize;
+      commandResponse.appendToMessage(
+        `Updated the ${
+          underscore(italic(`Server ${serverId}`))
+        } scenario queue to ${queueSize > 0 ? `be of size ${queueSize}` : bold('INACTIVE')}.`
+      );
+
+      if (queueSize < queue.scenarioQueue.length) {
+        const removed = queue.scenarioQueue.splice(queueSize);
+        const formattedRemoved = removed.map(scenarioFileName => `• ${italic(scenarioFileName)}`);
+        if (0 === queueSize) {
           commandResponse.appendToMessage(
-            `The scenario queue has been cleared out:`,
-            ...formattedRemoved,
-            ''
+            `${EOL}Due to being set to inactive, the scenario queue has been cleared out:`,
+            ...formattedRemoved
           );
         } else {
-          commandResponse.appendToMessage('The scenario queue is already empty.');
-        };
-        queue.scenarioQueue = [];
-      };
-
-      if (queueSize !== null) {
-        queue.scenarioQueueSize = queueSize;
-        commandResponse.appendToMessage(
-          `Updated the ${
-            underscore(italic(`Server ${serverId}`))
-          } scenario queue to ${queueSize > 0 ? `be of size ${queueSize}` : bold('INACTIVE')}.`
-        );
-  
-        if (queueSize < queue.scenarioQueue.length) {
-          const removed = queue.scenarioQueue.splice(queueSize);
-          const formattedRemoved = removed.map(scenarioFileName => `• ${italic(scenarioFileName)}`);
-          if (0 === queueSize) {
-            commandResponse.appendToMessage(
-              `${EOL}Due to being set to inactive, the scenario queue has been cleared out:`,
-              ...formattedRemoved
-            );
-          } else {
-            commandResponse.appendToMessage(
-              `${EOL}Due to the smaller queue size, some queued scenarios were removed:`,
-              ...formattedRemoved
-            );
-          };
+          commandResponse.appendToMessage(
+            `${EOL}Due to the smaller queue size, some queued scenarios were removed:`,
+            ...formattedRemoved
+          );
         };
       };
+    };
 
-      if (!commandResponse.hasError) {
-        await serverDir.updateQueue(queue);
-      };
+    if (isStringNullOrWhiteSpace(commandResponse.message)) {
+      commandResponse.appendToMessage('No changes were made.');
+    } else if (!commandResponse.hasError) {
+      await serverDir.updateQueue(queue);
     };
 
     return commandResponse;
   };
 
-  private async showServerStartupOptions(serverId: number) {
+  private async setServerPluginOptions(
+    serverId: number,
+    useBotPlugins: boolean | null,
+    adapterPluginPortNumber: number | null
+  ) {
     const commandResponse = new CommandResponseBuilder();
 
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
-    const startupOptions = await serverDir.getStartupOptions();
-    commandResponse.appendToMessage(this.formatStartupOptionsMessage(serverId, startupOptions));
+    const pluginOptions = await serverDir.getPluginOptions();
+    const updateActions: (() => Promise<void>)[] = [];
+    const performUpdates = async () => { for (const action of updateActions) { await action(); }; };
+
+    if (useBotPlugins !== null) {
+      pluginOptions.useBotPlugins = useBotPlugins;
+      const botPlugins = await this.pluginRepo.getPluginFiles();
+
+      if (useBotPlugins) {
+        updateActions.push(async () => {
+          await serverDir.addPluginFiles(...botPlugins);
+          const adapterPlugin = await serverDir.getPluginFileByName(BotPluginFileName.ServerAdapter);
+          await adapterPlugin.setGlobalVariables(
+            ['serverId', serverId],
+            ['port', pluginOptions.adapterPluginPort]
+          );
+        });
+      } else {
+        updateActions.push(() => serverDir.removePluginFiles(...botPlugins.map(botPlugin => botPlugin.name)));
+      };
+      commandResponse.appendToMessage(`Updated ${underscore(italic(`Server ${serverId}`))} to${useBotPlugins ? '' : ' not'} run bot plugins.`);
+    };
+
+    if (adapterPluginPortNumber !== null) {
+      if (adapterPluginPortNumber < Math.pow(2, 10) + 1 || adapterPluginPortNumber > Math.pow(2, 16) - 1) {
+        commandResponse.appendToError(`Invalid port number specified: ${adapterPluginPortNumber}`);
+      } else {
+        const currentPorts = [];
+        const serverDirs = await this.serverHostRepo.getAllOpenRCT2ServerRepositories();
+        for (const serverDir of serverDirs) {
+          const startupOptions = await serverDir[1].getStartupOptions();
+          currentPorts.push(startupOptions.port);
+          if (serverDir[0] !== serverId) {
+            const pluginOptions = await serverDir[1].getPluginOptions();
+            currentPorts.push(pluginOptions.adapterPluginPort);
+          };
+        };
+
+        if (currentPorts.includes(adapterPluginPortNumber)) {
+          commandResponse.appendToError(`Port number ${adapterPluginPortNumber} is already in use by a game server or plugin.`);
+        } else {
+          pluginOptions.adapterPluginPort = adapterPluginPortNumber;
+          if (pluginOptions.useBotPlugins) {
+            updateActions.push(async () => {
+              const adapterPlugin = await serverDir.getPluginFileByName(BotPluginFileName.ServerAdapter);
+              await adapterPlugin.setGlobalVariables(
+                ['serverId', serverId],
+                ['port', pluginOptions.adapterPluginPort]
+              );
+            });
+          };
+          commandResponse.appendToMessage(`Updated the ${
+            underscore(italic(`Server ${serverId}`))
+          } adapter plugin to use port number ${italic(`${adapterPluginPortNumber}`)}.`);
+        };
+      };
+    };
+
+    if (isStringNullOrWhiteSpace(commandResponse.message)) {
+      commandResponse.appendToMessage('No changes were made.');
+    } else if (!commandResponse.hasError) {
+      await performUpdates();
+      await serverDir.updatePluginOptions(pluginOptions);
+      commandResponse.appendToMessage(`${EOL}These changes may require a server restart or backend configuration to apply correctly.`);
+    };
 
     return commandResponse;
   };
@@ -495,6 +566,26 @@ export class ServerCommand extends BotCommand<
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
     const queue = await serverDir.getQueue();
     commandResponse.appendToMessage(this.formatServerQueueMessage(serverId, queue));
+
+    return commandResponse;
+  };
+
+  private async showServerPluginOptions(serverId: number) {
+    const commandResponse = new CommandResponseBuilder();
+
+    const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+    const pluginOptions = await serverDir.getPluginOptions();
+    commandResponse.appendToMessage(this.formatPluginOptionsMessage(serverId, pluginOptions));
+
+    return commandResponse;
+  };
+
+  private async showServerStartupOptions(serverId: number) {
+    const commandResponse = new CommandResponseBuilder();
+
+    const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+    const startupOptions = await serverDir.getStartupOptions();
+    commandResponse.appendToMessage(this.formatStartupOptionsMessage(serverId, startupOptions));
 
     return commandResponse;
   };
@@ -621,9 +712,18 @@ export class ServerCommand extends BotCommand<
 
     channelMsgSegments.push(`Port Number: ${startupOptions.port}`);
     channelMsgSegments.push(`Start Mode: ${startupOptions.headless ? italic('Headless') : italic('Windowed')}`);
-    channelMsgSegments.push(`Bot Plugin: ${startupOptions.useBotPlugins ? bold('ACTIVE') : bold('INACTIVE')}`);
 
     return channelMsgSegments.join(EOL);
+  };
+
+  private formatPluginOptionsMessage(serverId: number, pluginOptions: PluginOptions) {
+    const channelMsgSegments = [`Current bot plugin options for ${italic(underscore(`Server ${serverId}`))}:${EOL}`];
+
+    channelMsgSegments.push(`Using Bot Plugins: ${pluginOptions.useBotPlugins ? bold('YES') : bold('NO')}`);
+    channelMsgSegments.push(`Adapter Plugin Port Number: ${pluginOptions.adapterPluginPort}`);
+
+    return channelMsgSegments.join(EOL);
+
   };
 
   private formatServerQueueMessage(serverId: number, queue: ServerQueue) {

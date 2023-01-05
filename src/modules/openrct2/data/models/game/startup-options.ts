@@ -20,9 +20,6 @@ export class StartupOptions extends SerializableObject<StartupOptions> {
 
   /** Specifies if a game server will track scenario victories and failures. */
   keepScore: boolean;
-
-  /** Specifies if a game server will use managed bot plugins. */
-  useBotPlugins: boolean;
   
   /** Gets or sets the number of minutes to delay for on a deferred server start.*/
   delayDuration: number;
@@ -34,7 +31,6 @@ export class StartupOptions extends SerializableObject<StartupOptions> {
     verbose = false,
     autoFinalize = false,
     keepScore = false,
-    usePlugin = false,
     delayDuration = 1
   ) {
     super();
@@ -44,7 +40,6 @@ export class StartupOptions extends SerializableObject<StartupOptions> {
     this.verbose = verbose;
     this.autoFinalize = autoFinalize;
     this.keepScore = keepScore;
-    this.useBotPlugins = usePlugin;
     this.delayDuration = delayDuration;
   };
 

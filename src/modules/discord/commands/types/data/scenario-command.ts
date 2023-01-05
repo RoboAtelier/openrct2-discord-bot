@@ -132,7 +132,6 @@ export class ScenarioCommand extends BotCommand<
           commandResponse.appendToError(this.formatSubcommandPermissionError(null, 'set'))
         } else {
           const scenarioName = this.getInteractionOption(interaction, 'scenario').value as string
-
           const newName = this.doesInteractionHaveOption(interaction, 'name') 
             ? this.getInteractionOption(interaction, 'name').value as string
             : null;

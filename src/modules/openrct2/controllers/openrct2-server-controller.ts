@@ -5,6 +5,7 @@ import { Socket } from 'net';
 import { Configuration } from '@modules/configuration';
 import { OpenRCT2PluginAdapter } from '@modules/openrct2/adapters';
 import {
+  PluginOptions,
   ScenarioFile,
   StartupOptions
 } from '@modules/openrct2/data/models';
@@ -133,6 +134,7 @@ export class OpenRCT2ServerController extends EventEmitter {
   
         const metadata = await this.scenarioRepo.getScenarioMetadataForFile(scenarioFile);
         const startupOptions = await serverDir.getStartupOptions();
+        const pluginOptions = await serverDir.getPluginOptions();
         const status = await serverDir.getStatus();
   
         if (!isStringNullOrWhiteSpace(status.currentScenarioFileName)) {
@@ -148,7 +150,8 @@ export class OpenRCT2ServerController extends EventEmitter {
           serverId,
           serverDir.path,
           scenarioFile,
-          startupOptions
+          startupOptions,
+          pluginOptions
         );
         this.gameServers.set(serverId, gameServer);
         await serverDir.updateStatus(status);
@@ -183,6 +186,7 @@ export class OpenRCT2ServerController extends EventEmitter {
     
         const latestAutosave = await serverDir.getScenarioAutosave(autosaveIndex);
         const startupOptions = await serverDir.getStartupOptions();
+        const pluginOptions = await serverDir.getPluginOptions();
         const status = await serverDir.getStatus();
     
         status.lastStartupTime = new Date();
@@ -191,7 +195,8 @@ export class OpenRCT2ServerController extends EventEmitter {
           serverId,
           serverDir.path,
           latestAutosave,
-          startupOptions
+          startupOptions,
+          pluginOptions
         );
         this.gameServers.set(serverId, gameServer);
         await serverDir.updateStatus(status);
@@ -409,7 +414,8 @@ export class OpenRCT2ServerController extends EventEmitter {
     serverId: number,
     openRCT2DataPath: string,
     scenarioFile: ScenarioFile,
-    startupOptions: StartupOptions
+    startupOptions: StartupOptions,
+    pluginOptions: PluginOptions
   ) {
     const params = ['host', scenarioFile.path, '--user-data-path', openRCT2DataPath, '--port'];
     if (startupOptions.port < Math.pow(2, 10) + 1 || startupOptions.port > Math.pow(2, 16) - 1) {
@@ -434,7 +440,7 @@ export class OpenRCT2ServerController extends EventEmitter {
     );
     
     let launched = false;
-    let pluginPassed = !startupOptions.useBotPlugins;
+    let adapterPlugin = !pluginOptions.useBotPlugins;
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         gameInstance.kill('SIGKILL');
@@ -445,12 +451,12 @@ export class OpenRCT2ServerController extends EventEmitter {
       });
       gameInstance.stdout.on('data', (data: Buffer) => {
         const dataStr = data.toString('utf8');
-        if (dataStr.includes(`ing for clients on *:${startupOptions.port}`)) {
+        if (dataStr.includes(`istening for clients on *:${startupOptions.port}`)) {
           launched = true;
-        } else if (dataStr.includes(`in for server ${serverId} has started`)) {
-          pluginPassed = true;
+        } else if (dataStr.includes(`pter plugin for server ${serverId} is active`)) {
+          adapterPlugin = true;
         };
-        if (launched && pluginPassed) {
+        if (launched && adapterPlugin) {
           clearTimeout(timeout);
           gameInstance.stdout.removeAllListeners('data');
           gameInstance.removeAllListeners('error');
@@ -460,9 +466,9 @@ export class OpenRCT2ServerController extends EventEmitter {
     });
 
     let pluginAdapter = null;
-    if (startupOptions.useBotPlugins) {
+    if (pluginOptions.useBotPlugins) {
       const client = new Socket();
-      await client.connect(startupOptions.port, 'localhost');
+      client.connect(startupOptions.port, 'localhost');
       await new Promise<void>((resolve, reject) => {
         client.once('error', err => {
           reject(err);
