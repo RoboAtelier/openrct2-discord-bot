@@ -127,6 +127,7 @@ export class OpenRCT2Server extends EventEmitter {
    */
   private async pollScenarioData() {
     while (this.gameInstance.exitCode === null) {
+      await wait(OpenRCT2Server.pollingTimeMs);
       try {
         const baseScenarioData = await this.pluginAdapter!.executeAction('scenario', `${this.id}`);
         this.scenarioName = baseScenarioData.name;
@@ -151,7 +152,6 @@ export class OpenRCT2Server extends EventEmitter {
       } catch (err) {
         // logging
       };
-      await wait(OpenRCT2Server.pollingTimeMs);
     };
   };
 
