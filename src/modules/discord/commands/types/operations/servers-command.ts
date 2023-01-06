@@ -16,15 +16,18 @@ import {
 } from '@modules/openrct2/web';
 import { getArraySectionWithDetails } from '@modules/utils/array-utils';
 
-type StatusCommandOptions = 'address' | 'name' | 'page';
-type StatusCommandSubcommands = 'here' | 'list' | 'ip' | 'name';
-type StatusCommandSubcommandGroups = 'by';
+type ServersCommandOptions = 'address' | 'name' | 'page';
+type ServersCommandSubcommands = 'here' | 'list' | 'ip' | 'name';
+type ServersCommandSubcommandGroups = 'by';
 
-/** Represents a command for retrieving information about an OpenRCT2 game server. */
-export class StatusCommand extends BotCommand<
-  StatusCommandOptions,
-  StatusCommandSubcommands,
-  StatusCommandSubcommandGroups
+/** 
+ * Represents a command for retrieving webinformation about OpenRCT2 game servers
+ * from the OpenRCT2 master server.
+ */
+export class ServersCommand extends BotCommand<
+  ServersCommandOptions,
+  ServersCommandSubcommands,
+  ServersCommandSubcommandGroups
 > {
   private static readonly ipAddressKey = 'ipAddress';
   private static readonly detailMax = 7;
@@ -38,12 +41,12 @@ export class StatusCommand extends BotCommand<
   ) {
     super(CommandPermissionLevel.User);
     this.data
-      .setName('status')
+      .setName('servers')
       .setDescription('Gets OpenRCT2 game server information from the master server.')
       .addSubcommand(subcommand =>
         subcommand
           .setName(this.reflectSubcommandName('here'))
-          .setDescription('Gets this server\'s OpenRCT2 game servers.')
+          .setDescription('Gets web information about the OpenRCT2 game servers here.')
       )
       .addSubcommand(subcommand =>
         subcommand
@@ -63,7 +66,7 @@ export class StatusCommand extends BotCommand<
           .addSubcommand(subcommand =>
             subcommand
               .setName(this.reflectSubcommandName('ip'))
-              .setDescription('Gets OpenRCT2 game server information by IP address.')
+              .setDescription('Gets OpenRCT2 game server web information by IP address.')
               .addStringOption(option =>
                 option
                   .setName(this.reflectOptionName('address'))
@@ -74,7 +77,7 @@ export class StatusCommand extends BotCommand<
           .addSubcommand(subcommand =>
             subcommand
               .setName(this.reflectSubcommandName('name'))
-              .setDescription('Gets OpenRCT2 game server information by name.')
+              .setDescription('Gets OpenRCT2 game server web information by name.')
               .addStringOption(option =>
                 option
                   .setName(this.reflectOptionName('name'))
@@ -90,7 +93,7 @@ export class StatusCommand extends BotCommand<
           )
       );
 
-    this.hostingIPAddress = config.getValue<string>(StatusCommand.ipAddressKey);
+    this.hostingIPAddress = config.getValue<string>(ServersCommand.ipAddressKey);
     this.openRCT2MasterServer = openRCT2MasterServer;
   };
 
@@ -172,7 +175,7 @@ export class StatusCommand extends BotCommand<
     if (hostServerInfos.length > 0) {
       commandResponse.appendToMessage(this.formatDetailedInfoListMessage(hostServerInfos));
     } else {
-      commandResponse.appendToError('Could not find our hosted servers on the server list.');
+      commandResponse.appendToError('Could not find our hosted servers on the master server list.');
     };
     return commandResponse;
   };
@@ -205,7 +208,7 @@ export class StatusCommand extends BotCommand<
   private formatDetailedInfoListMessage(infoArray: PublicOpenRCT2ServerInfo[]) {
     const infoMsgSegments = [];
 
-    for (const info of infoArray.slice(0, StatusCommand.detailMax)) {
+    for (const info of infoArray.slice(0, ServersCommand.detailMax)) {
       let infoBlock = `__${info.name}__ is ${bold('UP')}!${info.requiresPassword ? ' \u{1F512}' : ''}`;
       infoBlock += `${EOL}Description: ${info.description}`;
       infoBlock += `${EOL}Server Version #: ${bold(info.version)}`;
