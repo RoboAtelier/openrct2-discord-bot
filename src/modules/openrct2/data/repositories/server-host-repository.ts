@@ -38,11 +38,6 @@ export class ServerHostRepository extends FileSystemCachedRepository<number, Ope
     super(config);
     this.dataDir = new ConcurrentDirectory(config.getDirectoryPath(ServerHostRepository.dirKey));
     const hostSubdirs = readdirSync(this.dataDir.path, { withFileTypes: true });
-    if (0 === hostSubdirs.length) {
-      const firstDirPath = path.join(this.dataDir.path, 's1_server');
-      const firstDir = new OpenRCT2ServerDirectory(firstDirPath);
-      this.dataCache.set(1, firstDir);
-    };
     for (const hostSubdir of hostSubdirs) {
       const nameMatch = hostSubdir.name.match(ServerHostRepository.serverDirNameRegex);
       if (nameMatch && hostSubdir.isDirectory()) {
@@ -50,6 +45,11 @@ export class ServerHostRepository extends FileSystemCachedRepository<number, Ope
         const serverDir = new OpenRCT2ServerDirectory(hostSubdirPath);
         this.dataCache.set(parseInt(nameMatch[1]), serverDir);
       };
+    };
+    if (0 === Array.from(this.dataCache.values()).length) {
+      const firstDirPath = path.join(this.dataDir.path, 's1_server');
+      const firstDir = new OpenRCT2ServerDirectory(firstDirPath);
+      this.dataCache.set(1, firstDir);
     };
   };
 
