@@ -18,14 +18,13 @@ import { isStringNullOrWhiteSpace, areStringsEqualCaseInsensitive } from '@modul
 
 type ScenarioCommandOptions =
   | 'scenario'
-  | 'name' | 'tags' | 'active' // values
-  | 'file-type'
-  | 'page' // tags, list
+  | 'name' | 'tags' // search, modify
+  | 'file-type' | 'page' // search, list
+  | 'active' // modify
 type ScenarioCommandSubcommands =
-  | 'get'
-  | 'set'
+  | 'search'
+  | 'modify'
   | 'list'
-  | 'values'
 
 const FileTypeOptionChoices = [
   { name: '.scv* (RCT1 & RCT2)', value: 'scv' },
@@ -64,8 +63,8 @@ export class ScenarioCommand extends BotCommand<
       )
       .addSubcommand(subcommand =>
         subcommand
-          .setName(this.reflectSubcommandName('get'))
-          .setDescription('Gets RollerCoaster Tycoon scenarios by specified search parameters.')
+          .setName(this.reflectSubcommandName('search'))
+          .setDescription('Searches for RollerCoaster Tycoon scenarios by specified search parameters.')
           .addStringOption(option =>
             option
               .setName(this.reflectOptionName('name'))
@@ -91,8 +90,8 @@ export class ScenarioCommand extends BotCommand<
       )
       .addSubcommand(subcommand =>
         subcommand
-          .setName(this.reflectSubcommandName('set'))
-          .setDescription('Sets scenario data properties')
+          .setName(this.reflectSubcommandName('modify'))
+          .setDescription('Changes scenario data properties')
           .addStringOption(option =>
             option
               .setName(this.reflectOptionName('scenario'))
@@ -127,9 +126,9 @@ export class ScenarioCommand extends BotCommand<
     if (0 === scenarios.length) {
       commandResponse.appendToError('There are currently no scenarios to show or use.');
     } else {
-      if (this.isInteractionUsingSubcommand(interaction, 'set')) {
+      if (this.isInteractionUsingSubcommand(interaction, 'modify')) {
         if (userLevel < CommandPermissionLevel.Trusted) {
-          commandResponse.appendToError(this.formatSubcommandPermissionError(null, 'set'))
+          commandResponse.appendToError(this.formatSubcommandPermissionError(null, 'modify'))
         } else {
           const scenarioName = this.getInteractionOption(interaction, 'scenario').value as string
           const newName = this.doesInteractionHaveOption(interaction, 'name') 
@@ -159,7 +158,7 @@ export class ScenarioCommand extends BotCommand<
           ? this.getInteractionOption(interaction, 'page').value as number - 1
           : 0;
   
-        if (this.isInteractionUsingSubcommand(interaction, 'get')) {
+        if (this.isInteractionUsingSubcommand(interaction, 'search')) {
           const nameSearch = this.doesInteractionHaveOption(interaction, 'name') 
             ? this.getInteractionOption(interaction, 'name').value as string
             : null;
@@ -338,13 +337,13 @@ export class ScenarioCommand extends BotCommand<
   private formatEmptyResultMessage(nameSearch: string | null, tags: string[] | null) {
     const queryParameterSegments = [];
     if (nameSearch !== null) {
-      queryParameterSegments.push(`the name '${italic(nameSearch)}'`);
+      queryParameterSegments.push(`the name ${italic(nameSearch)}`);
     };
     if (tags !== null) {
       queryParameterSegments.push(`the data tags ${italic(tags.join(' '))}`);
     };
     
-    return `No matches match ${queryParameterSegments.join(' or ')}.`;
+    return `No scenarios match ${queryParameterSegments.join(' and ')}.`;
   };
 
   /**

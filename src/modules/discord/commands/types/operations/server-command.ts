@@ -31,19 +31,19 @@ type ServerCommandOptions =
   | 'name' // scenario
   | 'index' // autosave, restart
   | 'defer' // start queue
-  | 'port' | 'headless' // set startup
-  | 'size' | 'clear' // set queue
-  | 'use' | 'adapter-port' // set plugin
+  | 'port' | 'headless' // modify startup
+  | 'size' | 'clear' // modify queue
+  | 'use' | 'adapter-port' // modify plugin
 type ServerCommandSubcommands =
   | 'create'
   | 'restart'
   | 'stop'
   | 'scenario' | 'autosave' | 'queue' // start
-  | 'queue' | 'plugin' | 'startup' // set, check
+  | 'queue' | 'plugin' | 'startup' // modify, check
 type ServerCommandSubcommandGroups =
   | 'start'
   | 'check'
-  | 'set'
+  | 'modify'
 
 /** Represents a command for interacting with OpenRCT2 game servers. */
 export class ServerCommand extends BotCommand<
@@ -153,7 +153,7 @@ export class ServerCommand extends BotCommand<
       .addSubcommandGroup(subcommandGroup =>
         subcommandGroup
           .setName(this.reflectSubcommandGroupName('check'))
-          .setDescription('Checks OpenRCT2 game server settings or values.')
+          .setDescription('Checks OpenRCT2 game server properties.')
           .addSubcommand(subcommand =>
             subcommand
               .setName(this.reflectSubcommandName('queue'))
@@ -190,8 +190,8 @@ export class ServerCommand extends BotCommand<
       )
       .addSubcommandGroup(subcommandGroup =>
         subcommandGroup
-          .setName(this.reflectSubcommandGroupName('set'))
-          .setDescription('Sets a server property.')
+          .setName(this.reflectSubcommandGroupName('modify'))
+          .setDescription('Changes server properties.')
           .addSubcommand(subcommand =>
             subcommand
               .setName(this.reflectSubcommandName('queue'))
@@ -291,7 +291,7 @@ export class ServerCommand extends BotCommand<
         ? this.getInteractionOption(interaction, 'server-id').value as number
         : 1;
 
-      if (this.isInteractionUnderSubcommandGroup(interaction, 'set')) {
+      if (this.isInteractionUnderSubcommandGroup(interaction, 'modify')) {
         if (userLevel > CommandPermissionLevel.Trusted) {
           if (this.isInteractionUsingSubcommand(interaction, 'queue')) {
             const queueSize = this.doesInteractionHaveOption(interaction, 'size') 
@@ -319,7 +319,7 @@ export class ServerCommand extends BotCommand<
             commandResponse = await this.setServerStartupOptions(serverId, portNumber, headless);
           };
         } else {
-          commandResponse.appendToError(this.formatSubcommandGroupPermissionError('set'));
+          commandResponse.appendToError(this.formatSubcommandGroupPermissionError('modify'));
         };
 
       } else if (this.isInteractionUnderSubcommandGroup(interaction, 'check')) {
