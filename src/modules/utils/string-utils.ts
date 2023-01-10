@@ -99,7 +99,7 @@ export function isStringValidForDirPath(str: string) {
  */
 export function createDateTimestamp() {
   const now = new Date();
-  const date = `${now.getUTCFullYear()}${now.getUTCMonth()}${now.getUTCDay()}`;
+  const date = `${now.getUTCFullYear()}${now.getUTCMonth()}${now.getUTCDate()}`;
   const time = `${now.getUTCHours()}${now.getUTCMinutes()}${now.getUTCSeconds()}`;
   return `${date}_${time}`;
 };
