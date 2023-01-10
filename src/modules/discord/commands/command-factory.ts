@@ -23,7 +23,7 @@ export class CommandFactory {
   ) {
     const commands: Commands.BotCommand<string | null, string | null, string | null>[] = [
       new Commands.ServerCommand(botDataRepo, pluginRepo, scenarioRepo, serverHostRepo, openRCT2ServerController),
-      new Commands.StatusCommand(config, openRCT2MasterServer),
+      new Commands.MasterServerCommand(config, openRCT2MasterServer),
       new Commands.VoteCommand(botDataRepo, scenarioRepo, serverHostRepo, openRCT2ServerController),
       new Commands.ScenarioCommand(scenarioRepo),
       new Commands.SnapshotCommand(botDataRepo, serverHostRepo, openRCT2ServerController),

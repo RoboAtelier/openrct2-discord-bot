@@ -11,8 +11,8 @@ export class OpenRCT2MasterServer {
    * @param serverName The name of the server to query.
    * @returns An array of server info objects that closely match the specified name.
    */
-  async getOpenRCT2ServerInfoByFuzzySearch(serverName: string) {
-    const publicServers = await this.requestOpenRCT2ServerInfoList();
+  async getPublicOpenRCT2ServersByFuzzySearch(serverName: string) {
+    const publicServers = await this.requestPublicOpenRCT2ServerList();
     const fuse = new Fuse(publicServers, OpenRCT2MasterServer.fuseOptions);
     const result = fuse.search(serverName);
     return result.map(resultElement => resultElement.item);
@@ -24,8 +24,8 @@ export class OpenRCT2MasterServer {
    * @param ipAddress The IP address of the server to query.
    * @returns An array of server info objects that match the IP address.
    */
-  async getOpenRCT2ServerInfoByIP(ipAddress: string) {
-    const publicServers = await this.requestOpenRCT2ServerInfoList();
+  async getPublicOpenRCT2ServersByIP(ipAddress: string) {
+    const publicServers = await this.requestPublicOpenRCT2ServerList();
     return publicServers.filter(server => {
       return server.ip.v4[0] === ipAddress || server.ip.v6[0] === ipAddress;
     });
@@ -37,7 +37,7 @@ export class OpenRCT2MasterServer {
    * @async
    * @returns An array of all public server info objects.
    */
-  async requestOpenRCT2ServerInfoList() {
+  async requestPublicOpenRCT2ServerList() {
     let attempts = 0;
     const jsonHeader = { Accept: 'application/json' };
 
