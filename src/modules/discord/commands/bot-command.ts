@@ -121,10 +121,10 @@ export abstract class BotCommand<
   };
 
   protected formatSubcommandPermissionError(group: SubcommandGroups | null, subcommand: NonNullable<Subcommands>) {
-    return `You cannot use the ${inlineCode(`${group ? `${group} ${subcommand}` : subcommand}`)} command.`
+    return `You cannot use the ${inlineCode(`${this.data.name} ${group ? `${group} ${subcommand}` : subcommand}`)} subcommand.`
   };
 
   protected formatSubcommandGroupPermissionError(group: NonNullable<SubcommandGroups>) {
-    return `You cannot use ${inlineCode(group)} commands.`
+    return `You cannot use ${inlineCode(`${this.data.name} ${group}`)} subcommands.`
   };
 };
