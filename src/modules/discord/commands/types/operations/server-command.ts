@@ -341,7 +341,7 @@ export class ServerCommand extends BotCommand<
 
       } else {
         if (this.isInteractionUnderSubcommandGroup(interaction, 'start')) {
-          if (userLevel > CommandPermissionLevel.Trusted) {
+          if (userLevel > CommandPermissionLevel.User) {
             await interaction.deferReply();
 
             if (this.isInteractionUsingSubcommand(interaction, 'scenario')) {
@@ -364,7 +364,7 @@ export class ServerCommand extends BotCommand<
         } else if (this.isInteractionUsingSubcommand(interaction, 'restart')) {
           await interaction.deferReply();
 
-          if (userLevel > CommandPermissionLevel.Trusted) {
+          if (userLevel > CommandPermissionLevel.User) {
             commandResponse = await this.startServerOnAutosave(serverId, 1);
           } else {
             commandResponse.appendToError(this.formatSubcommandPermissionError(null, 'restart'));

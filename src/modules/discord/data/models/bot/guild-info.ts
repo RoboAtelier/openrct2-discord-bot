@@ -46,7 +46,7 @@ export class GuildInfo extends SerializableObject<GuildInfo> {
     scenarioChannelId = '',
     votingChannelId = '',
     botChannelIds: string[] = [],
-    gameServerChannels = [{ serverId: 1, channelId: '' }],
+    gameServerChannels = [],
     trustedRoleIds: string[] = [],
     restrictedUserIds: string[] = []
   ) {
