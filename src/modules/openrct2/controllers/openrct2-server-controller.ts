@@ -1,6 +1,7 @@
 import path from 'path';
 import { spawn } from 'child_process';
 import { EventEmitter } from 'events';
+import { unlink } from 'fs/promises';
 import { Socket } from 'net';
 import { Configuration } from '@modules/configuration';
 import { OpenRCT2PluginAdapter } from '@modules/openrct2/adapters';
@@ -380,6 +381,9 @@ export class OpenRCT2ServerController extends EventEmitter {
     const screenshotFilePath = isStringNullOrWhiteSpace(screenshotName)
       ? path.join(this.serverHostRepo.dirPath, `${scenarioFile.nameNoExtension}.png`)
       : path.join(this.serverHostRepo.dirPath, `${screenshotName}.png`);
+
+    await unlink(screenshotFilePath);
+
     const args = [
       'screenshot',
       scenarioFile.path,
@@ -390,7 +394,7 @@ export class OpenRCT2ServerController extends EventEmitter {
       // transparent by default
     ];
 
-    const screenshotProcess = await spawn(
+    const screenshotProcess = spawn(
       this.openRCT2ExecutablePath,
       args,
       { stdio: ['ignore', 'pipe', 'ignore'] }
@@ -435,7 +439,7 @@ export class OpenRCT2ServerController extends EventEmitter {
       params.push('--verbose');
     };
 
-    const gameInstance = await spawn(
+    const gameInstance = spawn(
       this.openRCT2ExecutablePath,
       params,
       { stdio: ['ignore', 'pipe', 'ignore'] }
