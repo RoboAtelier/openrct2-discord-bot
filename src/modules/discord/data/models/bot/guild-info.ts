@@ -28,7 +28,7 @@ export class GuildInfo extends SerializableObject<GuildInfo> {
    * Gets or sets the array of ids of guild channels
    * set for relaying messages between Discord and the game servers.
    */
-  gameServerChannelIds: { serverId: number, channelId: string }[];
+  gameServerChannels: { serverId: number, channelId: string }[];
 
   /** Gets or sets the array of ids of guild roles assigned for trusted users. */
   trustedRoleIds: string[];
@@ -46,7 +46,7 @@ export class GuildInfo extends SerializableObject<GuildInfo> {
     scenarioChannelId = '',
     votingChannelId = '',
     botChannelIds: string[] = [],
-    gameServerChannelIds = [{ serverId: 1, channelId: '' }],
+    gameServerChannels = [{ serverId: 1, channelId: '' }],
     trustedRoleIds: string[] = [],
     restrictedUserIds: string[] = []
   ) {
@@ -57,7 +57,7 @@ export class GuildInfo extends SerializableObject<GuildInfo> {
     this.scenarioChannelId = scenarioChannelId;
     this.votingChannelId = votingChannelId;
     this.botChannelIds = botChannelIds;
-    this.gameServerChannelIds = gameServerChannelIds;
+    this.gameServerChannels = gameServerChannels;
     this.trustedRoleIds = trustedRoleIds;
     this.restrictedUserIds = restrictedUserIds;
   };

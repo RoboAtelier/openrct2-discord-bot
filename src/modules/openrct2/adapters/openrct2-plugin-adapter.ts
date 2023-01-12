@@ -65,7 +65,10 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
    * Sends an action request to the game server instance.
    * There is a maximum timeout of 15 seconds for executing an action.
    * @async
-   * @param action The action to execute.
+   * @param action The action name to execute.
+   * @param userId: The id of the user that called the action.
+   * @param args: Arguments to pass to the plugin call.
+   * @returns A result from executing the plugin action.
    */
   async executeAction<A extends keyof PluginActions>(
     action: A,
