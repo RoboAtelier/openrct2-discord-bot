@@ -382,7 +382,9 @@ export class OpenRCT2ServerController extends EventEmitter {
       ? path.join(this.serverHostRepo.dirPath, `${scenarioFile.nameNoExtension}.png`)
       : path.join(this.serverHostRepo.dirPath, `${screenshotName}.png`);
 
-    await unlink(screenshotFilePath);
+    try {
+      await unlink(screenshotFilePath);
+    } catch { };
 
     const args = [
       'screenshot',
