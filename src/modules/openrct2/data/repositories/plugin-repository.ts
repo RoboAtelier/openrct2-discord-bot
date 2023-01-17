@@ -15,23 +15,23 @@ import {
 export class PluginRepository extends FileSystemRepository {
   private static readonly dirKey = 'plugin';
 
-  private readonly pluginFiles = new Map<BotPluginFileName, () => ConcurrentFile>();
+  private readonly pluginFiles = new Map<BotPluginFileName, ConcurrentFile>();
 
   protected readonly dataDir: ConcurrentDirectory;
 
   constructor(config: Configuration) {
     super(config);
     this.dataDir = new ConcurrentDirectory(config.getDirectoryPath(PluginRepository.dirKey));
+
+    const serverAdapterPlugin = new ConcurrentFile(
+      path.join(this.dataDir.path, BotPluginFileName.ServerAdapter),
+      ServerAdapterPluginCode,
+      true
+    );
     this.pluginFiles.set(
       BotPluginFileName.ServerAdapter,
-      () => new ConcurrentFile(
-        path.join(this.dataDir.path, BotPluginFileName.ServerAdapter),
-        ServerAdapterPluginCode
-      )
+      serverAdapterPlugin
     );
-    for (const pluginFileGetter of this.pluginFiles.values()) {
-      pluginFileGetter();
-    };
   };
 
   /** @override */
@@ -46,9 +46,9 @@ export class PluginRepository extends FileSystemRepository {
    * @returns The plugin file that matches the name.
    */
   async getPluginFileByName(name: BotPluginFileName) {
-    const requestedPluginFileGetter = this.pluginFiles.get(name);
-    if (requestedPluginFileGetter) {
-      return new PluginFile(requestedPluginFileGetter().path);
+    const requestedPluginFile = this.pluginFiles.get(name);
+    if (requestedPluginFile) {
+      return new PluginFile(requestedPluginFile.path);
     };
     throw new Error(`'${name}' was unexpectedly missing from the available bot plugin files.`);
   };
@@ -59,7 +59,7 @@ export class PluginRepository extends FileSystemRepository {
    * @returns An array of all the managed OpenRCT2 plugin files.
    */
   async getPluginFiles() {
-    const pluginFiles = await this.dataDir.getFilesExclusive();
-    return pluginFiles.map(pluginFile => new PluginFile(path.join(this.dataDir.path, pluginFile.name)));
+    const pluginFiles = Array.from(this.pluginFiles.values());
+    return pluginFiles.map(pluginFile => new PluginFile(pluginFile.path));
   };
 };
