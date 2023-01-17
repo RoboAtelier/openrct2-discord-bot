@@ -4,6 +4,7 @@ import {
   Mode,
   ObjectEncodingOptions,
   OpenMode,
+  readFileSync,
   statSync,
   writeFileSync
 } from 'fs';
@@ -13,19 +14,25 @@ import {
 } from 'fs/promises';
 import { Stream } from 'stream';
 import { ConcurrentFileSystemObject } from '.';
+import { isStringNullOrEmpty } from '@modules/utils/string-utils';
 
 /** 
  * Represents a class for handling concurrent processes
  * on a generic file system file.
  */
 export class ConcurrentFile extends ConcurrentFileSystemObject {
-  constructor(filePath: string, defaultData = '') {
+  constructor(filePath: string, defaultData = '', setDefaultOnLoad = false) {
     const resolvedFilePath = path.resolve(filePath);
     super(resolvedFilePath);
     try {
       const fileStat = statSync(resolvedFilePath);
       if (!fileStat.isFile()) {
         throw new Error('Specified path is not a file system file.');
+      };
+
+      const fileData = readFileSync(resolvedFilePath, 'utf8');
+      if (isStringNullOrEmpty(fileData) || setDefaultOnLoad) {
+        writeFileSync(resolvedFilePath, defaultData);
       };
     } catch (err) {
       const errno = err as NodeJS.ErrnoException;
@@ -73,12 +80,12 @@ export class ConcurrentFile extends ConcurrentFileSystemObject {
       | AsyncIterable<string | NodeJS.ArrayBufferView>
       | Stream,
     options?:
-        | (ObjectEncodingOptions & {
-              mode?: Mode | undefined;
-              flag?: OpenMode | undefined;
-          } & Abortable)
-        | BufferEncoding
-        | null
+      | (ObjectEncodingOptions & {
+            mode?: Mode | undefined;
+            flag?: OpenMode | undefined;
+        } & Abortable)
+      | BufferEncoding
+      | null
   ) {
     this.validateActive();
     return this.ioMutex.runExclusive(async () => {
