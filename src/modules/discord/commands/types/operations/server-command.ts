@@ -501,6 +501,10 @@ export class ServerCommand extends BotCommand<
 
       if (useBotPlugins) {
         updateActions.push(async () => {
+          const defaultErrors = [];
+          if (pluginOptions.adapterPluginPort < 0) {
+            defaultErrors.push('A port must be specified for the server adapter plugin first.');
+          };
           await serverDir.addPluginFiles(...botPlugins);
           const adapterPlugin = await serverDir.getPluginFileByName(BotPluginFileName.ServerAdapter);
           await adapterPlugin.setGlobalVariables(
@@ -520,11 +524,11 @@ export class ServerCommand extends BotCommand<
       } else {
         const currentPorts = [];
         const serverDirs = await this.serverHostRepo.getAllOpenRCT2ServerRepositories();
-        for (const serverDir of serverDirs) {
-          const startupOptions = await serverDir[1].getStartupOptions();
+        for (const [id, serverDir] of serverDirs) {
+          const startupOptions = await serverDir.getStartupOptions();
           currentPorts.push(startupOptions.port);
-          if (serverDir[0] !== serverId) {
-            const pluginOptions = await serverDir[1].getPluginOptions();
+          if (id !== serverId) {
+            const pluginOptions = await serverDir.getPluginOptions();
             currentPorts.push(pluginOptions.adapterPluginPort);
           };
         };

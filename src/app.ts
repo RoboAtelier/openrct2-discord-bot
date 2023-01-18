@@ -19,6 +19,7 @@ import {
   ScenarioRepository,
   ServerHostRepository
 } from '@modules/openrct2/data/repositories';
+import { BotPluginFileName } from '@modules/openrct2/data/types';
 import { OpenRCT2MasterServer } from '@modules/openrct2/web';
 import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
 
@@ -56,6 +57,21 @@ async function main() {
   );
   const commandExecutor = new CommandExecutor(discordClient, commandFactory, botDataRepo);
   new EventNotifier(discordClient, botDataRepo, openRCT2ServerController);
+
+  const serverDirs = await serverHostRepo.getAllOpenRCT2ServerRepositories();
+  const botPlugins = await pluginRepo.getPluginFiles();
+  for (const [serverId, serverDir] of serverDirs) {
+    await serverDir.removePluginFiles(...botPlugins.map(botPlugin => botPlugin.name));
+    const pluginOptions = await serverDir.getPluginOptions();
+    if (pluginOptions.useBotPlugins) {
+      await serverDir.addPluginFiles(...botPlugins);
+      const adapterPlugin = await serverDir.getPluginFileByName(BotPluginFileName.ServerAdapter);
+      await adapterPlugin.setGlobalVariables(
+        ['serverId', serverId],
+        ['port', pluginOptions.adapterPluginPort]
+      );
+    };
+  };
 
   discordClient.on(Events.ClientReady, async () => {
     if (discordClient.user === null) {

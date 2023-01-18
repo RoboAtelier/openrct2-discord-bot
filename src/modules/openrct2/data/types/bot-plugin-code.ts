@@ -2,7 +2,7 @@ export const ServerAdapterPluginCode =
 `var serverId = 0;
 var port = 0;
 
-function main() {\
+function main() {
 	var server = network.createListener();
 	server.on('connection', function (conn) {
 		conn.on('data', function(data) {
