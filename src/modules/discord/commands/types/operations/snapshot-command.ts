@@ -14,6 +14,7 @@ import {
   CommandResponseBuilder
 } from '@modules/discord/commands';
 import { BotDataRepository } from '@modules/discord/data/repositories';
+import { Logger } from '@modules/logging';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 import { ServerHostRepository } from '@modules/openrct2/data/repositories';
 import { 
@@ -25,11 +26,13 @@ type SnapshotCommandOptions = 'server-id' | 'finalize'
 
 /** Represents a command for creating screenshots and save snapshots of OpenRCT2 game server scenarios. */
 export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, null> {
+  private readonly logger: Logger;
   private readonly botDataRepo: BotDataRepository;
   private readonly serverHostRepo: ServerHostRepository;
   private readonly openRCT2ServerController: OpenRCT2ServerController;
 
   constructor(
+    logger: Logger,
     botDataRepo: BotDataRepository,
     serverHostRepository: ServerHostRepository,
     openRCT2ServerController: OpenRCT2ServerController
@@ -50,6 +53,7 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
           .setDescription('Specifies to create both a screenshot and save file snapshot.')
       );
 
+    this.logger = logger;
     this.botDataRepo = botDataRepo;
     this.openRCT2ServerController = openRCT2ServerController;
     this.serverHostRepo = serverHostRepository;
@@ -231,6 +235,8 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
 
   /**
    * Posts a message with the snapshot files.
+   * @async
+   * @param interaction
    * @param messagePayload
    */
   private async postServerScenarioSnapshot(interaction: ChatInputCommandInteraction, messagePayload: MessagePayload) {
@@ -242,7 +248,7 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
       };
       throw new Error('Could not post scenario snapshot to a text channel.');
     } catch (err) {
-      // logging
+      await this.logger.writeError(err as Error);
     };
   };
 };

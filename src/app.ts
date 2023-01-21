@@ -13,6 +13,7 @@ import {
 } from '@modules/discord/commands';
 import { EventNotifier } from '@modules/discord/runtime';
 import { BotDataRepository } from '@modules/discord/data/repositories';
+import { Logger } from '@modules/logging';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 import { 
   PluginRepository,
@@ -40,6 +41,7 @@ async function main() {
       ]
     }
   );
+  const logger = new Logger(config);
   const botDataRepo = new BotDataRepository(config);
   const pluginRepo = new PluginRepository(config);
   const scenarioRepo = new ScenarioRepository(config);
@@ -48,6 +50,7 @@ async function main() {
   const openRCT2ServerController = new OpenRCT2ServerController(config, scenarioRepo, serverHostRepo);
   const commandFactory = new CommandFactory(
     config,
+    logger,
     botDataRepo,
     pluginRepo,
     scenarioRepo,
@@ -55,8 +58,8 @@ async function main() {
     openRCT2MasterServer,
     openRCT2ServerController
   );
-  const commandExecutor = new CommandExecutor(discordClient, commandFactory, botDataRepo);
-  new EventNotifier(discordClient, botDataRepo, openRCT2ServerController);
+  const commandExecutor = new CommandExecutor(discordClient, logger, commandFactory, botDataRepo);
+  new EventNotifier(discordClient, logger, botDataRepo, openRCT2ServerController);
 
   const serverDirs = await serverHostRepo.getAllOpenRCT2ServerRepositories();
   const botPlugins = await pluginRepo.getPluginFiles();

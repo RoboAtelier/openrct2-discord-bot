@@ -2,7 +2,8 @@ import path from 'path';
 import { Abortable } from 'events';
 import { Stream } from 'stream';
 import { mkdirSync } from 'fs';
-import { 
+import {
+  appendFile, 
   copyFile,
   mkdir,
   readdir,
@@ -275,14 +276,47 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
       | NodeJS.ArrayBufferView
       | Iterable<string | NodeJS.ArrayBufferView>
       | AsyncIterable<string | NodeJS.ArrayBufferView>
-      | Stream
+      | Stream,
+    options: 
+      | ({
+          encoding: BufferEncoding;
+          flag?: string | undefined;
+        } & Abortable)
+      | BufferEncoding = 'utf8'
   ) {
     this.validateActive();
     return this.ioMutex.runExclusive(async () => { 
       const fullFilePath = path.join(this.objPath, fileNameOrRelPath);
       this.validateManagedFilePath(fullFilePath);
       
-      return writeFile(fullFilePath, data);
+      return writeFile(fullFilePath, data, options);
+    });
+  };
+
+  /**
+   * Appends data to a file or creates a new file with locking.
+   * @async
+   * @param fileNameOrRelPath The name or relative path to the file to append data to.
+   * @param data The data to append to the file.
+   */
+  async appendFileExclusive(
+    fileNameOrRelPath: string,
+    data: 
+      | string
+      | Uint8Array,
+    options: 
+      | ({
+          encoding: BufferEncoding;
+          flag?: string | undefined;
+        } & Abortable)
+      | BufferEncoding = 'utf8'
+  ) {
+    this.validateActive();
+    return this.ioMutex.runExclusive(async () => { 
+      const fullFilePath = path.join(this.objPath, fileNameOrRelPath);
+      this.validateManagedFilePath(fullFilePath);
+      
+      return appendFile(fullFilePath, data, options);
     });
   };
 

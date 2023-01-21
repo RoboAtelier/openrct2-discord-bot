@@ -11,18 +11,22 @@ import {
  } from '.';
 import { GuildInfo } from '@modules/discord/data/models/bot';
 import { BotDataRepository } from '@modules/discord/data/repositories';
+import { Logger } from '@modules/logging';
 
 export class CommandExecutor {
   private readonly discordClient: Client<true>;
+  private readonly logger: Logger;
   private readonly commandFactory: CommandFactory;
   private readonly botDataRepo: BotDataRepository;
 
   constructor(
     discordClient: Client<true>,
+    logger: Logger,
     commandFactory: CommandFactory,
     botDataRepo: BotDataRepository
   ) {
     this.discordClient = discordClient;
+    this.logger = logger;
     this.commandFactory = commandFactory;
     this.botDataRepo = botDataRepo;
   };
@@ -38,7 +42,6 @@ export class CommandExecutor {
     if (commandSettings.adminRestricted) {
       if (userPermLevel === CommandPermissionLevel.Manager) {
         const command = this.commandFactory.getCommand(interaction.commandName);
-
         if (command) {
           await command.execute(interaction, userPermLevel);
         };
@@ -51,9 +54,12 @@ export class CommandExecutor {
       if (command) {
         if (userPermLevel >= command.permissionLevel) {
           try {
+            const log = `${interaction.user.username} called the '${command.data.name}' command.`;
+            await this.logger.writeLog(log);
             await command.execute(interaction, userPermLevel);
           } catch (err) {
             console.error(err);
+            await this.logger.writeError(err as Error);
           };
         } else {
           await interaction.reply({ content: 'You cannot use that command.', ephemeral: true });

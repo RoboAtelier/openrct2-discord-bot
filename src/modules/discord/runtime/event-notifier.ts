@@ -8,6 +8,7 @@ import {
   Snowflake
 } from 'discord.js';
 import { BotDataRepository } from '@modules/discord/data/repositories';
+import { Logger } from '@modules/logging';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 import { ServerEventArgs } from '@modules/openrct2/runtime';
 import { ScenarioFile } from '@modules/openrct2/data/models';
@@ -16,16 +17,20 @@ export class EventNotifier {
   private static readonly messageIntervalMs = 250;
 
   private readonly discordClient: Client<true>;
-  private readonly messageMutex = new Mutex();
+  private readonly logger: Logger;
   private readonly botDataRepo: BotDataRepository;
+  private readonly messageMutex = new Mutex();
 
   constructor(
     discordClient: Client<true>,
+    logger: Logger,
     botDataRepo: BotDataRepository,
     openRCT2ServerController: OpenRCT2ServerController
   ) {
     this.discordClient = discordClient;
+    this.logger = logger;
     this.botDataRepo = botDataRepo;
+
     openRCT2ServerController.on('server.start', args => this.onServerStart(args));
     openRCT2ServerController.on('server.restart', args => this.onServerRestart(args));
     openRCT2ServerController.on('server.stop', args => this.onServerStop(args));
@@ -56,14 +61,17 @@ export class EventNotifier {
       const eventMsg = `${underscore(italic(`Server ${args.serverId}`))} has been stopped.`;
       await this.postEvent(eventMsg);
     };
+    const log = `Server ${args.serverId} was manually stopped.`;
+    await this.logger.writeLog(log);
   };
 
   private async onServerClose(args: ServerEventArgs<{ code: number | null, signal: NodeJS.Signals | null }>) {
-    // logging
+    const log = `Server ${args.serverId} was terminated. Exit code: ${args.data.code} | Termination signal: ${args.data.signal}`;
+    await this.logger.writeLog(log);
   };
 
   private async onServerError(args: ServerEventArgs<Error>) {
-    // logging
+    await this.logger.writeError(args.data);
   };
 
   // private async onServerChat(args: ServerEventArgs<string>) {
@@ -116,7 +124,7 @@ export class EventNotifier {
         return msg;
       });
     } catch (err) {
-      // logging
+      await this.logger.writeError(err as Error);
     };
   };
 

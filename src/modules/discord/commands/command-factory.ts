@@ -1,6 +1,7 @@
 import { Configuration } from '@modules/configuration';
 import * as Commands from '@modules/discord/commands';
 import { BotDataRepository } from '@modules/discord/data/repositories';
+import { Logger } from '@modules/logging';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 import {
   PluginRepository,
@@ -14,6 +15,7 @@ export class CommandFactory {
 
   constructor(
     config: Configuration,
+    logger: Logger,
     botDataRepo: BotDataRepository,
     pluginRepo: PluginRepository,
     scenarioRepo: ScenarioRepository,
@@ -24,9 +26,9 @@ export class CommandFactory {
     const commands: Commands.BotCommand<string | null, string | null, string | null>[] = [
       new Commands.ServerCommand(botDataRepo, pluginRepo, scenarioRepo, serverHostRepo, openRCT2ServerController),
       new Commands.MasterServerCommand(config, openRCT2MasterServer),
-      new Commands.VoteCommand(botDataRepo, scenarioRepo, serverHostRepo, openRCT2ServerController),
+      new Commands.VoteCommand(logger, botDataRepo, scenarioRepo, serverHostRepo, openRCT2ServerController),
       new Commands.ScenarioCommand(scenarioRepo),
-      new Commands.SnapshotCommand(botDataRepo, serverHostRepo, openRCT2ServerController),
+      new Commands.SnapshotCommand(logger, botDataRepo, serverHostRepo, openRCT2ServerController),
       new Commands.ChannelCommand(botDataRepo)
     ];
     commands.push(new Commands.HelpCommand(commands.map(command => command.data)));

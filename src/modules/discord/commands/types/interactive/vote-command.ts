@@ -26,6 +26,7 @@ import {
   CommandResponseBuilder
 } from '@modules/discord/commands';
 import { BotDataRepository } from '@modules/discord/data/repositories';
+import { Logger } from '@modules/logging';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 import {
   ScenarioMetadata,
@@ -190,6 +191,7 @@ export class VoteCommand extends BotCommand<
   VoteCommandSubcommands,
   VoteCommandSubcommandGroups
 > {
+  private readonly logger: Logger;
   private readonly botDataRepo: BotDataRepository;
   private readonly scenarioRepo: ScenarioRepository;
   private readonly serverHostRepo: ServerHostRepository;
@@ -197,10 +199,11 @@ export class VoteCommand extends BotCommand<
   private readonly activeVotes = new Map<number, VoteSession<unknown>>();
 
   constructor(
+    logger: Logger,
     botDataRepo: BotDataRepository,
     scenarioRepo: ScenarioRepository,
     serverHostRepo: ServerHostRepository,
-    openRCT2ServerController: OpenRCT2ServerController
+    openRCT2ServerController: OpenRCT2ServerController,
   ) {
     super(CommandPermissionLevel.Trusted);
     this.data
@@ -259,6 +262,7 @@ export class VoteCommand extends BotCommand<
           )
       );
     
+    this.logger = logger;
     this.botDataRepo = botDataRepo;
     this.scenarioRepo = scenarioRepo;
     this.serverHostRepo = serverHostRepo;
@@ -451,9 +455,9 @@ export class VoteCommand extends BotCommand<
         serverId,
         voteSession
       ));
-    } catch {
+    } catch (err) {
       this.activeVotes.delete(serverId);
-      // logging
+      await this.logger.writeError(err as Error);
     };
   };
 
@@ -515,7 +519,7 @@ export class VoteCommand extends BotCommand<
         };
       };
     } catch (err) {
-      // logging
+      await this.logger.writeError(err as Error);
     } finally {
       this.activeVotes.delete(serverId);
     };
@@ -553,7 +557,7 @@ export class VoteCommand extends BotCommand<
       });
     } catch (err) {
       this.activeVotes.delete(serverId);
-      // logging
+      await this.logger.writeError(err as Error);
     };
   };
 
@@ -699,7 +703,9 @@ export class VoteCommand extends BotCommand<
 
   /**
    * Posts a starting vote session.
-   * @param messagePayload
+   * @async
+   * @param interaction
+   * @param messagePayload 
    */
   private async postVoteSession(interaction: ChatInputCommandInteraction, messagePayload: MessagePayload) {
     try {
@@ -710,7 +716,7 @@ export class VoteCommand extends BotCommand<
       };
       throw new Error('Could not post vote session to a text channel.');
     } catch (err) {
-      // logging
+      await this.logger.writeError(err as Error);
     };
   };
 };
