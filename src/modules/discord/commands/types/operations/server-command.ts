@@ -505,6 +505,9 @@ export class ServerCommand extends BotCommand<
           if (pluginOptions.adapterPluginPort < 0) {
             defaultErrors.push('A port must be specified for the server adapter plugin first.');
           };
+          if (defaultErrors.length > 0) {
+            throw new Error(defaultErrors.join(EOL));
+          };
           await serverDir.addPluginFiles(...botPlugins);
           const adapterPlugin = await serverDir.getPluginFileByName(BotPluginFileName.ServerAdapter);
           await adapterPlugin.setGlobalVariables(
@@ -556,9 +559,13 @@ export class ServerCommand extends BotCommand<
     if (isStringNullOrWhiteSpace(commandResponse.message)) {
       commandResponse.appendToMessage('No changes were made.');
     } else if (!commandResponse.hasError) {
-      await performUpdates();
-      await serverDir.updatePluginOptions(pluginOptions);
-      commandResponse.appendToMessage(`${EOL}These changes may require a server restart or backend configuration to apply correctly.`);
+      try {
+        await performUpdates();
+        await serverDir.updatePluginOptions(pluginOptions);
+        commandResponse.appendToMessage(`${EOL}These changes may require a server restart or backend configuration to apply correctly.`);
+      } catch (err) {
+        commandResponse.appendToError((err as Error).message);
+      };
     };
 
     return commandResponse;
