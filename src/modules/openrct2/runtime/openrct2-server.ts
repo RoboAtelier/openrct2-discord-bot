@@ -43,6 +43,7 @@ export interface OpenRCT2ServerEvents {
   };
   'network.chat': string;
   'network.join': string;
+  'network.leave': string;
 };
 
 /** Represents arguments returned from an emitted game server event. */

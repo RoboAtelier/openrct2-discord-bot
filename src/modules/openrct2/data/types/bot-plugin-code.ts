@@ -57,6 +57,7 @@ function main() {
 
 		context.subscribe('network.chat', function(eventArgs) { onNetworkChat(eventArgs, conn); });
 		context.subscribe('network.join', function(eventArgs) { onNetworkJoin(eventArgs, conn); });
+		context.subscribe('network.leave', function(eventArgs) { onNetworkLeave(eventArgs, conn); });
 	});
 
 	server.listen(port, 'localhost');
@@ -80,6 +81,13 @@ function onNetworkJoin(eventArgs, conn) {
 	conn.write('network.join'.concat(
 		'_',
 		network.players[eventArgs.player].name.concat(' has joined the game')
+	));
+};
+
+function onNetworkLeave(eventArgs, conn) {
+	conn.write('network.leave'.concat(
+		'_',
+		network.players[eventArgs.player].name.concat(' has disconnected')
 	));
 };
 

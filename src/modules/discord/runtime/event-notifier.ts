@@ -44,8 +44,9 @@ export class EventNotifier {
     openRCT2ServerController.on('server.stop', args => this.onServerStop(args));
     openRCT2ServerController.on('server.close', args => this.onServerClose(args));
     openRCT2ServerController.on('server.error', args => this.onServerError(args));
-    openRCT2ServerController.on('server.network.chat', args => this.onServerChat(args));
-    openRCT2ServerController.on('server.network.join', args => this.onServerJoin(args));
+    openRCT2ServerController.on('server.network.chat', args => this.onServerNetworkChat(args));
+    openRCT2ServerController.on('server.network.join', args => this.onServerNetworkJoin(args));
+    openRCT2ServerController.on('server.network.leave', args => this.onServerNetworkLeave(args));
     openRCT2ServerController.on('server.defer.start', args => this.onServerDeferStart(args));
     openRCT2ServerController.on('server.defer.stop', args => this.onServerDeferStop(args));
     openRCT2ServerController.on('server.scenario.complete', args => this.onServerScenarioComplete(args));
@@ -83,12 +84,16 @@ export class EventNotifier {
     await this.logger.writeError(args.data);
   };
 
-  private async onServerChat(args: ServerEventArgs<string>) {
+  private async onServerNetworkChat(args: ServerEventArgs<string>) {
     const sanitizedChat = args.data.replace(EventNotifier.formatCodeRegex, '');
     await this.postGameServerChat(args.serverId, sanitizedChat);
   };
 
-  private async onServerJoin(args: ServerEventArgs<string>) {
+  private async onServerNetworkJoin(args: ServerEventArgs<string>) {
+    await this.postGameServerChat(args.serverId, args.data);
+  };
+
+  private async onServerNetworkLeave(args: ServerEventArgs<string>) {
     await this.postGameServerChat(args.serverId, args.data);
   };
 
