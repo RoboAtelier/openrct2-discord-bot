@@ -15,14 +15,14 @@ function main() {
 				if ('chat' === actionQuery) {
 					network.sendMessage(args[2]);
 					conn.write('chat'.concat(
-						';',
+						'_',
 						userId
 					));
 				} else if ('scenario' === actionQuery) {
 					conn.write('scenario'.concat(
-						';',
+						'_',
 						userId,
-						';',
+						'_',
 						JSON.stringify({
 							name: scenario.name,
 							details: scenario.details,
@@ -43,9 +43,9 @@ function main() {
 					};
 					context.captureImage(screenshotParams);
 					conn.write('screenshot'.concat(
-						';',
+						'_',
 						userId,
-						';',
+						'_',
 						screenshotFileName
 					));
 				};
@@ -68,7 +68,10 @@ function main() {
 function onNetworkChat(eventArgs, conn) {
 	console.log(eventArgs);
 	if (!(0 === eventArgs.player && eventArgs.message.startsWith('{DISCORD}'))) {
-		conn.write('network.chat;chat message sent');
+		connection.write('nework.chat'.concat(
+			'_',
+			network.players[eventArgs.player].name.concat(': ', eventArgs.message)
+		));
 	};
 };
 

@@ -45,8 +45,8 @@ export class PluginEventArgs {
  * with a TCP server port opened by a plugin.
  */
 export class OpenRCT2PluginAdapter extends EventEmitter {
-  private static readonly actionResponseRegex = /^([a-z.]+);([0-9]+);(.*)$/;
-  private static readonly serverEventRegex = /^([a-z.]+);(.*)$/;
+  private static readonly actionResponseRegex = /^([a-z.]+)_([0-9]+)_(.*)$/;
+  private static readonly serverEventRegex = /^([a-z.]+)_(.*)$/;
   private static readonly timeoutMs = 10000;
 
   private readonly client: Socket;
@@ -104,29 +104,33 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
    * @param data The response as a buffer array.
    */
   private onData(data: Buffer) {
-    const dataStr = data.toString('utf8');
-    this.logger.writeLog(dataStr);
-    const responseMatch = dataStr.match(OpenRCT2PluginAdapter.actionResponseRegex);
-    if (responseMatch) { // action response
-      const actionName = responseMatch[1];
-      const userId = responseMatch[2];
-      let actionData: any = responseMatch[3];
-      try {
-        actionData = JSON.parse(responseMatch[3]);
-      } catch { };
-
-      this.emit(`${actionName}${userId}`, actionData);
-    } else {
-      const eventMatch = dataStr.match(OpenRCT2PluginAdapter.serverEventRegex);
-      if (eventMatch) { // event response
-        const eventName = eventMatch[1];
-        const eventData = eventMatch[2];
-
-        const args = new PluginEventArgs(eventName, eventData);
-        this.emit('data', args);
+    try {
+      const dataStr = data.toString('utf8');
+      this.logger.writeLog(dataStr);
+      const responseMatch = dataStr.match(OpenRCT2PluginAdapter.actionResponseRegex);
+      if (responseMatch) { // action response
+        const actionName = responseMatch[1];
+        const userId = responseMatch[2];
+        let actionData: any = responseMatch[3];
+        try {
+          actionData = JSON.parse(responseMatch[3]);
+        } catch { };
+  
+        this.emit(`${actionName}${userId}`, actionData);
       } else {
-        // log
+        const eventMatch = dataStr.match(OpenRCT2PluginAdapter.serverEventRegex);
+        if (eventMatch) { // event response
+          const eventName = eventMatch[1];
+          const eventData = eventMatch[2];
+  
+          const args = new PluginEventArgs(eventName, eventData);
+          this.emit('data', args);
+        } else {
+          // log
+        };
       };
+    } catch (err) {
+      this.logger.writeError(err as Error);
     };
   };
 };
