@@ -29,7 +29,8 @@ export class CommandFactory {
       new Commands.VoteCommand(logger, botDataRepo, scenarioRepo, serverHostRepo, openRCT2ServerController),
       new Commands.ScenarioCommand(scenarioRepo),
       new Commands.SnapshotCommand(logger, botDataRepo, serverHostRepo, openRCT2ServerController),
-      new Commands.ChannelCommand(botDataRepo)
+      new Commands.ChannelCommand(botDataRepo),
+      new Commands.ChatCommand(logger, botDataRepo, openRCT2ServerController)
     ];
     commands.push(new Commands.HelpCommand(commands.map(command => command.data)));
     for (const command of commands) {
