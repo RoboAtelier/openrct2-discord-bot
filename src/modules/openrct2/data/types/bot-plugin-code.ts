@@ -53,10 +53,12 @@ function main() {
 				console.log(data);
 			};
 		});
-
-		context.subscribe('network.chat', function(eventArgs) { return onNetworkChat(eventArgs, conn); });
 	});
+
 	server.listen(port, 'localhost');
+	
+	context.subscribe('network.chat', function(eventArgs) { return onNetworkChat(eventArgs, conn); });
+
 	console.log('Adapter plugin for server '.concat(
 		serverId,
 		' is active!'
@@ -65,7 +67,7 @@ function main() {
 
 function onNetworkChat(eventArgs, conn) {
 	if (!(0 === eventArgs.player && eventArgs.message.startsWith('{DISCORD}'))) {
-		conn.write('nework.chat'.concat(
+		conn.write('network.chat'.concat(
 			';',
 			network.players[eventArgs.player].name.concat(': ', eventArgs.message)
 		));
