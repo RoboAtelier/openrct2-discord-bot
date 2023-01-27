@@ -54,7 +54,7 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
     super();
     this.client = client;
     this.client.on('data', data => this.onData(data));
-    this.setMaxListeners(15);
+    this.setMaxListeners(20);
   };
 
   /** Closes the adapter client and disconnects it from the game server instance. */
