@@ -161,11 +161,7 @@ export class OpenRCT2Server extends EventEmitter {
    * @param pluginArgs The response as event arguments from the plugin.
    */
   private onPluginData(pluginArgs: PluginEventArgs) {
-    let data = pluginArgs.data;
-    try {
-      data = JSON.parse(pluginArgs.data);
-    } catch { };
-    const args = new ServerEventArgs(this.id, data);
+    const args = new ServerEventArgs(this.id, pluginArgs.data);
     this.emit(pluginArgs.eventName, args);
   };
 

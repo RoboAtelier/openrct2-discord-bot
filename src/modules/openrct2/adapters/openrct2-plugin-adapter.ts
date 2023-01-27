@@ -32,9 +32,9 @@ interface PluginActionResultValues {
 /** Represents arguments returned from an emitted plugin event. */
 export class PluginEventArgs {
   readonly eventName: string;
-  readonly data: string;
+  readonly data: any;
 
-  constructor(eventName: string, data: string) {
+  constructor(eventName: string, data: unknown) {
     this.eventName = eventName;
     this.data = data;
   };
@@ -122,17 +122,17 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
         const eventMatch = dataStr.match(OpenRCT2PluginAdapter.serverEventRegex);
         if (eventMatch) { // event response
           const eventName = eventMatch[1];
-          const eventData = eventMatch[2];
-  
+          let eventData = eventMatch[2];
+          try {
+            eventData = JSON.parse(eventMatch[2]);
+          } catch { };
+
           const args = new PluginEventArgs(eventName, eventData);
           this.emit('data', args);
-        } else {
-          // log
         };
       };
     } catch (err) {
       this.logger.writeError(err as Error);
-      this.logger.writeErrorFromObject(data);
     };
   };
 };
