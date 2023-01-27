@@ -47,7 +47,7 @@ async function main() {
   const scenarioRepo = new ScenarioRepository(config);
   const serverHostRepo = new ServerHostRepository(config);
   const openRCT2MasterServer = new OpenRCT2MasterServer();
-  const openRCT2ServerController = new OpenRCT2ServerController(config, scenarioRepo, serverHostRepo);
+  const openRCT2ServerController = new OpenRCT2ServerController(config, logger, scenarioRepo, serverHostRepo);
   const commandFactory = new CommandFactory(
     config,
     logger,
