@@ -30,8 +30,8 @@ function main() {
 							details: scenario.details,
 							filename: scenario.filename,
 							status: scenario.status
-						}, 'utf8')
-					));
+						})
+					), 'utf8');
 				} else if ('screenshot' === actionQuery) {
 					var screenshotFileName = scenario.name.concat('.png');
 					var screenshotParams = {
