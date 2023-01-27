@@ -446,8 +446,8 @@ export class ChannelCommand extends BotCommand<
     if (guildInfo.gameServerChannels.length > 0) {
       const gameServerChannelMentions = guildInfo.gameServerChannels.map(channel => 
         isStringNullOrWhiteSpace(channel.channelId)
-          ? `▸ ${underscore(italic(`Server ${channel.serverId}`))}: ${channelMention(channel.channelId)}`
-          : `▸ ${underscore(italic(`Server ${channel.serverId}`))}: ${italic('Not set')}`
+          ? `▸ ${underscore(italic(`Server ${channel.serverId}`))}: ${italic('Not set')}`
+          : `▸ ${underscore(italic(`Server ${channel.serverId}`))}: ${channelMention(channel.channelId)}`
       );
       channelMsgSegments.push(`Game Server Channels:${EOL}${gameServerChannelMentions.join(EOL)}`);
     } else {
