@@ -2,10 +2,13 @@ export const ServerAdapterPluginCode =
 `var serverId = 0;
 var port = 0;
 
+var connection = null;
+
 function main() {
 	var server = network.createListener();
 	server.on('connection', function (conn) {
-		conn.on('data', function(data) {
+		connection = conn;
+		connection.on('data', function(data) {
 			try {
 				var dataString = data.toString('utf8');
 				var args = dataString.split(';');
@@ -14,12 +17,12 @@ function main() {
 				
 				if ('chat' === actionQuery) {
 					network.sendMessage(args[2]);
-					conn.write('chat'.concat(
+					connection.write('chat'.concat(
 						';',
 						userId
 					));
 				} else if ('scenario' === actionQuery) {
-					conn.write('scenario'.concat(
+					connection.write('scenario'.concat(
 						';',
 						userId,
 						';',
@@ -42,7 +45,7 @@ function main() {
 						// position: { x: map.size.x / 2 * 32, y: map.size.y / 2 * 32 }
 					};
 					context.captureImage(screenshotParams);
-					conn.write('screenshot'.concat(
+					connection.write('screenshot'.concat(
 						';',
 						userId,
 						';',
@@ -53,11 +56,11 @@ function main() {
 				console.log(data);
 			};
 		});
+
+		context.subscribe('network.chat', function(eventArgs) { onNetworkChat(eventArgs); });
 	});
 
 	server.listen(port, 'localhost');
-	
-	context.subscribe('network.chat', function(eventArgs) { return onNetworkChat(eventArgs, conn); });
 
 	console.log('Adapter plugin for server '.concat(
 		serverId,
@@ -65,9 +68,9 @@ function main() {
 	));
 };
 
-function onNetworkChat(eventArgs, conn) {
+function onNetworkChat(eventArgs) {
 	if (!(0 === eventArgs.player && eventArgs.message.startsWith('{DISCORD}'))) {
-		conn.write('network.chat'.concat(
+		connection.write('network.chat'.concat(
 			';',
 			network.players[eventArgs.player].name.concat(': ', eventArgs.message)
 		));
