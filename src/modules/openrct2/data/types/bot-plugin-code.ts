@@ -56,6 +56,7 @@ function main() {
 		});
 
 		context.subscribe('network.chat', function(eventArgs) { onNetworkChat(eventArgs, conn); });
+		context.subscribe('network.join', function(eventArgs) { onNetworkJoin(eventArgs, conn); });
 	});
 
 	server.listen(port, 'localhost');
@@ -73,6 +74,13 @@ function onNetworkChat(eventArgs, conn) {
 			network.players[eventArgs.player].name.concat(': ', eventArgs.message)
 		));
 	};
+};
+
+function onNetworkJoin(eventArgs, conn) {
+	conn.write('network.join'.concat(
+		'_',
+		network.players[eventArgs.player].name.concat(' has joined the game')
+	));
 };
 
 registerPlugin({

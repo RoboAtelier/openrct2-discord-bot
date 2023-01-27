@@ -66,6 +66,7 @@ export interface OpenRCT2ServerControllerEvents {
   };
   'server.error': Error;
   'server.network.chat': string;
+  'server.network.join': string;
   'server.defer.start': {
     scenarioFile: ScenarioFile,
     delayDuration: number
@@ -579,6 +580,10 @@ export class OpenRCT2ServerController extends EventEmitter {
     if (gameServer.pluginAdapter) {
       gameServer.on('network.chat', args => this.emit(
         'server.network.chat',
+        new ServerEventArgs(args.serverId, args.data)
+      ));
+      gameServer.on('network.join', args => this.emit(
+        'server.network.join',
         new ServerEventArgs(args.serverId, args.data)
       ));
       gameServer.on('scenario.update', args => this.onServerScenarioUpdate(args));

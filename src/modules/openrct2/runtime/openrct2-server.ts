@@ -42,6 +42,7 @@ export interface OpenRCT2ServerEvents {
     scenarioStatus: 'inProgress' | 'completed' | 'failed';
   };
   'network.chat': string;
+  'network.join': string;
 };
 
 /** Represents arguments returned from an emitted game server event. */
