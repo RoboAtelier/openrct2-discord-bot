@@ -64,6 +64,7 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
   /** Closes the adapter client and disconnects it from the game server instance. */
   close() {
     this.client.destroy();
+    this.client.removeAllListeners();
   };
 
   /**

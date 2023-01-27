@@ -18,7 +18,7 @@ function main() {
 						'_',
 						userId,
 						'_'
-					), 'utf8');
+					));
 				} else if ('scenario' === actionQuery) {
 					conn.write('scenario'.concat(
 						'_',
@@ -30,7 +30,7 @@ function main() {
 							filename: scenario.filename,
 							status: scenario.status
 						})
-					), 'utf8');
+					));
 				} else if ('screenshot' === actionQuery) {
 					var screenshotFileName = scenario.name.concat('.png');
 					var screenshotParams = {
@@ -48,7 +48,7 @@ function main() {
 						userId,
 						'_',
 						screenshotFileName
-					), 'utf8');
+					));
 				};
 			} catch (err) {
 				console.log(data);
@@ -68,10 +68,10 @@ function main() {
 
 function onNetworkChat(eventArgs, conn) {
 	if (!(0 === eventArgs.player && eventArgs.message.startsWith('{DISCORD}'))) {
-		connection.write('network.chat'.concat(
+		conn.write('network.chat'.concat(
 			'_',
 			network.players[eventArgs.player].name.concat(': ', eventArgs.message)
-		), 'utf8');
+		));
 	};
 };
 

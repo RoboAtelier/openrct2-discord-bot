@@ -120,6 +120,7 @@ export class OpenRCT2Server extends EventEmitter {
       this.pluginAdapter.close();
     };
     this.gameInstance.kill('SIGKILL'); // force skip save prompt
+    this.removeAllListeners();
   };
 
   /**
@@ -160,7 +161,11 @@ export class OpenRCT2Server extends EventEmitter {
    * @param pluginArgs The response as event arguments from the plugin.
    */
   private onPluginData(pluginArgs: PluginEventArgs) {
-    const args = new ServerEventArgs(this.id, JSON.parse(pluginArgs.data));
+    let data = pluginArgs.data;
+    try {
+      data = JSON.parse(pluginArgs.data);
+    } catch { };
+    const args = new ServerEventArgs(this.id, data);
     this.emit(pluginArgs.eventName, args);
   };
 
