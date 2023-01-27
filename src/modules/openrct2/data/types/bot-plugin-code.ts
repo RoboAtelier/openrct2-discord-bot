@@ -67,12 +67,12 @@ function main() {
 
 function onNetworkChat(eventArgs, conn) {
 	console.log(eventArgs);
-	// if (!(0 === eventArgs.player && eventArgs.message.startsWith('{DISCORD}'))) {
-	// 	conn.write('network.chat'.concat(
-	// 		';',
-	// 		network.players[eventArgs.player].name.concat(': ', eventArgs.message)
-	// 	));
-	// };
+	if (!(0 === eventArgs.player && eventArgs.message.startsWith('{DISCORD}'))) {
+		conn.write('network.chat'.concat(
+			';',
+			eventArgs.message
+		));
+	};
 };
 
 registerPlugin({
