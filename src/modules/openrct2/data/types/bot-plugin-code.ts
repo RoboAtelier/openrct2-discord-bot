@@ -16,7 +16,8 @@ function main() {
 					network.sendMessage(args[2]);
 					conn.write('chat'.concat(
 						'_',
-						userId
+						userId,
+						'_'
 					));
 				} else if ('scenario' === actionQuery) {
 					conn.write('scenario'.concat(

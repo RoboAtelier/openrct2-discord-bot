@@ -53,7 +53,7 @@ export class Logger {
    */
   private async writeToLogFile(log: string, logFileName: string) {
     await this.logDir.appendFileExclusive(logFileName, log);
-    console.log(log);
+    console.log(log.trimEnd());
   };
 
   private getDateString(date: Date) {
