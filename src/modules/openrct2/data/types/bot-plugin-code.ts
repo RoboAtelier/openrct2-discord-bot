@@ -68,10 +68,7 @@ function main() {
 function onNetworkChat(eventArgs, conn) {
 	console.log(eventArgs);
 	if (!(0 === eventArgs.player && eventArgs.message.startsWith('{DISCORD}'))) {
-		conn.write('network.chat'.concat(
-			';',
-			eventArgs.message
-		));
+		conn.write('network.chat;chat message sent');
 	};
 };
 

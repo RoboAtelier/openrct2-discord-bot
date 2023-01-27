@@ -51,12 +51,14 @@ export class ChatCommand extends BotCommand<ChatCommandOptions, null, null> {
     const gameServerChannel = guildInfo.gameServerChannels.find(channel => channel.channelId === interaction.channelId)!;
     const message = this.getInteractionOption(interaction, 'message').value as string;
 
+    await interaction.deferReply();
     commandResponse = await this.sendGameChatMessage(gameServerChannel.serverId, interaction.user, message);
 
     if (commandResponse.hasError) {
+      await interaction.deleteReply();
       await interaction.reply({ content: commandResponse.resolve(), ephemeral: true });
     } else {
-      await interaction.reply(commandResponse.resolve());
+      await interaction.editReply(commandResponse.resolve());
     };
   };
 
