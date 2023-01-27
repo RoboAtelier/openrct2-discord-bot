@@ -5,7 +5,6 @@ var port = 0;
 function main() {
 	var server = network.createListener();
 	server.on('connection', function (conn) {
-		conn.setEncoding('utf8');
 		conn.on('data', function(data) {
 			try {
 				var dataString = data.toString('utf8');
