@@ -78,6 +78,8 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
   ): Promise<PluginActionResultValues[A]> {
     const actionStr = args === undefined || args === null
       ? `${action};${userId}`
+      : typeof args === 'string'
+      ? `${action};${userId};${args}`
       : `${action};${userId};${JSON.stringify(args)}`
     
     this.client.write(actionStr);
