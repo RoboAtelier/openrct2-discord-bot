@@ -1,13 +1,12 @@
-﻿import { EOL } from 'os';
-import {
+﻿import {
   inlineCode,
-  italic,
-  Colors,
-  EmbedBuilder,
   ChatInputCommandInteraction,
   SlashCommandBuilder
 } from 'discord.js';
-import { CommandPermissionLevel } from '@modules/discord/commands';
+import { 
+  CommandPermissionLevel,
+  CommandType
+} from '@modules/discord/commands';
 
 /**
  * Represents a base class for bot commands.
@@ -28,8 +27,12 @@ export abstract class BotCommand<
   /** Gets the required permission level to execute this command. */
   readonly permissionLevel: CommandPermissionLevel;
 
-  constructor(permissionLevel = CommandPermissionLevel.Manager) {
+  /** Gets the type of this bot command. */
+  readonly type: CommandType;
+
+  constructor(permissionLevel = CommandPermissionLevel.Manager, type = CommandType.Bot) {
     this.permissionLevel = permissionLevel;
+    this.type = type;
   };
 
   /**

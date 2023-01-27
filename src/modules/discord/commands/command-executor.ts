@@ -6,8 +6,10 @@ import {
   PermissionFlagsBits
 } from 'discord.js';
 import { 
+  BotCommand,
   CommandFactory,
-  CommandPermissionLevel
+  CommandPermissionLevel,
+  CommandType
  } from '.';
 import { GuildInfo } from '@modules/discord/data/models/bot';
 import { BotDataRepository } from '@modules/discord/data/repositories';
@@ -35,9 +37,6 @@ export class CommandExecutor {
     const commandSettings = await this.botDataRepo.getCommandSettings();
     const guildInfo = await this.botDataRepo.getGuildInfo();
     const userPermLevel = await this.identifyInvokerPermissionLevel(interaction, guildInfo);
-    const canCallCommand = userPermLevel > CommandPermissionLevel.Trusted
-      || 0 === guildInfo.botChannelIds.length
-      || guildInfo.botChannelIds.includes(interaction.channelId)
     
     if (commandSettings.adminRestricted) {
       if (userPermLevel === CommandPermissionLevel.Manager) {
@@ -48,11 +47,11 @@ export class CommandExecutor {
       } else {
         await interaction.reply({ content: 'Commands are locked down.', ephemeral: true });
       };
-    } else if (canCallCommand) {
+    } else {
       const command = this.commandFactory.getCommand(interaction.commandName);
 
-      if (command) {
-        if (userPermLevel >= command.permissionLevel) {
+      if (command && this.canUserCallCommand(command, userPermLevel)) {
+        if (this.canUserCallCommandInChannel(command, userPermLevel, interaction, guildInfo)) {
           try {
             const log = `${interaction.user.username} called the '${command.data.name}' command.`;
             await this.logger.writeLog(log);
@@ -62,16 +61,38 @@ export class CommandExecutor {
             await this.logger.writeError(err as Error);
           };
         } else {
-          await interaction.reply({ content: 'You cannot use that command.', ephemeral: true });
+          await interaction.reply({ content: 'You cannot use that command here.', ephemeral: true });
         };
+      } else {
+        await interaction.reply({ content: 'You cannot use that command.', ephemeral: true });
       };
+    };
+  };
+
+  private canUserCallCommand(
+    command: BotCommand<string | null, string | null, string | null>,
+    userPermLevel: CommandPermissionLevel
+  ) {
+    return userPermLevel >= command.permissionLevel;
+  };
+
+  private canUserCallCommandInChannel(
+    command: BotCommand<string | null, string | null, string | null>,
+    userPermLevel: CommandPermissionLevel,
+    interaction: ChatInputCommandInteraction,
+    guildInfo: GuildInfo
+  ) {
+    if (command.type === CommandType.Game) {
+      return guildInfo.gameServerChannels.find(channel => channel.channelId === interaction.channelId) !== undefined;
     } else {
-      await interaction.reply({ content: 'You cannot use a command here.', ephemeral: true });
+      return userPermLevel > CommandPermissionLevel.Trusted
+        || 0 === guildInfo.botChannelIds.length
+        || guildInfo.botChannelIds.includes(interaction.channelId);
     };
   };
 
   private async identifyInvokerPermissionLevel(interaction: ChatInputCommandInteraction, guildInfo: GuildInfo) {
-    let currentGuild = await this.discordClient.guilds.cache.get(guildInfo.guildId);
+    let currentGuild = this.discordClient.guilds.cache.get(guildInfo.guildId);
     if (currentGuild && interaction.member) {
       return this.identifyUserPermissionLevelFromGuildInfo(
         currentGuild,
