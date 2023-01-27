@@ -4,6 +4,7 @@ import { EventEmitter } from 'events';
 import { unlink } from 'fs/promises';
 import { Socket } from 'net';
 import { Configuration } from '@modules/configuration';
+import { Logger } from '@modules/logging';
 import { 
   OpenRCT2PluginAdapter,
   PluginActions
@@ -80,6 +81,7 @@ export class OpenRCT2ServerController extends EventEmitter {
   private static readonly exePathKey = 'openRCT2ExecutablePath';
   private static readonly startupTimeoutMs = 30000;
 
+  private readonly logger: Logger;
   private readonly scenarioRepo: ScenarioRepository;
   private readonly serverHostRepo: ServerHostRepository;
   private readonly openRCT2ExecutablePath: string;
@@ -90,10 +92,12 @@ export class OpenRCT2ServerController extends EventEmitter {
 
   constructor(
     config: Configuration,
+    logger: Logger,
     scenarioRepo: ScenarioRepository,
     serverHostRepo: ServerHostRepository
   ) {
     super();
+    this.logger = logger;
     this.scenarioRepo = scenarioRepo;
     this.serverHostRepo = serverHostRepo;
     const exePath = config.getValue<string>(OpenRCT2ServerController.exePathKey);
@@ -513,7 +517,7 @@ export class OpenRCT2ServerController extends EventEmitter {
           resolve();
         });
       });
-      pluginAdapter = new OpenRCT2PluginAdapter(client);
+      pluginAdapter = new OpenRCT2PluginAdapter(client, this.logger);
     };
 
     return new OpenRCT2Server(serverId, gameInstance, scenarioFile, pluginAdapter);

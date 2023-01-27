@@ -1,5 +1,6 @@
 import { Socket } from 'net';
 import { EventEmitter } from 'events';
+import { Logger } from '@modules/logging';
 
 export declare interface OpenRCT2PluginAdapter {
 
@@ -49,10 +50,13 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
   private static readonly timeoutMs = 10000;
 
   private readonly client: Socket;
+  private readonly logger: Logger;
 
-  constructor(client: Socket) {
+  constructor(client: Socket, logger: Logger) {
     super();
     this.client = client;
+    this.logger = logger;
+
     this.client.on('data', data => this.onData(data));
     this.setMaxListeners(20);
   };
@@ -101,6 +105,7 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
    */
   private onData(data: Buffer) {
     const dataStr = data.toString('utf8');
+    this.logger.writeLog(dataStr);
     const responseMatch = dataStr.match(OpenRCT2PluginAdapter.actionResponseRegex);
     if (responseMatch) { // action response
       const actionName = responseMatch[1];
