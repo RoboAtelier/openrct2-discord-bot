@@ -130,8 +130,8 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
         };
       };
     } catch (err) {
-      this.logger.writeErrorFromObject(data);
       this.logger.writeError(err as Error);
+      this.logger.writeErrorFromObject(data);
     };
   };
 };
