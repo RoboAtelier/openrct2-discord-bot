@@ -2,13 +2,10 @@ export const ServerAdapterPluginCode =
 `var serverId = 0;
 var port = 0;
 
-var connection = null;
-
 function main() {
 	var server = network.createListener();
 	server.on('connection', function (conn) {
-		connection = conn;
-		connection.on('data', function(data) {
+		conn.on('data', function(data) {
 			try {
 				var dataString = data.toString('utf8');
 				var args = dataString.split(';');
@@ -17,12 +14,12 @@ function main() {
 				
 				if ('chat' === actionQuery) {
 					network.sendMessage(args[2]);
-					connection.write('chat'.concat(
+					conn.write('chat'.concat(
 						';',
 						userId
 					));
 				} else if ('scenario' === actionQuery) {
-					connection.write('scenario'.concat(
+					conn.write('scenario'.concat(
 						';',
 						userId,
 						';',
@@ -45,7 +42,7 @@ function main() {
 						// position: { x: map.size.x / 2 * 32, y: map.size.y / 2 * 32 }
 					};
 					context.captureImage(screenshotParams);
-					connection.write('screenshot'.concat(
+					conn.write('screenshot'.concat(
 						';',
 						userId,
 						';',
@@ -57,7 +54,7 @@ function main() {
 			};
 		});
 
-		context.subscribe('network.chat', function(eventArgs) { onNetworkChat(eventArgs); });
+		context.subscribe('network.chat', function(eventArgs) { onNetworkChat(eventArgs, conn); });
 	});
 
 	server.listen(port, 'localhost');
@@ -68,13 +65,14 @@ function main() {
 	));
 };
 
-function onNetworkChat(eventArgs) {
-	if (!(0 === eventArgs.player && eventArgs.message.startsWith('{DISCORD}'))) {
-		connection.write('network.chat'.concat(
-			';',
-			network.players[eventArgs.player].name.concat(': ', eventArgs.message)
-		));
-	};
+function onNetworkChat(eventArgs, conn) {
+	console.log(eventArgs);
+	// if (!(0 === eventArgs.player && eventArgs.message.startsWith('{DISCORD}'))) {
+	// 	conn.write('network.chat'.concat(
+	// 		';',
+	// 		network.players[eventArgs.player].name.concat(': ', eventArgs.message)
+	// 	));
+	// };
 };
 
 registerPlugin({
