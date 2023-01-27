@@ -21,18 +21,39 @@ export class Logger {
   async writeLog(log: string) {
     const logFileName = `${this.getDateString(new Date())}.log`;
     const fullLog = `[${createDateTimestamp()}] ${log}${EOL}`;
-    await this.logDir.appendFileExclusive(logFileName, fullLog);
+    await this.writeToLogFile(fullLog, logFileName);
+  };
+
+  async writeLogFromObject(obj: any) {
+    await this.writeLog(obj.toString());
   };
 
   /**
    * Adds an error message to today's error log file.
    * @async
-   * @param err The error object to write with its message and stack data.
+   * @param err The error object or message to write with its message and stack data.
    */
-  async writeError(err: Error) {
+  async writeError(err: Error | string) {
     const logFileName = `${this.getDateString(new Date())}.error`;
-    const fullLog = `[${createDateTimestamp()}] ${err.message}${err.stack ? ` ${err.stack}` : ''}${EOL}`;
-    await this.logDir.appendFileExclusive(logFileName, fullLog);
+    const fullLog = typeof err === 'string'
+      ? `[${createDateTimestamp()}] ${err}`
+      : `[${createDateTimestamp()}] ${err.message}${err.stack ? ` ${err.stack}` : ''}${EOL}`
+    await this.writeToLogFile(fullLog, logFileName);
+  };
+
+  async writeErrorFromObject(obj: any) {
+    await this.writeError(obj.toString());
+  };
+
+  /**
+   * Writes a log to the target log file.
+   * @async
+   * @param log The log message to write.
+   * @param logFileName The name of the log file to write to.
+   */
+  private async writeToLogFile(log: string, logFileName: string) {
+    await this.logDir.appendFileExclusive(logFileName, log);
+    console.log(log);
   };
 
   private getDateString(date: Date) {
