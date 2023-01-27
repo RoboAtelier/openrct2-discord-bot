@@ -106,6 +106,7 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
   private onData(data: Buffer) {
     try {
       const dataStr = data.toString('utf8');
+      this.logger.writeLog(dataStr);
       const responseMatch = dataStr.match(OpenRCT2PluginAdapter.actionResponseRegex);
       if (responseMatch) { // action response
         const actionName = responseMatch[1];
