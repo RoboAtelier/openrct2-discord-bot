@@ -53,12 +53,23 @@ function main() {
 				console.log(data);
 			};
 		});
+
+		context.subscribe('network.chat', function(eventArgs) { return onNetworkChat(eventArgs, conn); });
 	});
 	server.listen(port, 'localhost');
 	console.log('Adapter plugin for server '.concat(
 		serverId,
 		' is active!'
 	));
+};
+
+function onNetworkChat(eventArgs, conn) {
+	if (!(0 === eventArgs.player && eventArgs.message.startsWith('{DISCORD}'))) {
+		conn.write('nework.chat'.concat(
+			';',
+			network.players[eventArgs.player].name.concat(': ', eventArgs.message)
+		));
+	};
 };
 
 registerPlugin({

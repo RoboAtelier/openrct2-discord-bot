@@ -51,14 +51,12 @@ export class ServerCommand extends BotCommand<
   ServerCommandSubcommands,
   ServerCommandSubcommandGroups
 > {
-  private readonly botDataRepo: BotDataRepository;
   private readonly pluginRepo: PluginRepository;
   private readonly scenarioRepo: ScenarioRepository;
   private readonly serverHostRepo: ServerHostRepository;
   private readonly openRCT2ServerController: OpenRCT2ServerController;
 
   constructor(
-    botDataRepo: BotDataRepository,
     pluginRepo: PluginRepository,
     scenarioRepo: ScenarioRepository,
     serverHostRepo: ServerHostRepository,
@@ -263,7 +261,6 @@ export class ServerCommand extends BotCommand<
           )
       );
 
-    this.botDataRepo = botDataRepo;
     this.pluginRepo = pluginRepo;
     this.scenarioRepo = scenarioRepo;
     this.serverHostRepo = serverHostRepo;
@@ -273,12 +270,6 @@ export class ServerCommand extends BotCommand<
   /** @override */
   async execute(interaction: ChatInputCommandInteraction, userLevel: CommandPermissionLevel) {
     let commandResponse = new CommandResponseBuilder();
-
-    const guildInfo = await this.botDataRepo.getGuildInfo();
-    if (isStringNullOrWhiteSpace(guildInfo.eventChannelId)) {
-      await interaction.reply(`Assign the ${italic('Event Channel')} with the ${inlineCode('/channel')} command first.`);
-      return;
-    };
 
     if (this.isInteractionUsingSubcommand(interaction, 'create')) {
       if (userLevel > CommandPermissionLevel.Trusted) {

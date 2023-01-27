@@ -4,7 +4,10 @@ import { EventEmitter } from 'events';
 import { unlink } from 'fs/promises';
 import { Socket } from 'net';
 import { Configuration } from '@modules/configuration';
-import { OpenRCT2PluginAdapter } from '@modules/openrct2/adapters';
+import { 
+  OpenRCT2PluginAdapter,
+  PluginActions
+} from '@modules/openrct2/adapters';
 import {
   PluginOptions,
   ScenarioFile,
@@ -335,10 +338,34 @@ export class OpenRCT2ServerController extends EventEmitter {
   /**
    * 
    * @param serverId 
+   * @param action 
+   * @param userId 
+   * @param args 
+   * @returns 
+   */
+  async executePluginAction<A extends keyof PluginActions>(
+    serverId: number,
+    action: A,
+    userId: string,
+    args?: PluginActions[A]
+  ) {
+    const gameServer = this.getActiveGameServerById(serverId);
+    if (gameServer) {
+      if (gameServer.pluginAdapter) {
+        return gameServer.pluginAdapter.executeAction(action, userId, args);
+      };
+      throw new Error(`Could not run plugin action. Server ${serverId} does not have the adapter plugin active.`);
+    };
+    throw new Error(`Could not run plugin action. Server ${serverId} is not active.`);
+  };
+
+  /**
+   * 
+   * @param serverId 
    * @param userId 
    */
   async createServerScreenshot(serverId: number, userId: string) {
-    const gameServer = this.gameServers.get(serverId);
+    const gameServer = this.getActiveGameServerById(serverId);
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
     const startupOptions = await serverDir.getStartupOptions();
 

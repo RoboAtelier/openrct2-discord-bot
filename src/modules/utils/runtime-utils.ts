@@ -1,5 +1,5 @@
 /**
- * Asynchronously pauses a task for the specified amount of time.
+ * Asynchronously pauses a task for the specified amount of time (default ms).
  * @async
  * @param value The amount of time to wait for.
  * @param unit The unit of time.

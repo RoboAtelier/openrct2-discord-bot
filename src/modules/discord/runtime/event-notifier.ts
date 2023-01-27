@@ -1,25 +1,33 @@
+import { EOL } from 'os';
 import { Mutex } from 'async-mutex';
 import { 
   bold,
   italic,
   underscore,
   Client,
-  MessagePayload,
-  Snowflake
+  Snowflake,
+  TextBasedChannel
 } from 'discord.js';
 import { BotDataRepository } from '@modules/discord/data/repositories';
 import { Logger } from '@modules/logging';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 import { ServerEventArgs } from '@modules/openrct2/runtime';
 import { ScenarioFile } from '@modules/openrct2/data/models';
+import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
+import { wait } from '@modules/utils/runtime-utils';
 
 export class EventNotifier {
+  private static readonly formatCodeRegex = /{[A-Z0-9_]+}/g;
   private static readonly messageIntervalMs = 250;
+  private static readonly deferredMessageIntervalMs = 5000;
 
   private readonly discordClient: Client<true>;
   private readonly logger: Logger;
   private readonly botDataRepo: BotDataRepository;
+  private readonly deferTimeouts = new Map<Snowflake, NodeJS.Timeout>();
+  private readonly deferredMessages = new Map<Snowflake, string>();
   private readonly messageMutex = new Mutex();
+  private readonly deferredMessageMutex = new Mutex();
 
   constructor(
     discordClient: Client<true>,
@@ -36,7 +44,7 @@ export class EventNotifier {
     openRCT2ServerController.on('server.stop', args => this.onServerStop(args));
     openRCT2ServerController.on('server.close', args => this.onServerClose(args));
     openRCT2ServerController.on('server.error', args => this.onServerError(args));
-    //openRCT2ServerController.on('server.network.chat', args => this.onServerChat(args));
+    openRCT2ServerController.on('server.network.chat', args => this.onServerChat(args));
     openRCT2ServerController.on('server.defer.start', args => this.onServerDeferStart(args));
     openRCT2ServerController.on('server.defer.stop', args => this.onServerDeferStop(args));
     openRCT2ServerController.on('server.scenario.complete', args => this.onServerScenarioComplete(args));
@@ -74,19 +82,10 @@ export class EventNotifier {
     await this.logger.writeError(args.data);
   };
 
-  // private async onServerChat(args: ServerEventArgs<string>) {
-  //   try {
-  //     const guildInfo = await this.botDataRepo.getGuildInfo();
-  //     const serverChannel = guildInfo.gameServerChannelIds.find(channel => {
-  //       return channel.serverId === args.serverId;
-  //     });
-  //     if (serverChannel) {
-  //       await this.discordMessenger.sendMessageToTextChannel(serverChannel.channelId, args.data);
-  //     };
-  //   } catch (err) {
-  //     // logging
-  //   };
-  // };
+  private async onServerChat(args: ServerEventArgs<string>) {
+    const sanitizedChat = args.data.replace(EventNotifier.formatCodeRegex, '');
+    await this.postGameServerChat(args.serverId, args.data);
+  };
 
   private async onServerDeferStart(args: ServerEventArgs<{ scenarioFile: ScenarioFile, delayDuration: number }>) {
     const eventMsg = `${underscore(italic(`Server ${args.serverId}`))} is starting the ${
@@ -112,20 +111,64 @@ export class EventNotifier {
     await this.postEvent(eventMsg);
   };
 
-  private async postEvent(messagePayload: MessagePayload | string) {
+  private async postEvent(messageString: string) {
+    const guildInfo = await this.botDataRepo.getGuildInfo();
+    if (!isStringNullOrWhiteSpace(guildInfo.eventChannelId)) {
+      try {
+        const textChannel = await this.resolveTextChannel(guildInfo.eventChannelId);
+        await this.postMessage(textChannel, messageString);
+      } catch { };
+    };
+  };
+
+  private async postGameServerChat(serverId: number, messageString: string) {
+    const guildInfo = await this.botDataRepo.getGuildInfo();
+    const gameServerChannel = guildInfo.gameServerChannels.find(channel => channel.serverId === serverId);
+    if (gameServerChannel && !isStringNullOrWhiteSpace(gameServerChannel.channelId)) {
+      try {
+        const textChannel = await this.resolveTextChannel(gameServerChannel.channelId);
+        await this.postDeferredMessage(textChannel, messageString);
+      } catch { };
+    };
+  };
+
+  private async postMessage(textChannel: TextBasedChannel, messageString: string) {
     try {
-      const guildInfo = await this.botDataRepo.getGuildInfo();
-      const channel = await this.resolveTextChannel(guildInfo.eventChannelId);
       return this.messageMutex.runExclusive(async () => {
-        const msg = await channel.send(messagePayload);
-        await new Promise(resolve => {
-          setTimeout(resolve, EventNotifier.messageIntervalMs);
-        });
+        await this.logger.writeLog(`Channel Id: ${textChannel.id} | Message: ${messageString}`);
+        const msg = await textChannel.send(messageString);
+        await wait(EventNotifier.messageIntervalMs);
         return msg;
       });
     } catch (err) {
       await this.logger.writeError(err as Error);
     };
+  };
+
+  private async postDeferredMessage(textChannel: TextBasedChannel, messageString: string) {
+    await this.deferredMessageMutex.runExclusive(() => {
+      const currentTimeout = this.deferTimeouts.get(textChannel.id);
+      if (currentTimeout) {
+        const deferredMessage = this.deferredMessages.get(textChannel.id)!;
+        this.deferredMessages.set(textChannel.id, `${deferredMessage}${EOL}${messageString}`);
+      } else {
+        const timeout = setTimeout(() => {
+          this.deferredMessageMutex.runExclusive(async () => {
+            try {
+              const deferredMessage = this.deferredMessages.get(textChannel.id)!;
+              await this.logger.writeLog(`Channel Id: ${textChannel.id} | Deferred Message: ${deferredMessage}`);
+              await textChannel.send(deferredMessage);
+            } catch (err) {
+              await this.logger.writeError(err as Error);
+            };
+            this.deferTimeouts.delete(textChannel.id);
+            this.deferredMessages.delete(textChannel.id);
+          });
+        }, EventNotifier.deferredMessageIntervalMs);
+        this.deferTimeouts.set(textChannel.id, timeout);
+        this.deferredMessages.set(textChannel.id, messageString);
+      };
+    });
   };
 
   private async resolveTextChannel(channelId: Snowflake) {

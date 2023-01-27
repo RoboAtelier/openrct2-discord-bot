@@ -24,7 +24,7 @@ export class CommandFactory {
     openRCT2ServerController: OpenRCT2ServerController
   ) {
     const commands: Commands.BotCommand<string | null, string | null, string | null>[] = [
-      new Commands.ServerCommand(botDataRepo, pluginRepo, scenarioRepo, serverHostRepo, openRCT2ServerController),
+      new Commands.ServerCommand(pluginRepo, scenarioRepo, serverHostRepo, openRCT2ServerController),
       new Commands.MasterServerCommand(config, openRCT2MasterServer),
       new Commands.VoteCommand(logger, botDataRepo, scenarioRepo, serverHostRepo, openRCT2ServerController),
       new Commands.ScenarioCommand(scenarioRepo),
