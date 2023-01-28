@@ -71,23 +71,26 @@ function main() {
 function onNetworkChat(eventArgs, conn) {
 	if (!(0 === eventArgs.player && eventArgs.message.startsWith('{DISCORD}'))) {
 		conn.write('network.chat'.concat(
-			'_',
-			network.players[eventArgs.player].name.concat(': ', eventArgs.message)
+			'_e_',
+			JSON.stringify({
+				playerName: network.players[eventArgs.player].name,
+				message: eventArgs.message
+			})
 		));
 	};
 };
 
 function onNetworkJoin(eventArgs, conn) {
 	conn.write('network.join'.concat(
-		'_',
-		network.players[eventArgs.player].name.concat(' has joined the game')
+		'_e_',
+		network.players[eventArgs.player].name
 	));
 };
 
 function onNetworkLeave(eventArgs, conn) {
 	conn.write('network.leave'.concat(
-		'_',
-		network.players[eventArgs.player].name.concat(' has disconnected')
+		'_e_',
+		network.players[eventArgs.player].name
 	));
 };
 

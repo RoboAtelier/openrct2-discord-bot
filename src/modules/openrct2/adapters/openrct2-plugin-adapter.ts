@@ -46,7 +46,7 @@ export class PluginEventArgs {
  */
 export class OpenRCT2PluginAdapter extends EventEmitter {
   private static readonly actionResponseRegex = /^([a-z.]+)_([0-9]+)_(.*)$/;
-  private static readonly serverEventRegex = /^([a-z.]+)_(.*)$/;
+  private static readonly serverEventRegex = /^([a-z.]+)_e_(.*)$/;
   private static readonly timeoutMs = 10000;
 
   private readonly client: Socket;

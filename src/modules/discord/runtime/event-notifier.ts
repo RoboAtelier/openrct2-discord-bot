@@ -84,17 +84,19 @@ export class EventNotifier {
     await this.logger.writeError(args.data);
   };
 
-  private async onServerNetworkChat(args: ServerEventArgs<string>) {
-    const sanitizedChat = args.data.replace(EventNotifier.formatCodeRegex, '');
-    await this.postGameServerChat(args.serverId, sanitizedChat);
+  private async onServerNetworkChat(args: ServerEventArgs<{ playerName: string, message: string }>) {
+    const sanitizedMsg = args.data.message.replace(EventNotifier.formatCodeRegex, '');
+    await this.postGameServerChat(args.serverId, `${bold(`${args.data.playerName}:`)} ${sanitizedMsg}`);
   };
 
-  private async onServerNetworkJoin(args: ServerEventArgs<string>) {
-    await this.postGameServerChat(args.serverId, args.data);
+  private async onServerNetworkJoin(args: ServerEventArgs<{ playerName: string }>) {
+    const eventMsg = `${bold(args.data.playerName)} has joined the game`;
+    await this.postGameServerChat(args.serverId, eventMsg);
   };
 
-  private async onServerNetworkLeave(args: ServerEventArgs<string>) {
-    await this.postGameServerChat(args.serverId, args.data);
+  private async onServerNetworkLeave(args: ServerEventArgs<{ playerName: string }>) {
+    const eventMsg = `${bold(args.data.playerName)} has disconnected`;
+    await this.postGameServerChat(args.serverId, eventMsg);
   };
 
   private async onServerDeferStart(args: ServerEventArgs<{ scenarioFile: ScenarioFile, delayDuration: number }>) {

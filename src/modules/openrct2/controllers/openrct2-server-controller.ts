@@ -65,9 +65,16 @@ export interface OpenRCT2ServerControllerEvents {
     signal: NodeJS.Signals | null
   };
   'server.error': Error;
-  'server.network.chat': string;
-  'server.network.join': string;
-  'server.network.leave': string;
+  'server.network.chat': {
+    playerName: string,
+    message: string
+  };
+  'server.network.join': {
+    playerName: string;
+  };
+  'server.network.leave': {
+    playerName: string;
+  };
   'server.defer.start': {
     scenarioFile: ScenarioFile,
     delayDuration: number
@@ -231,14 +238,30 @@ export class OpenRCT2ServerController extends EventEmitter {
 
       const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
       const startupOptions = await serverDir.getStartupOptions();
-      const startTime = Date.now() + (startupOptions.delayDuration * 60000);
+      const now = Date.now();
+      const startTime = now + (startupOptions.delayDuration * 60000);
+      let remainingMinutes = startupOptions.delayDuration;
+      let nextNoticeTime = now;
 
-      this.emit(
-        'server.defer.start',
-        new ServerEventArgs(serverId, { scenarioFile: scenarioFile, delayDuration: startupOptions.delayDuration })
-      );
       await new Promise<void>(async resolve => {
         while (Date.now() < startTime && this.activeDeferrals.get(serverId)) {
+          if (Date.now() >= nextNoticeTime && nextNoticeTime < startTime) {
+            this.emit(
+              'server.defer.start',
+              new ServerEventArgs(serverId, { scenarioFile: scenarioFile, delayDuration: remainingMinutes })
+            );
+            const gameServer = this.getActiveGameServerById(serverId);
+            if (gameServer && gameServer.pluginAdapter) {
+              try {
+                const alert = `{YELLOW}Announcement: {WHITE}The server will change scenarios in ${remainingMinutes} ${
+                  remainingMinutes > 1 ? 'minutes' : 'minute'
+                }. Remember to save your game as needed.`
+                await gameServer.pluginAdapter.executeAction('chat', `${serverId}`, alert);
+              } catch { };
+            };
+            --remainingMinutes;
+            nextNoticeTime += 60000;
+          };
           await wait(1, 's');
         };
         if (this.activeDeferrals.get(serverId)) {
@@ -585,11 +608,11 @@ export class OpenRCT2ServerController extends EventEmitter {
       ));
       gameServer.on('network.join', args => this.emit(
         'server.network.join',
-        new ServerEventArgs(args.serverId, args.data)
+        new ServerEventArgs(args.serverId, { playerName: args.data })
       ));
       gameServer.on('network.leave', args => this.emit(
         'server.network.leave',
-        new ServerEventArgs(args.serverId, args.data)
+        new ServerEventArgs(args.serverId, { playerName: args.data })
       ));
       gameServer.on('scenario.update', args => this.onServerScenarioUpdate(args));
     };

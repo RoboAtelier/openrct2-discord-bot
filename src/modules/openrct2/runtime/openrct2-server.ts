@@ -41,7 +41,10 @@ export interface OpenRCT2ServerEvents {
     currentScenarioFileName: string;
     scenarioStatus: 'inProgress' | 'completed' | 'failed';
   };
-  'network.chat': string;
+  'network.chat': {
+    playerName: string;
+    message: string;
+  };
   'network.join': string;
   'network.leave': string;
 };
