@@ -68,12 +68,21 @@ function main() {
 	));
 };
 
+function getPlayerById(id) {
+	for (var i = 0; i < network.players.length; ++i) {
+		if (network.players[i].id === id) {
+			return network.players[i];
+		};
+	};
+	return null;
+}
+
 function onNetworkChat(eventArgs, conn) {
 	if (!(0 === eventArgs.player && eventArgs.message.startsWith('{DISCORD}'))) {
 		conn.write('network.chat'.concat(
 			'_e_',
 			JSON.stringify({
-				playerName: network.players[eventArgs.player].name,
+				playerName: getPlayerById(eventArgs.player).name,
 				message: eventArgs.message
 			})
 		));
@@ -83,14 +92,14 @@ function onNetworkChat(eventArgs, conn) {
 function onNetworkJoin(eventArgs, conn) {
 	conn.write('network.join'.concat(
 		'_e_',
-		network.players[eventArgs.player].name
+		getPlayerById(eventArgs.player).name
 	));
 };
 
 function onNetworkLeave(eventArgs, conn) {
 	conn.write('network.leave'.concat(
 		'_e_',
-		network.players[eventArgs.player].name
+		getPlayerById(eventArgs.player).name
 	));
 };
 
