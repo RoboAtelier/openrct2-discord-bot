@@ -406,7 +406,7 @@ export class OpenRCT2ServerController extends EventEmitter {
           result.screenshotFilePath = await this.openRCT2ProcessEngine.createScenarioScreenshot(
             latestAutosave,
             serverDir.getSubdirectoryPath(OpenRCT2ServerSubdirectoryName.Screenshot),
-            `s${serverId}`
+            `s${serverId}_screenshot`
           );
           result.scenarioName = initiatedScenario ? initiatedScenario.nameNoExtension : latestAutosave.nameNoExtension;
         };
