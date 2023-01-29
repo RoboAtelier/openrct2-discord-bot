@@ -1,24 +1,14 @@
-import path from 'path';
-import { spawn } from 'child_process';
 import { EventEmitter } from 'events';
-import { unlink } from 'fs/promises';
-import { Socket } from 'net';
-import { Configuration } from '@modules/configuration';
 import { Logger } from '@modules/logging';
-import { 
-  OpenRCT2PluginAdapter,
-  PluginActions
-} from '@modules/openrct2/adapters';
-import {
-  PluginOptions,
-  ScenarioFile,
-  StartupOptions
-} from '@modules/openrct2/data/models';
+import { PluginActions } from '@modules/openrct2/adapters';
+import { ScenarioFile } from '@modules/openrct2/data/models';
 import {
   ServerHostRepository,
   ScenarioRepository
 } from '@modules/openrct2/data/repositories';
+import { OpenRCT2ServerSubdirectoryName } from '@modules/openrct2/data/types';
 import { 
+  OpenRCT2ProcessEngine,
   OpenRCT2Server,
   ServerEventArgs
 } from '@modules/openrct2/runtime';
@@ -91,26 +81,26 @@ export class OpenRCT2ServerController extends EventEmitter {
   private static readonly startupTimeoutMs = 30000;
 
   private readonly logger: Logger;
+  private readonly openRCT2ProcessEngine: OpenRCT2ProcessEngine;
   private readonly scenarioRepo: ScenarioRepository;
   private readonly serverHostRepo: ServerHostRepository;
-  private readonly openRCT2ExecutablePath: string;
+
   private readonly gameServers = new Map<number, OpenRCT2Server>();
   private readonly activeStarts = new Map<number, boolean>();
   private readonly activeDeferrals = new Map<number, ScenarioFile | null>();
   private readonly activeProcesses = new Map<number, boolean>();
 
   constructor(
-    config: Configuration,
     logger: Logger,
+    openRCT2ProcessEngine: OpenRCT2ProcessEngine,
     scenarioRepo: ScenarioRepository,
     serverHostRepo: ServerHostRepository
   ) {
     super();
     this.logger = logger;
+    this.openRCT2ProcessEngine = openRCT2ProcessEngine;
     this.scenarioRepo = scenarioRepo;
     this.serverHostRepo = serverHostRepo;
-    const exePath = config.getValue<string>(OpenRCT2ServerController.exePathKey);
-    this.openRCT2ExecutablePath = path.resolve(exePath);
   };
 
   getActiveGameServerById(serverId: number) {
@@ -163,7 +153,7 @@ export class OpenRCT2ServerController extends EventEmitter {
         status.lastStartupTime = new Date();
         ++metadata.plays;
 
-        const gameServer = await this.createGameServerInstance(
+        const gameServer = await this.openRCT2ProcessEngine.createGameServerInstance(
           serverId,
           serverDir.path,
           scenarioFile,
@@ -208,7 +198,7 @@ export class OpenRCT2ServerController extends EventEmitter {
     
         status.lastStartupTime = new Date();
 
-        const gameServer = await this.createGameServerInstance(
+        const gameServer = await this.openRCT2ProcessEngine.createGameServerInstance(
           serverId,
           serverDir.path,
           latestAutosave,
@@ -413,7 +403,11 @@ export class OpenRCT2ServerController extends EventEmitter {
           const latestAutosave = await serverDir.getScenarioAutosave();
           const status = await serverDir.getStatus();
           const initiatedScenario = await this.scenarioRepo.getScenarioByName(status.initiatedScenarioFileName);
-          result.screenshotFilePath = await this.createScenarioScreenshot(latestAutosave, `s${serverId}`);
+          result.screenshotFilePath = await this.openRCT2ProcessEngine.createScenarioScreenshot(
+            latestAutosave,
+            serverDir.getSubdirectoryPath(OpenRCT2ServerSubdirectoryName.Screenshot),
+            `s${serverId}`
+          );
           result.scenarioName = initiatedScenario ? initiatedScenario.nameNoExtension : latestAutosave.nameNoExtension;
         };
 
@@ -428,124 +422,8 @@ export class OpenRCT2ServerController extends EventEmitter {
     throw new Error(`Server ${serverId} is busy with another process.`);
   };
 
-  /**
-   * 
-   * @param scenarioFile 
-   * @param screenshotName 
-   */
-  async createScenarioScreenshot(scenarioFile: ScenarioFile, screenshotName = '') {
-    const screenshotFilePath = isStringNullOrWhiteSpace(screenshotName)
-      ? path.join(this.serverHostRepo.dirPath, `${scenarioFile.nameNoExtension}.png`)
-      : path.join(this.serverHostRepo.dirPath, `${screenshotName}.png`);
+  async createCurrentScenarioSave(serverId: number) {
 
-    try {
-      await unlink(screenshotFilePath);
-    } catch { };
-
-    const args = [
-      'screenshot',
-      scenarioFile.path,
-      screenshotFilePath,
-      'giant',
-      '2', // zoom
-      '0' // rotation
-      // transparent by default
-    ];
-
-    const screenshotProcess = spawn(
-      this.openRCT2ExecutablePath,
-      args,
-      { stdio: ['ignore', 'pipe', 'ignore'] }
-    );
-    await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Screenshot generation timed out.'));
-      }, OpenRCT2ServerController.startupTimeoutMs);
-      screenshotProcess.on('exit', async (code, signal) => {
-        clearTimeout(timeout);
-        resolve({ code: code, signal: signal });
-      });
-      screenshotProcess.on('error', err => {
-        reject(err);
-      });
-      screenshotProcess.stdout.on('data', data => {}); // flush output stream
-    });
-
-    return screenshotFilePath;
-  };
-
-  private async createGameServerInstance(
-    serverId: number,
-    openRCT2DataPath: string,
-    scenarioFile: ScenarioFile,
-    startupOptions: StartupOptions,
-    pluginOptions: PluginOptions
-  ) {
-    const params = ['host', scenarioFile.path, '--user-data-path', openRCT2DataPath, '--port'];
-    if (startupOptions.port < Math.pow(2, 10) + 1 || startupOptions.port > Math.pow(2, 16) - 1) {
-      throw new Error(`Invalid port number specified: ${startupOptions.port}`);
-    };
-    params.push(startupOptions.port.toString());
-    if (!isStringNullOrWhiteSpace(startupOptions.password)) {
-      params.push('--password');
-      params.push(startupOptions.password);
-    };
-    if (startupOptions.headless) {
-      params.push('--headless');
-    };
-    if (startupOptions.verbose) {
-      params.push('--verbose');
-    };
-
-    const gameInstance = spawn(
-      this.openRCT2ExecutablePath,
-      params,
-      { stdio: ['ignore', 'pipe', 'ignore'] }
-    );
-    
-    let launched = false;
-    let adapterPlugin = !pluginOptions.useBotPlugins;
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        gameInstance.kill('SIGKILL');
-        reject(new Error('The game instance failed to start correctly.'))
-      }, OpenRCT2ServerController.startupTimeoutMs);
-      gameInstance.once('error', err => {
-        reject(err);
-      });
-      gameInstance.stdout.on('data', (data: Buffer) => {
-        const dataStr = data.toString('utf8');
-        if (dataStr.includes(`istening for clients on *:${startupOptions.port}`)) {
-          launched = true;
-        } else if (dataStr.includes(`pter plugin for server ${serverId} is active`)) {
-          adapterPlugin = true;
-        };
-        if (launched && adapterPlugin) {
-          clearTimeout(timeout);
-          gameInstance.stdout.removeAllListeners('data');
-          gameInstance.removeAllListeners('error');
-          resolve();
-        };
-      });
-    });
-
-    let pluginAdapter = null;
-    if (pluginOptions.useBotPlugins) {
-      const client = new Socket();
-      client.connect(pluginOptions.adapterPluginPort, 'localhost');
-      await new Promise<void>((resolve, reject) => {
-        client.once('error', err => {
-          reject(err);
-        });
-        client.once('connect', () => {
-          client.removeAllListeners('error');
-          resolve();
-        });
-      });
-      pluginAdapter = new OpenRCT2PluginAdapter(client, this.logger);
-    };
-
-    return new OpenRCT2Server(serverId, gameInstance, scenarioFile, pluginAdapter);
   };
 
   private onServerClose(args: ServerEventArgs<{ code: number | null, signal: NodeJS.Signals | null }>) {

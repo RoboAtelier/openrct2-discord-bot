@@ -75,7 +75,7 @@ function getPlayerById(id) {
 		};
 	};
 	return null;
-}
+};
 
 function onNetworkChat(eventArgs, conn) {
 	if (!(0 === eventArgs.player && eventArgs.message.startsWith('{DISCORD}'))) {
