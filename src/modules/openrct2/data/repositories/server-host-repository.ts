@@ -161,6 +161,7 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
   private readonly statusFile: ConcurrentObjectFile<ServerStatus>;
   private readonly autosaveSubdir: ConcurrentDirectory;
   private readonly chatLogsSubdir: ConcurrentDirectory;
+  private readonly saveSubdir: ConcurrentDirectory;
   private readonly screenshotSubdir: ConcurrentDirectory;
   private readonly serverLogsSubdir: ConcurrentDirectory;
   private readonly pluginSubdir: ConcurrentDirectory;
@@ -193,6 +194,9 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
     this.chatLogsSubdir = new ConcurrentDirectory(
       path.join(this.path, OpenRCT2ServerSubdirectoryName.ChatLogs)
     );
+    this.saveSubdir = new ConcurrentDirectory(
+      path.join(this.path, OpenRCT2ServerSubdirectoryName.Save)
+    )
     this.screenshotSubdir = new ConcurrentDirectory(
       path.join(this.path, OpenRCT2ServerSubdirectoryName.Screenshot)
     );
@@ -355,7 +359,7 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
    * or by a specified index.
    * @async
    * @param index The index of the requested autosave in the autosave set to return.
-   * @returns The full path of the requested autosave file in the autosave directory.
+   * @returns The full path of the requested autosave file in the `autosave` directory.
    */
   async getScenarioAutosave(index = 0) {
     const files = await this.autosaveSubdir.getFilesExclusive();
@@ -379,10 +383,32 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
   };
 
   /**
-   * Gets the screenshot file stored in the OpenRCT2 game server directory by name.
+   * Gets a scenario save file stored in the `save` subdirectory by name.
+   * @async
+   * @param name The name of the scenario file to return.
+   * @returns The full path of the requested save file in the `save` directory.
+   */
+  async getScenarioSaveByName(name: string) {
+    const files = await this.saveSubdir.getFilesExclusive();
+    const saves = files.filter(file => {
+      return ScenarioSaveFileExtensionArray.some(ext => file.name.endsWith(ext));
+    });
+    if (saves.length === 0) {
+      throw new Error('No autosaves found.');
+    };
+
+    const requestedSaveFile = saves.find(save => save.name === name);
+    if (requestedSaveFile) {
+      return new ScenarioFile(path.join(this.saveSubdir.path, requestedSaveFile.name));
+    };
+    throw new Error('A scenario save file with that name does not exist.');
+  };
+
+  /**
+   * Gets the screenshot file stored in the `screenshot` subdirectory by name.
    * @async
    * @param name The name of the screenshot file to return.
-   * @returns The full path of the requested screenshot file in the screenshot directory.
+   * @returns The full path of the requested screenshot file in the `screenshot` directory.
    */
   async getScreenshotByName(name: string) {
     const files = await this.screenshotSubdir.getFilesExclusive();
@@ -394,9 +420,10 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
   };
 
   /**
-   * Gets all the current plugin files stored in this OpenRCT2 game server directory.
+   * Gets the plugin file stored in the `plugin` subdirectory by name.
    * @async
-   * @returns An array of all the current plugin files in the plugin directory.
+   * @param name The name of the plugin file to return.
+   * @returns The full path of the requested plugin file in the `plugin` directory.
    */
   async getPluginFileByName(name: string) {
     const files = await this.pluginSubdir.getFilesExclusive();
@@ -409,7 +436,7 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
 
   /**
    * Adds plugin files to the OpenRCT2 game server directory
-   * if they are not currently in the plugin directory.
+   * if they are not currently in the `plugin` subdirectory.
    * @async
    * @param pluginFiles The plugin files to add.
    */
@@ -424,7 +451,7 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
   };
 
   /**
-   * Removes the specified plugin files from the OpenRCT2 game server directory.
+   * Removes the specified plugin files from the `plugin` subdirectory.
    * @async
    * @param pluginFileNames The name of the plugin files to remove.
    */
