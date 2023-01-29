@@ -19,6 +19,15 @@ function main() {
 						userId,
 						'_'
 					));
+				} else if ('save' === actionQuery) { // using legacy method, to change
+					var saveFileName = 's'.concat(serverId, '_save');
+					console.executeLegacy('save_park s'.concat(serverId, 'save'));
+					conn.write('save'.concat(
+						'_',
+						userId,
+						'_',
+						saveFileName
+					));
 				} else if ('scenario' === actionQuery) {
 					conn.write('scenario'.concat(
 						'_',
@@ -62,10 +71,7 @@ function main() {
 
 	server.listen(port, 'localhost');
 
-	console.log('Adapter plugin for server '.concat(
-		serverId,
-		' is active!'
-	));
+	console.log('Adapter plugin for server '.concat(serverId, ' is active!'));
 };
 
 function getPlayerById(id) {
