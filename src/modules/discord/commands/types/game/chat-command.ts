@@ -32,9 +32,9 @@ export class ChatCommand extends BotCommand<ChatCommandOptions, null, null> {
       .addStringOption(option =>
         option
           .setName(this.reflectOptionName('message'))
-          .setDescription('The chat message to send (max length 100).')
+          .setDescription('The chat message to send (max length 200).')
           .setMinLength(1)
-          .setMaxLength(100)
+          .setMaxLength(200)
           .setRequired(true)
       )
 
