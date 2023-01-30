@@ -17,7 +17,7 @@ function main() {
 					conn.write('chat'.concat(
 						'_',
 						userId,
-						'_\n'
+						'_\\n'
 					));
 				} else if ('save' === actionQuery) { // using legacy method, to change
 					var saveFileName = 's'.concat(serverId, '_save');
@@ -27,7 +27,7 @@ function main() {
 						userId,
 						'_',
 						saveFileName,
-						'\n'
+						'\\n'
 					));
 				} else if ('scenario' === actionQuery) {
 					conn.write('scenario'.concat(
@@ -40,7 +40,7 @@ function main() {
 							filename: scenario.filename,
 							status: scenario.status
 						}),
-						'\n'
+						'\\n'
 					));
 				} else if ('screenshot' === actionQuery) {
 					var screenshotFileName = scenario.name.concat('.png');
@@ -59,7 +59,7 @@ function main() {
 						userId,
 						'_',
 						screenshotFileName,
-						'\n'
+						'\\n'
 					));
 				};
 			} catch (err) {
@@ -94,7 +94,7 @@ function onNetworkChat(eventArgs, conn) {
 				playerName: removeNewLines(getPlayerById(eventArgs.player).name),
 				message: removeNewLines(eventArgs.message)
 			}),
-			'\n'
+			'\\n'
 		));
 	};
 };
@@ -103,7 +103,7 @@ function onNetworkJoin(eventArgs, conn) {
 	conn.write('network.join'.concat(
 		'_e_',
 		removeNewLines(getPlayerById(eventArgs.player).name),
-		'\n'
+		'\\n'
 	));
 };
 
@@ -111,12 +111,12 @@ function onNetworkLeave(eventArgs, conn) {
 	conn.write('network.leave'.concat(
 		'_e_',
 		removeNewLines(getPlayerById(eventArgs.player).name),
-		'\n'
+		'\\n'
 	));
 };
 
 function removeNewLines(str) {
-	return str.replace('\n', ' ').replace('\r', ' ');
+	return str.replace('\\n', ' ').replace('\\r', ' ');
 };
 
 registerPlugin({
