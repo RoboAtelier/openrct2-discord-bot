@@ -17,7 +17,7 @@ function main() {
 					conn.write('chat'.concat(
 						'_',
 						userId,
-						'_'
+						'_\n'
 					));
 				} else if ('save' === actionQuery) { // using legacy method, to change
 					var saveFileName = 's'.concat(serverId, '_save');
@@ -26,7 +26,8 @@ function main() {
 						'_',
 						userId,
 						'_',
-						saveFileName
+						saveFileName,
+						'\n'
 					));
 				} else if ('scenario' === actionQuery) {
 					conn.write('scenario'.concat(
@@ -34,11 +35,12 @@ function main() {
 						userId,
 						'_',
 						JSON.stringify({
-							name: scenario.name,
-							details: scenario.details,
+							name: removeNewLines(scenario.name),
+							details: removeNewLines(scenario.details),
 							filename: scenario.filename,
 							status: scenario.status
-						})
+						}),
+						'\n'
 					));
 				} else if ('screenshot' === actionQuery) {
 					var screenshotFileName = scenario.name.concat('.png');
@@ -56,7 +58,8 @@ function main() {
 						'_',
 						userId,
 						'_',
-						screenshotFileName
+						screenshotFileName,
+						'\n'
 					));
 				};
 			} catch (err) {
@@ -88,9 +91,10 @@ function onNetworkChat(eventArgs, conn) {
 		conn.write('network.chat'.concat(
 			'_e_',
 			JSON.stringify({
-				playerName: getPlayerById(eventArgs.player).name,
-				message: eventArgs.message
-			})
+				playerName: removeNewLines(getPlayerById(eventArgs.player).name),
+				message: removeNewLines(eventArgs.message)
+			}),
+			'\n'
 		));
 	};
 };
@@ -98,15 +102,21 @@ function onNetworkChat(eventArgs, conn) {
 function onNetworkJoin(eventArgs, conn) {
 	conn.write('network.join'.concat(
 		'_e_',
-		getPlayerById(eventArgs.player).name
+		removeNewLines(getPlayerById(eventArgs.player).name),
+		'\n'
 	));
 };
 
 function onNetworkLeave(eventArgs, conn) {
 	conn.write('network.leave'.concat(
 		'_e_',
-		getPlayerById(eventArgs.player).name
+		removeNewLines(getPlayerById(eventArgs.player).name),
+		'\n'
 	));
+};
+
+function removeNewLines(str) {
+	return str.replace('\n', ' ').replace('\r', ' ');
 };
 
 registerPlugin({
