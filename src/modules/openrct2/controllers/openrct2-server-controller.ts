@@ -107,10 +107,6 @@ export class OpenRCT2ServerController extends EventEmitter {
     return this.gameServers.get(serverId);
   };
 
-  isGameServerOnDelayedStart(serverId: number) {
-    return this.activeDeferrals.has(serverId);
-  };
-
   isGameServerStarting(serverId: number) {
     return this.activeStarts.has(serverId);
   };
@@ -422,8 +418,31 @@ export class OpenRCT2ServerController extends EventEmitter {
     throw new Error(`Server ${serverId} is busy with another process.`);
   };
 
-  async createCurrentScenarioSave(serverId: number) {
+  async createCurrentScenarioSave(serverId: number, userId: string) {
+    const gameServer = this.getActiveGameServerById(serverId);
+    const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
 
+    try {
+      if (gameServer && gameServer.pluginAdapter) {
+        const saveFileName = await gameServer.pluginAdapter.executeAction('save', userId);
+        return {
+          saveFile: await serverDir.getScenarioSaveByName(saveFileName),
+          scenarioName: await gameServer.getScenarioName(),
+          usedPlugin: true
+        };
+      } else {
+        const latestAutosave = await serverDir.getScenarioAutosave();
+        const status = await serverDir.getStatus();
+        const initiatedScenario = await this.scenarioRepo.getScenarioByName(status.initiatedScenarioFileName);
+        return {
+          saveFile: latestAutosave,
+          scenarioName: initiatedScenario ? initiatedScenario.nameNoExtension : latestAutosave.nameNoExtension,
+          usedPlugin: false
+        };
+      };
+    } catch (err) {
+      throw err;
+    };
   };
 
   private onServerClose(args: ServerEventArgs<{ code: number | null, signal: NodeJS.Signals | null }>) {
