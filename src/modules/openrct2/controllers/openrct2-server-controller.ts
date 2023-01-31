@@ -77,9 +77,6 @@ export interface OpenRCT2ServerControllerEvents {
 };
 
 export class OpenRCT2ServerController extends EventEmitter {
-  private static readonly exePathKey = 'openRCT2ExecutablePath';
-  private static readonly startupTimeoutMs = 30000;
-
   private readonly logger: Logger;
   private readonly openRCT2ProcessEngine: OpenRCT2ProcessEngine;
   private readonly scenarioRepo: ScenarioRepository;
@@ -161,7 +158,9 @@ export class OpenRCT2ServerController extends EventEmitter {
         await this.scenarioRepo.updateScenarioMetadata(metadata);
         this.captureServerEvents(gameServer);
         this.emit('server.start', new ServerEventArgs(serverId, scenarioFile));
+        await this.logger.writeLog(`Server ${serverId} was launched on ${scenarioFile.name}.`);
       } catch (err) {
+        await this.logger.writeError(err as Error);
         throw err;
       } finally {
         this.activeStarts.delete(serverId);
@@ -205,7 +204,9 @@ export class OpenRCT2ServerController extends EventEmitter {
         await serverDir.updateStatus(status);
         this.captureServerEvents(gameServer);
         this.emit('server.restart', new ServerEventArgs(serverId, { autosaveIndex: autosaveIndex }));
+        await this.logger.writeLog(`Server ${serverId} was launched on autosave ${latestAutosave.name}.`);
       } catch (err) {
+        await this.logger.writeError(err as Error);
         throw err;
       } finally {
         this.activeStarts.delete(serverId);
@@ -230,6 +231,7 @@ export class OpenRCT2ServerController extends EventEmitter {
       let nextNoticeTime = now;
 
       await new Promise<void>(async resolve => {
+        await this.logger.writeLog(`Server ${serverId} is on a deferred start launching ${scenarioFile.name}.`);
         while (Date.now() < startTime && this.activeDeferrals.get(serverId)) {
           if (Date.now() >= nextNoticeTime && nextNoticeTime < startTime) {
             this.emit(
@@ -276,6 +278,7 @@ export class OpenRCT2ServerController extends EventEmitter {
       await serverDir.updateQueue(queue);
 
       const scenarioToRun = validScenarios.splice(0, 1)[0];
+      await this.logger.writeLog(`Server ${serverId} is starting a queued scenario ${scenarioToRun.name}.`);
       if (defer) {
         await this.startGameServerOnScenarioDeferred(serverId, scenarioToRun);
       } else {
@@ -305,6 +308,7 @@ export class OpenRCT2ServerController extends EventEmitter {
       gameServer.stop();
       this.gameServers.delete(serverId);
       stopped = true;
+      await this.logger.writeError(`Server ${serverId} was stopped manually.`);
     };
     if (emitEvent) {
       this.emit('server.stop', new ServerEventArgs(serverId, { success: stopped }));
@@ -321,6 +325,7 @@ export class OpenRCT2ServerController extends EventEmitter {
 
       if (actual === gameServer.initiatedScenarioFile.name) {
         const metadata = await this.scenarioRepo.getScenarioMetadataByName(actual);
+        await this.logger.writeLog(`Server ${serverId} got a ${completionFlag} on its current scenario.`);
         if (metadata) {
           if ('win' === completionFlag) {
             ++metadata.wins;
@@ -343,6 +348,7 @@ export class OpenRCT2ServerController extends EventEmitter {
     if (queue.scenarioQueueSize > 0 && queue.scenarioQueue.length < queue.scenarioQueueSize) {
       queue.scenarioQueue.push(scenarioFile.name);
       await serverDir.updateQueue(queue);
+      await this.logger.writeLog(`Server ${serverId} queued up ${scenarioFile.name}.`);
       const status = await serverDir.getStatus();
       if (status.isCurrentScenarioCompleted) {
         this.startGameServerFromQueue(serverId, true);
@@ -367,7 +373,8 @@ export class OpenRCT2ServerController extends EventEmitter {
     const gameServer = this.getActiveGameServerById(serverId);
     if (gameServer) {
       if (gameServer.pluginAdapter) {
-        return gameServer.pluginAdapter.executeAction(action, userId, args);
+        const result = await gameServer.pluginAdapter.executeAction(action, userId, args);
+        return result;
       };
       throw new Error(`Could not run plugin action. Server ${serverId} does not have the adapter plugin active.`);
     };
@@ -407,8 +414,10 @@ export class OpenRCT2ServerController extends EventEmitter {
           result.scenarioName = initiatedScenario ? initiatedScenario.nameNoExtension : latestAutosave.nameNoExtension;
         };
 
+        await this.logger.writeLog(`Created a screenshot of Server ${serverId}.`);
         return result;
       } catch (err) {
+        await this.logger.writeError(err as Error);
         throw err;
       } finally {
         this.activeProcesses.delete(serverId);
@@ -425,6 +434,7 @@ export class OpenRCT2ServerController extends EventEmitter {
     try {
       if (gameServer && gameServer.pluginAdapter) {
         const saveFileName = await gameServer.pluginAdapter.executeAction('save', userId);
+        await this.logger.writeLog(`Created a save file of Server ${serverId}.`);
         return {
           saveFile: await serverDir.getScenarioSaveByName(saveFileName),
           scenarioName: await gameServer.getScenarioName(),
@@ -434,6 +444,7 @@ export class OpenRCT2ServerController extends EventEmitter {
         const latestAutosave = await serverDir.getScenarioAutosave();
         const status = await serverDir.getStatus();
         const initiatedScenario = await this.scenarioRepo.getScenarioByName(status.initiatedScenarioFileName);
+        await this.logger.writeLog(`Sharing latest autosave as the current save file for Server ${serverId}.`);
         return {
           saveFile: latestAutosave,
           scenarioName: initiatedScenario ? initiatedScenario.nameNoExtension : latestAutosave.nameNoExtension,
@@ -441,6 +452,7 @@ export class OpenRCT2ServerController extends EventEmitter {
         };
       };
     } catch (err) {
+      await this.logger.writeError(err as Error);
       throw err;
     };
   };
