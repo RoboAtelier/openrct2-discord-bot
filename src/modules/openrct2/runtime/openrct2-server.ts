@@ -64,7 +64,7 @@ export class ServerEventArgs<T> {
 
 /** Represents an OpenRCT2 game server instance. */
 export class OpenRCT2Server extends EventEmitter {
-  private static readonly pollingTimeMs = 60000;
+  private static readonly pollingTimeMs = 1 * 1000 * 60 * 2;
 
   private scenarioName: string;
   private currentScenarioFileName: string;
@@ -155,9 +155,7 @@ export class OpenRCT2Server extends EventEmitter {
           );
           this.emit('scenario.update', args);
         };
-      } catch (err) {
-        // logging
-      };
+      } catch { };
     };
   };
 

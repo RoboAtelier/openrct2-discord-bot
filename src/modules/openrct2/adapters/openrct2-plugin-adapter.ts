@@ -1,6 +1,5 @@
 import { Socket } from 'net';
 import { EventEmitter } from 'events';
-import { Logger } from '@modules/logging';
 
 export declare interface OpenRCT2PluginAdapter {
 
@@ -51,13 +50,10 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
   private static readonly timeoutMs = 10000;
 
   private readonly client: Socket;
-  private readonly logger: Logger;
 
-  constructor(client: Socket, logger: Logger) {
+  constructor(client: Socket) {
     super();
     this.client = client;
-    this.logger = logger;
-
     this.client.on('data', data => this.onData(data));
     this.setMaxListeners(20);
   };
@@ -106,29 +102,25 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
    * @param data The response as a buffer array.
    */
   private onData(data: Buffer) {
-    try {
-      const dataStr = data.toString('utf8');
-      this.logger.writeLog(dataStr);
-      const responseArray = Array.from(dataStr.matchAll(OpenRCT2PluginAdapter.pluginResponseRegex));
-      if (responseArray.length > 0) {
-        for (const response of responseArray) {
-          const eventName = response[1];
-          const eventInitiator = response[2];
-          let eventData: unknown = response[3];
-          try {
-            eventData = JSON.parse(response[3]);
-          } catch { };
+    const dataStr = data.toString('utf8');
+    console.log(dataStr);
+    const responseArray = Array.from(dataStr.matchAll(OpenRCT2PluginAdapter.pluginResponseRegex));
+    if (responseArray.length > 0) {
+      for (const response of responseArray) {
+        const eventName = response[1];
+        const eventInitiator = response[2];
+        let eventData: unknown = response[3];
+        try {
+          eventData = JSON.parse(response[3]);
+        } catch { };
 
-          if ('e' === eventInitiator) {
-            const args = new PluginEventArgs(eventName, eventData);
-            this.emit('data', args);
-          } else {
-            this.emit(`${eventName}${eventInitiator}`, eventData);
-          };
+        if ('e' === eventInitiator) {
+          const args = new PluginEventArgs(eventName, eventData);
+          this.emit('data', args);
+        } else {
+          this.emit(`${eventName}${eventInitiator}`, eventData);
         };
       };
-    } catch (err) {
-      this.logger.writeError(err as Error);
     };
   };
 };

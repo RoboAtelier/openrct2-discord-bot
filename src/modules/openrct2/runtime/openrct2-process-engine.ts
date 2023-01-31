@@ -16,13 +16,11 @@ import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
 /** Represents a class that handles running built-in processes using the OpenRCT2 application executable. */
 export class OpenRCT2ProcessEngine {
   private static readonly exePathKey = 'openRCT2ExecutablePath';
-  private static readonly processTimeoutMs = 30000;
+  private static readonly processTimeoutMs = 1 * 1000 * 30;
 
-  private readonly logger: Logger;
   private readonly openRCT2ExecutablePath: string;
 
-  constructor(config: Configuration, logger: Logger) {
-    this.logger = logger;
+  constructor(config: Configuration) {
     const exePath = config.getValue<string>(OpenRCT2ProcessEngine.exePathKey);
     this.openRCT2ExecutablePath = path.resolve(exePath);
   };
@@ -128,7 +126,7 @@ export class OpenRCT2ProcessEngine {
           resolve();
         });
       });
-      pluginAdapter = new OpenRCT2PluginAdapter(client, this.logger);
+      pluginAdapter = new OpenRCT2PluginAdapter(client);
     };
 
     return new OpenRCT2Server(serverId, gameInstance, scenarioFile, pluginAdapter);

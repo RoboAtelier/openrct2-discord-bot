@@ -47,7 +47,7 @@ async function main() {
   const pluginRepo = new PluginRepository(config);
   const scenarioRepo = new ScenarioRepository(config);
   const serverHostRepo = new ServerHostRepository(config);
-  const openRCT2ProcessEngine = new OpenRCT2ProcessEngine(config, logger);
+  const openRCT2ProcessEngine = new OpenRCT2ProcessEngine(config);
   const openRCT2MasterServer = new OpenRCT2MasterServer();
   const openRCT2ServerController = new OpenRCT2ServerController(logger, openRCT2ProcessEngine, scenarioRepo, serverHostRepo);
   const commandFactory = new CommandFactory(
