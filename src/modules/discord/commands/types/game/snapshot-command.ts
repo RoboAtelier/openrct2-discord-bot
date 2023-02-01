@@ -17,6 +17,8 @@ import { BotDataRepository } from '@modules/discord/data/repositories';
 import { Logger } from '@modules/logging';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 import { ServerHostRepository } from '@modules/openrct2/data/repositories';
+import { ScenarioFile } from '@modules/openrct2/data/models';
+import { OpenRCT2ServerSubdirectoryName } from '@modules/openrct2/data/types';
 import { 
   createDateTimestamp,
   isStringNullOrWhiteSpace
@@ -123,25 +125,46 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
     userId: Snowflake,
     finalize: boolean
   ) {
-    let commandResponse = new CommandResponseBuilder();
+    const commandResponse = new CommandResponseBuilder();
     let attachments: { 
       screenshot: RawFile | null,
       finalizedSave: RawFile | null
     } = { screenshot: null, finalizedSave: null };
 
     const screenshotResult = await this.createScreenshot(serverId, userId);
-    commandResponse = screenshotResult.commandResponse;
-    if (screenshotResult.attachmentFile) {
+    if (screenshotResult) {
       attachments.screenshot = screenshotResult.attachmentFile;
+      commandResponse.appendToMessage(`${underscore(italic(`Server ${serverId}`))} - ${bold(screenshotResult.screenshot.scenarioName)} - Screenshot`);
+      if (!screenshotResult.screenshot.usedPlugin) {
+        commandResponse.appendToMessage(`${bold('IMPORTANT')}: This screenshot may be inaccurate as it is based off of the most recent autosave.`);
+      };
+    } else {
+      commandResponse.appendToError(`Failed to capture a screenshot of ${underscore(italic(`Server ${serverId}`))}.`);
     };
     
     if (finalize) {
-      const finalSave = await this.createFinalizedSave(serverId, screenshotResult);
-      if (finalSave.attachmentFile) {
-        commandResponse = finalSave.commandResponse;
-        attachments.finalizedSave = finalSave.attachmentFile;
+      const saveResult = screenshotResult
+        ? await this.createFinalizedSave(
+            serverId,
+            userId,
+            screenshotResult.screenshot.scenarioFile,
+            screenshotResult.screenshot.scenarioName
+          )
+        : await this.createFinalizedSave(serverId, userId);
+      if (saveResult) {
+        attachments.finalizedSave = saveResult.attachmentFile;
+
+        commandResponse.reset();
+        commandResponse.appendToMessage(`${underscore(italic(`Server ${serverId}`))} - ${bold(saveResult.scenarioName)} - Snapshot`);
+        if (screenshotResult) {
+          if (!screenshotResult.screenshot.usedPlugin) {
+            commandResponse.appendToMessage(`${bold('IMPORTANT')}: This snapshot may be outdated as it is based off of the most recent autosave.`);
+          };
+        } else {
+          commandResponse.appendToMessage(italic('Screenshot could not be generated.'));
+        };
       } else {
-        commandResponse.appendToMessage(italic('Save file could not generated.'));
+        commandResponse.appendToError(`Failed to finalize a save file of ${underscore(italic(`Server ${serverId}`))}.`);
       };
     };
 
@@ -152,84 +175,53 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
   };
 
   private async createScreenshot(serverId: number, userId: Snowflake) {
-    const commandResponse = new CommandResponseBuilder();
-    let screenshot = null;
-    let screenshotAttachment = null;
-
     try {
-      screenshot = await this.openRCT2ServerController.createServerScreenshot(serverId, userId);
-      screenshotAttachment = await MessagePayload.resolveFile({
+      const screenshot = await this.openRCT2ServerController.createServerScreenshot(serverId, userId);
+      const screenshotAttachment = await MessagePayload.resolveFile({
         attachment: screenshot.screenshotFilePath,
         name: `${screenshot.scenarioName}.png`,
       });
-      commandResponse.appendToMessage(`${underscore(italic(`Server ${serverId}`))} - ${bold(screenshot.scenarioName)} - Screenshot`);
-
-      if (!screenshot.usedPlugin) {
-        commandResponse.appendToMessage(`${
-          bold('IMPORTANT')
-        }: This screenshot may be inaccurate as it is based off of the most recent autosave, not the current scenario state.`);
+      return { 
+        screenshot: screenshot,
+        attachmentFile: screenshotAttachment,
       };
     } catch {
-      commandResponse.appendToError(`Failed to capture a screenshot of ${underscore(italic(`Server ${serverId}`))}.`);
-    };
-
-    return { 
-      screenshot: screenshot,
-      attachmentFile: screenshotAttachment,
-      commandResponse: commandResponse
+      return null;
     };
   };
 
   private async createFinalizedSave(
     serverId: number,
-    screenshotResult: {
-      screenshot: {
-        screenshotFilePath: string;
-        scenarioName: string;
-        usedPlugin: boolean;
-      } | null;
-      attachmentFile: RawFile | null;
-    }
+    userId: Snowflake,
+    existingScenarioFile?: ScenarioFile,
+    scenarioName?: string
   ) {
-    const commandResponse = new CommandResponseBuilder();
-    let saveAttachment = null;
-
     try {
+      let scenarioSaveFile = existingScenarioFile;
+      let saveFileScenarioName = scenarioName;
+      if (!scenarioSaveFile) {
+        const save = await this.openRCT2ServerController.createCurrentScenarioSave(serverId, userId);
+        scenarioSaveFile = save.saveFile;
+        saveFileScenarioName = save.scenarioName;
+      };
+
+      const finalSaveFileName = `${saveFileScenarioName}_final_${createDateTimestamp()}${scenarioSaveFile.fileExtension}`;
       const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
-      const latestAutosave = await serverDir.getScenarioAutosave();
-      const finalScenarioName = screenshotResult.screenshot ? screenshotResult.screenshot.scenarioName : `scenario`;
-      const finalSaveFileName = `${finalScenarioName}_final_${createDateTimestamp()}${latestAutosave.fileExtension}`;
       await serverDir.addFileExclusive(
-        latestAutosave.path,
+        scenarioSaveFile.path,
         finalSaveFileName,
-        'save'
+        OpenRCT2ServerSubdirectoryName.Save
       );
-      saveAttachment = await MessagePayload.resolveFile({
-        attachment: latestAutosave.path,
+      const saveAttachment = await MessagePayload.resolveFile({
+        attachment: scenarioSaveFile.path,
         name: `s${serverId}_${finalSaveFileName}`,
       });
-      commandResponse.appendToMessage(`${underscore(italic(`Server ${serverId}`))} - ${bold(finalScenarioName)} - Snapshot`);
-      
-      const pluginOptions = await serverDir.getPluginOptions();
-      commandResponse.appendToMessage(
-        `${bold('IMPORTANT')}: The finalized file ${
-          screenshotResult.attachmentFile
-          && !screenshotResult.screenshot!.usedPlugin
-            ? 'and screenshot may be inaccurate as they are'
-            : 'may be inaccurate as it is'
-        } based off of the most recent autosave, not the current scenario state.`
-      );
-
-      if (!screenshotResult.attachmentFile) {
-        commandResponse.appendToMessage(italic('Screenshot could not be generated.'));
+      return {
+        scenarioName: saveFileScenarioName!,
+        attachmentFile: saveAttachment
       };
     } catch {
-      commandResponse.appendToError(`Failed to finalize a save file of ${underscore(italic(`Server ${serverId}`))}.`);
-    };
-
-    return {
-      attachmentFile: saveAttachment,
-      commandResponse: commandResponse
+      return null;
     };
   };
 

@@ -389,18 +389,34 @@ export class OpenRCT2ServerController extends EventEmitter {
   async createServerScreenshot(serverId: number, userId: string) {
     const gameServer = this.getActiveGameServerById(serverId);
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
-    const startupOptions = await serverDir.getStartupOptions();
 
     if (!this.isGameServerProcessRunning(serverId)) {
       this.activeProcesses.set(serverId, true);
 
       try {
-        const result = { screenshotFilePath: '', scenarioName: '', usedPlugin: false };
+        const result: {
+          screenshotFilePath: string,
+          scenarioFile?: ScenarioFile,
+          scenarioName: string,
+          usedPlugin: boolean
+        } = { screenshotFilePath: '', scenarioName: '', usedPlugin: false };
 
-        if (gameServer && gameServer.pluginAdapter && !startupOptions.headless) {
-          const screenshotFileName = await gameServer.pluginAdapter.executeAction('screenshot', userId);
-          result.screenshotFilePath = await serverDir.getScreenshotByName(screenshotFileName);
-          result.scenarioName = await gameServer.getScenarioName();
+        if (gameServer && gameServer.pluginAdapter) {
+          const startupOptions = await serverDir.getStartupOptions();
+          if (startupOptions.headless) {
+            const save = await this.createCurrentScenarioSave(serverId, userId);
+            result.screenshotFilePath = await this.openRCT2ProcessEngine.createScenarioScreenshot(
+              save.saveFile,
+              serverDir.getSubdirectoryPath(OpenRCT2ServerSubdirectoryName.Screenshot),
+              `s${serverId}_screenshot`
+            );
+            result.scenarioFile = save.saveFile;
+            result.scenarioName = save.scenarioName;
+          } else {
+            const screenshotFileName = await gameServer.pluginAdapter.executeAction('screenshot', userId);
+            result.screenshotFilePath = await serverDir.getScreenshotByName(screenshotFileName);
+            result.scenarioName = await gameServer.getScenarioName();
+          };
           result.usedPlugin = true;
         } else {
           const latestAutosave = await serverDir.getScenarioAutosave();
@@ -411,6 +427,7 @@ export class OpenRCT2ServerController extends EventEmitter {
             serverDir.getSubdirectoryPath(OpenRCT2ServerSubdirectoryName.Screenshot),
             `s${serverId}_screenshot`
           );
+          result.scenarioFile = latestAutosave;
           result.scenarioName = initiatedScenario ? initiatedScenario.nameNoExtension : latestAutosave.nameNoExtension;
         };
 
