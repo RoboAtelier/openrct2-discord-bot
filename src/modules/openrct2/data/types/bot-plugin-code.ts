@@ -19,9 +19,28 @@ function main() {
 						userId,
 						'_\\n'
 					));
-				} else if ('save' === actionQuery) { // using legacy method, to change
+				} else if ('player.list' === actionQuery) {
+					var playerObjects = [];
+					for (var i = 0; i < network.players.length; ++i) {
+						var player = network.players[i];
+						playerObjects.push({
+							currentId: player.id,
+							name: removeNewLines(player.name),
+							group: removeNewLines(getPlayerGroupById(player.group).name),
+							ipAddress: player.ipAddress,
+							publicKeyHash: player.publicKeyHash
+						});
+					};
+					conn.write('player.list'.concat(
+						'_',
+						userId,
+						'_',
+						JSON.stringify(playerObjects),
+						'\\n'
+					));
+				} else if ('save' === actionQuery) { // using legacy method, to change later
 					var saveFileName = 's'.concat(serverId, '_save');
-					console.executeLegacy('save_park s'.concat(serverId, 'save'));
+					console.executeLegacy('save_park s_'.concat(serverId, 'save'));
 					conn.write('save'.concat(
 						'_',
 						userId,
@@ -63,7 +82,13 @@ function main() {
 					));
 				};
 			} catch (err) {
-				console.log(data);
+				try {
+					conn.write('error'.concat(
+						'_e_',
+						removeNewLines(err.message),
+						'\\n'
+					));
+				} catch (_) { };
 			};
 		});
 
@@ -75,15 +100,6 @@ function main() {
 	server.listen(port, 'localhost');
 
 	console.log('Adapter plugin for server '.concat(serverId, ' is active!'));
-};
-
-function getPlayerById(id) {
-	for (var i = 0; i < network.players.length; ++i) {
-		if (network.players[i].id === id) {
-			return network.players[i];
-		};
-	};
-	return null;
 };
 
 function onNetworkChat(eventArgs, conn) {
@@ -113,6 +129,24 @@ function onNetworkLeave(eventArgs, conn) {
 		removeNewLines(getPlayerById(eventArgs.player).name),
 		'\\n'
 	));
+};
+
+function getPlayerById(id) {
+	for (var i = 0; i < network.players.length; ++i) {
+		if (network.players[i].id === id) {
+			return network.players[i];
+		};
+	};
+	return null;
+};
+
+function getPlayerGroupById(id) {
+	for (var i = 0; i < network.groups.length; ++i) {
+		if (network.groups[i].id === id) {
+			return network.groups[i];
+		};
+	};
+	return null;
 };
 
 function removeNewLines(str) {
