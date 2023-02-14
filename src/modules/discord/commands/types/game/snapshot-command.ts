@@ -18,7 +18,6 @@ import { Logger } from '@modules/logging';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 import { ServerHostRepository } from '@modules/openrct2/data/repositories';
 import { ScenarioFile } from '@modules/openrct2/data/models';
-import { OpenRCT2ServerSubdirectoryName } from '@modules/openrct2/data/types';
 import { 
   createDateTimestamp,
   isStringNullOrWhiteSpace
@@ -207,11 +206,7 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
 
       const finalSaveFileName = `${saveFileScenarioName}_final_${createDateTimestamp()}${scenarioSaveFile.fileExtension}`;
       const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
-      await serverDir.addFileExclusive(
-        scenarioSaveFile.path,
-        finalSaveFileName,
-        OpenRCT2ServerSubdirectoryName.Save
-      );
+      await serverDir.addScenarioSaveFile(scenarioSaveFile, finalSaveFileName);
       const saveAttachment = await MessagePayload.resolveFile({
         attachment: scenarioSaveFile.path,
         name: `s${serverId}_${finalSaveFileName}`,

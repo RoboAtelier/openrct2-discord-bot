@@ -434,6 +434,10 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
     throw new Error('A plugin file with that name does not exist.');
   };
 
+  async addScenarioSaveFile(scenarioFile: ScenarioFile, newFileName: string) {
+    await this.saveSubdir.addFileExclusive(scenarioFile.path, newFileName);
+  };
+
   /**
    * Adds plugin files to the OpenRCT2 game server directory
    * if they are not currently in the `plugin` subdirectory.
