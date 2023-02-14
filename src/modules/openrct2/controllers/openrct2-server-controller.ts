@@ -453,7 +453,7 @@ export class OpenRCT2ServerController extends EventEmitter {
         const saveFileName = await gameServer.pluginAdapter.executeAction('save', userId);
         await this.logger.writeLog(`Created a save file of Server ${serverId}.`);
         return {
-          saveFile: await serverDir.getScenarioSaveByName(saveFileName),
+          saveFile: await serverDir.getScenarioSaveByName(saveFileName.concat('.park')),
           scenarioName: await gameServer.getScenarioName(),
           usedPlugin: true
         };
