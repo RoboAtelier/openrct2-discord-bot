@@ -394,14 +394,14 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
       return ScenarioSaveFileExtensionArray.some(ext => file.name.endsWith(ext));
     });
     if (saves.length === 0) {
-      throw new Error('No autosaves found.');
+      throw new Error('No save files were found.');
     };
 
     const requestedSaveFile = saves.find(save => save.name === name);
     if (requestedSaveFile) {
       return new ScenarioFile(path.join(this.saveSubdir.path, requestedSaveFile.name));
     };
-    throw new Error('A scenario save file with that name does not exist.');
+    throw new Error(`A scenario save file of the name '${name}' does not exist.`);
   };
 
   /**
