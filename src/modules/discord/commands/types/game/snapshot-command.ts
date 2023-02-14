@@ -197,14 +197,16 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
   ) {
     try {
       let scenarioSaveFile = existingScenarioFile;
-      let saveFileScenarioName = scenarioName;
+      let saveFileScenarioName = scenarioName!;
       if (!scenarioSaveFile) {
         const save = await this.openRCT2ServerController.createCurrentScenarioSave(serverId, userId);
         scenarioSaveFile = save.saveFile;
         saveFileScenarioName = save.scenarioName;
       };
 
-      const finalSaveFileName = `${saveFileScenarioName}_final_${createDateTimestamp()}${scenarioSaveFile.fileExtension}`;
+      const finalSaveFileName = /^autosave_\d{4}-\d{2}-\d{2}/.test(saveFileScenarioName)
+        ? `final_${createDateTimestamp()}${scenarioSaveFile.fileExtension}`
+        : `${saveFileScenarioName}_final_${createDateTimestamp()}${scenarioSaveFile.fileExtension}`;
       const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
       await serverDir.addScenarioSaveFile(scenarioSaveFile, finalSaveFileName);
       const saveAttachment = await MessagePayload.resolveFile({
@@ -212,7 +214,7 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
         name: `s${serverId}_${finalSaveFileName}`,
       });
       return {
-        scenarioName: saveFileScenarioName!,
+        scenarioName: saveFileScenarioName,
         attachmentFile: saveAttachment
       };
     } catch {
