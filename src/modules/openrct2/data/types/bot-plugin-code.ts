@@ -40,7 +40,7 @@ function main() {
 					));
 				} else if ('save' === actionQuery) { // using legacy method, to change later
 					var saveFileName = 's'.concat(serverId, '_save');
-					console.executeLegacy('save_park s_'.concat(serverId, 'save'));
+					console.executeLegacy('save_park s'.concat(serverId, '_save'));
 					conn.write('save'.concat(
 						'_',
 						userId,
