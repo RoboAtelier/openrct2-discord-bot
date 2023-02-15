@@ -1,7 +1,10 @@
 import {
+  bold,
+  italic,
   ChatInputCommandInteraction,
   User
 } from 'discord.js';
+import { EOL } from 'os';
 import { 
   BotCommand,
   CommandPermissionLevel,
@@ -12,10 +15,10 @@ import { BotDataRepository } from '@modules/discord/data/repositories';
 import { Logger } from '@modules/logging';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 
-type ChatCommandOptions = 'message'
+type PlayerCommandSubcommands = 'list'
 
-/** Represents a command for sending chat messages to an OpenRCT2 game server. */
-export class ChatCommand extends BotCommand<ChatCommandOptions, null, null> {
+/** Represents a command for getting player information or managing them on an OpenRCT2 game server. */
+export class PlayerCommand extends BotCommand<null, PlayerCommandSubcommands, null> {
   private readonly logger: Logger;
   private readonly botDataRepo: BotDataRepository;
   private readonly openRCT2ServerController: OpenRCT2ServerController;
@@ -27,15 +30,12 @@ export class ChatCommand extends BotCommand<ChatCommandOptions, null, null> {
   ) {
     super(CommandPermissionLevel.User, CommandType.Game);
     this.data
-      .setName('chat')
-      .setDescription('Sends a chat message to an OpenRCT2 game server.')
-      .addStringOption(option =>
-        option
-          .setName(this.reflectOptionName('message'))
-          .setDescription('The chat message to send (max length 200).')
-          .setMinLength(1)
-          .setMaxLength(200)
-          .setRequired(true)
+      .setName('player')
+      .setDescription('Gets and manages an OpenRCT2 game server\'s current players.')
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName(this.reflectSubcommandName('list'))
+          .setDescription('Gets the current player list on an OpenRCT2 game server.')
       );
 
     this.logger = logger;
@@ -49,10 +49,9 @@ export class ChatCommand extends BotCommand<ChatCommandOptions, null, null> {
 
     const guildInfo = await this.botDataRepo.getGuildInfo();
     const gameServerChannel = guildInfo.gameServerChannels.find(channel => channel.channelId === interaction.channelId)!;
-    const message = this.getInteractionOption(interaction, 'message').value as string;
 
     await interaction.deferReply();
-    commandResponse = await this.sendGameChatMessage(gameServerChannel.serverId, interaction.user, message);
+    commandResponse = await this.getServerPlayerList(gameServerChannel.serverId, interaction.user);
 
     if (commandResponse.hasError) {
       await interaction.followUp({ content: commandResponse.resolve(), ephemeral: true });
@@ -62,18 +61,32 @@ export class ChatCommand extends BotCommand<ChatCommandOptions, null, null> {
     };
   };
 
-  private async sendGameChatMessage(serverId: number, user: User, message: string) {
+  private async getServerPlayerList(serverId: number, user: User) {
     const commandResponse = new CommandResponseBuilder();
 
     try {
-      const fullMessage = `{DISCORD}{PALELAVENDER}${user.username}#${user.discriminator}: {WHITE}${message}`;
-      await this.openRCT2ServerController.executePluginAction(serverId, 'chat', user.id, fullMessage);
-      commandResponse.appendToMessage(message);
+      const serverPlayers = await this.openRCT2ServerController.executePluginAction(serverId, 'player.list', user.id);
+      commandResponse.appendToMessage(this.formatPlayerListMessage(serverPlayers));
     } catch (err) {
       await this.logger.writeError(err as Error);
       commandResponse.appendToError((err as Error).message);
     };
 
     return commandResponse;
+  };
+
+  private formatPlayerListMessage(
+    serverPlayers: {
+      name: string,
+      group: string
+    }[]
+  ) {
+    const playerListMsgSegments = [serverPlayers.length > 0 ? 'Current Players:' : `Current Players: ${italic('None')}`];
+
+    for (const player of serverPlayers) {
+      playerListMsgSegments.push(`${bold(player.name)}: ${player.group}`);
+    };
+
+    return playerListMsgSegments.join(EOL);
   };
 };

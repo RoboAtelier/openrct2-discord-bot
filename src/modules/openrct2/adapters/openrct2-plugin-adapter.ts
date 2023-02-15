@@ -13,6 +13,7 @@ export declare interface OpenRCT2PluginAdapter {
 
 export interface PluginActions {
   'chat': string;
+  'player.list': undefined;
   'save': undefined;
   'scenario': undefined;
   'screenshot': undefined;
@@ -20,11 +21,18 @@ export interface PluginActions {
 
 interface PluginActionResultValues {
   'chat': void;
+  'player.list': {
+    currentId: number,
+    name: string,
+    group: string,
+    ipAddress: string,
+    publicKeyHash: string
+  }[];
   'save': string;
   'scenario': {
-    name: 'string'
-    details: 'string'
-    filename: 'string'
+    name: string
+    details: string
+    filename: string
     status: 'inProgress' | 'completed' | 'failed'
   };
   'screenshot': string;
