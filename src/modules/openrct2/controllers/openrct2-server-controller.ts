@@ -65,15 +65,15 @@ export interface OpenRCT2ServerControllerEvents {
   'server.network.leave': {
     playerName: string;
   };
-  'server.defer.start': {
-    scenarioFile: ScenarioFile,
-    delayDuration: number
-  };
-  'server.defer.stop': ScenarioFile;
   'server.scenario.complete': {
     scenarioFile: ScenarioFile | undefined,
     scenarioStatus: "completed" | "failed"
   };
+  'server.start.defer': {
+    scenarioFile: ScenarioFile,
+    delayDuration: number
+  };
+  'server.start.defer.cancel': ScenarioFile;
 };
 
 export class OpenRCT2ServerController extends EventEmitter {
@@ -126,7 +126,7 @@ export class OpenRCT2ServerController extends EventEmitter {
         const deferredScenario = this.activeDeferrals.get(serverId);
         if (deferredScenario) {
           this.activeDeferrals.set(serverId, null);
-          this.emit('server.defer.stop', new ServerEventArgs(serverId, deferredScenario));
+          this.emit('server.start.defer.cancel', new ServerEventArgs(serverId, deferredScenario));
         };
         if (this.gameServers.has(serverId)) {
           await this.stopGameServer(serverId, false);
@@ -180,7 +180,7 @@ export class OpenRCT2ServerController extends EventEmitter {
         const deferredScenario = this.activeDeferrals.get(serverId);
         if (deferredScenario) {
           this.activeDeferrals.set(serverId, null);
-          this.emit('server.defer.stop', new ServerEventArgs(serverId, deferredScenario));
+          this.emit('server.start.defer.cancel', new ServerEventArgs(serverId, deferredScenario));
         };
         if (this.gameServers.has(serverId)) {
           await this.stopGameServer(serverId, false);
@@ -235,7 +235,7 @@ export class OpenRCT2ServerController extends EventEmitter {
         while (Date.now() < startTime && this.activeDeferrals.get(serverId)) {
           if (Date.now() >= nextNoticeTime && nextNoticeTime < startTime) {
             this.emit(
-              'server.defer.start',
+              'server.start.defer',
               new ServerEventArgs(serverId, { scenarioFile: scenarioFile, delayDuration: remainingMinutes })
             );
             const gameServer = this.getActiveGameServerById(serverId);
@@ -299,7 +299,7 @@ export class OpenRCT2ServerController extends EventEmitter {
     const deferredScenario = this.activeDeferrals.get(serverId);
     if (deferredScenario) {
       this.activeDeferrals.set(serverId, null);
-      this.emit('server.defer.stop', new ServerEventArgs(serverId, deferredScenario));
+      this.emit('server.start.defer.cancel', new ServerEventArgs(serverId, deferredScenario));
     };
 
     let stopped = false;

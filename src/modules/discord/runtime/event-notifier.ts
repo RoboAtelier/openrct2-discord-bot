@@ -47,8 +47,8 @@ export class EventNotifier {
     openRCT2ServerController.on('server.network.chat', args => this.onServerNetworkChat(args));
     openRCT2ServerController.on('server.network.join', args => this.onServerNetworkJoin(args));
     openRCT2ServerController.on('server.network.leave', args => this.onServerNetworkLeave(args));
-    openRCT2ServerController.on('server.defer.start', args => this.onServerDeferStart(args));
-    openRCT2ServerController.on('server.defer.stop', args => this.onServerDeferStop(args));
+    openRCT2ServerController.on('server.start.defer', args => this.onServerStartDeferred(args));
+    openRCT2ServerController.on('server.start.defer.cancel', args => this.onServerStartDeferredCancel(args));
     openRCT2ServerController.on('server.scenario.complete', args => this.onServerScenarioComplete(args));
   };
 
@@ -100,14 +100,14 @@ export class EventNotifier {
     await this.postGameServerChat(args.serverId, eventMsg);
   };
 
-  private async onServerDeferStart(args: ServerEventArgs<{ scenarioFile: ScenarioFile, delayDuration: number }>) {
+  private async onServerStartDeferred(args: ServerEventArgs<{ scenarioFile: ScenarioFile, delayDuration: number }>) {
     const eventMsg = `${underscore(italic(`Server ${args.serverId}`))} is starting the ${
       bold(args.data.scenarioFile.nameNoExtension)
     } scenario in ${args.data.delayDuration} ${args.data.delayDuration > 1 ? 'minutes' : 'minute'}.`;
     await this.postEvent(eventMsg);
   };
 
-  private async onServerDeferStop(args: ServerEventArgs<ScenarioFile>) {
+  private async onServerStartDeferredCancel(args: ServerEventArgs<ScenarioFile>) {
     const eventMsg = `${underscore(italic(`Server ${args.serverId}`))} is no longer starting the ${bold(args.data.nameNoExtension)} scenario.`;
     await this.postEvent(eventMsg);
   };
