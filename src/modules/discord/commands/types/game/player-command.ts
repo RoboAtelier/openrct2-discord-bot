@@ -52,14 +52,10 @@ export class PlayerCommand extends BotCommand<null, PlayerCommandSubcommands, nu
     const guildInfo = await this.botDataRepo.getGuildInfo();
     const gameServerChannel = guildInfo.gameServerChannels.find(channel => channel.channelId === interaction.channelId)!;
 
-    await interaction.deferReply();
+    await interaction.deferReply({ ephemeral: true });
     commandResponse = await this.getServerPlayerList(gameServerChannel.serverId, interaction.user);
 
-    if (commandResponse.hasError) {
-      await interaction.followUp({ content: commandResponse.resolve(), ephemeral: true });
-    } else {
-      await interaction.editReply(commandResponse.resolve());
-    };
+    await interaction.editReply(commandResponse.resolve());
   };
 
   private async getServerPlayerList(serverId: number, user: User) {

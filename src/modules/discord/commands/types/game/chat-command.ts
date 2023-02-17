@@ -54,11 +54,7 @@ export class ChatCommand extends BotCommand<ChatCommandOptions, null, null> {
     await interaction.deferReply();
     commandResponse = await this.sendGameChatMessage(gameServerChannel.serverId, interaction.user, message);
 
-    if (commandResponse.hasError) {
-      await interaction.followUp({ content: commandResponse.resolve(), ephemeral: true });
-    } else {
-      await interaction.editReply(commandResponse.resolve());
-    };
+    await interaction.editReply(commandResponse.resolve());
   };
 
   private async sendGameChatMessage(serverId: number, user: User, message: string) {
