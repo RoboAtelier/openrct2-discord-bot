@@ -19,6 +19,8 @@ type PlayerCommandSubcommands = 'list'
 
 /** Represents a command for getting player information or managing them on an OpenRCT2 game server. */
 export class PlayerCommand extends BotCommand<null, PlayerCommandSubcommands, null> {
+  private static readonly formatCodeRegex = /{[A-Z0-9_]+}/g;
+
   private readonly logger: Logger;
   private readonly botDataRepo: BotDataRepository;
   private readonly openRCT2ServerController: OpenRCT2ServerController;
@@ -55,7 +57,6 @@ export class PlayerCommand extends BotCommand<null, PlayerCommandSubcommands, nu
 
     if (commandResponse.hasError) {
       await interaction.followUp({ content: commandResponse.resolve(), ephemeral: true });
-      await interaction.deleteReply();
     } else {
       await interaction.editReply(commandResponse.resolve());
     };
@@ -84,7 +85,7 @@ export class PlayerCommand extends BotCommand<null, PlayerCommandSubcommands, nu
     const playerListMsgSegments = [serverPlayers.length > 0 ? 'Current Players:' : `Current Players: ${italic('None')}`];
 
     for (const player of serverPlayers) {
-      playerListMsgSegments.push(`${bold(player.name)}: ${player.group}`);
+      playerListMsgSegments.push(`${bold(player.name.replace(PlayerCommand.formatCodeRegex, ''))}: ${player.group}`);
     };
 
     return playerListMsgSegments.join(EOL);

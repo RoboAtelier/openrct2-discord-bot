@@ -56,7 +56,6 @@ export class ChatCommand extends BotCommand<ChatCommandOptions, null, null> {
 
     if (commandResponse.hasError) {
       await interaction.followUp({ content: commandResponse.resolve(), ephemeral: true });
-      await interaction.deleteReply();
     } else {
       await interaction.editReply(commandResponse.resolve());
     };
