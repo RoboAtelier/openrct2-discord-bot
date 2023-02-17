@@ -52,7 +52,7 @@ export class PlayerCommand extends BotCommand<null, PlayerCommandSubcommands, nu
     const guildInfo = await this.botDataRepo.getGuildInfo();
     const gameServerChannel = guildInfo.gameServerChannels.find(channel => channel.channelId === interaction.channelId)!;
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply();
     commandResponse = await this.getServerPlayerList(gameServerChannel.serverId, interaction.user);
 
     await interaction.editReply(commandResponse.resolve());
@@ -81,7 +81,7 @@ export class PlayerCommand extends BotCommand<null, PlayerCommandSubcommands, nu
     const playerListMsgSegments = [serverPlayers.length > 0 ? 'Current Players:' : `Current Players: ${italic('None')}`];
 
     for (const player of serverPlayers) {
-      playerListMsgSegments.push(`${bold(player.name.replace(PlayerCommand.formatCodeRegex, ''))}: ${player.group}`);
+      playerListMsgSegments.push(`▸ ${bold(player.name.replace(PlayerCommand.formatCodeRegex, ''))}: ${player.group}`);
     };
 
     return playerListMsgSegments.join(EOL);
