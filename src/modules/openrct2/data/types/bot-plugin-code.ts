@@ -24,11 +24,8 @@ function main() {
 					for (var i = 0; i < network.players.length; ++i) {
 						var player = network.players[i];
 						playerObjects.push({
-							currentId: player.id,
 							name: removeNewLines(player.name),
-							group: removeNewLines(getPlayerGroupById(player.group).name),
-							ipAddress: player.ipAddress,
-							publicKeyHash: player.publicKeyHash
+							group: removeNewLines(getPlayerGroupById(player.group).name)
 						});
 					};
 					conn.write('player.list'.concat(

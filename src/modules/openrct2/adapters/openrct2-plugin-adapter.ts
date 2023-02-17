@@ -22,11 +22,8 @@ export interface PluginActions {
 interface PluginActionResultValues {
   'chat': void;
   'player.list': {
-    currentId: number,
     name: string,
     group: string,
-    ipAddress: string,
-    publicKeyHash: string
   }[];
   'save': string;
   'scenario': {
