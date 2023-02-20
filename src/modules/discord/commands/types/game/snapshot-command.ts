@@ -142,14 +142,7 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
     };
     
     if (finalize) {
-      const saveResult = screenshotResult
-        ? await this.createFinalizedSave(
-            serverId,
-            userId,
-            screenshotResult.screenshot.scenarioFile,
-            screenshotResult.screenshot.scenarioName
-          )
-        : await this.createFinalizedSave(serverId, userId);
+      const saveResult = await this.createFinalizedSave(serverId, userId);
       if (saveResult) {
         attachments.finalizedSave = saveResult.attachmentFile;
 
@@ -176,50 +169,42 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
   private async createScreenshot(serverId: number, userId: Snowflake) {
     try {
       const screenshot = await this.openRCT2ServerController.createServerScreenshot(serverId, userId);
-      const screenshotAttachment = await MessagePayload.resolveFile({
-        attachment: screenshot.screenshotFilePath,
-        name: `${screenshot.scenarioName}.png`,
-      });
-      return { 
-        screenshot: screenshot,
-        attachmentFile: screenshotAttachment,
+      if (screenshot) {
+        const screenshotAttachment = await MessagePayload.resolveFile({
+          attachment: screenshot.screenshotFilePath,
+          name: `${screenshot.scenarioName}.png`,
+        });
+        return { 
+          screenshot: screenshot,
+          attachmentFile: screenshotAttachment,
+        };
       };
-    } catch {
-      return null;
-    };
+    } catch { };
+
+    return null;
   };
 
-  private async createFinalizedSave(
-    serverId: number,
-    userId: Snowflake,
-    existingScenarioFile?: ScenarioFile,
-    scenarioName?: string
-  ) {
+  private async createFinalizedSave(serverId: number, userId: Snowflake) {
     try {
-      let scenarioSaveFile = existingScenarioFile;
-      let saveFileScenarioName = scenarioName!;
-      if (!scenarioSaveFile) {
-        const save = await this.openRCT2ServerController.createCurrentScenarioSave(serverId, userId);
-        scenarioSaveFile = save.saveFile;
-        saveFileScenarioName = save.scenarioName;
+      const save = await this.openRCT2ServerController.createCurrentScenarioSave(serverId, userId);
+      if (save) {
+          const finalSaveFileName = /^autosave_\d{4}-\d{2}-\d{2}/.test(save.saveFile.nameNoExtension)
+          ? `final_${createDateTimestamp()}${save.saveFile.fileExtension}`
+          : `${save.scenarioName}_final_${createDateTimestamp()}${save.saveFile.fileExtension}`;
+        const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+        await serverDir.addScenarioSaveFile(save.saveFile, finalSaveFileName);
+        const saveAttachment = await MessagePayload.resolveFile({
+          attachment: save.saveFile.path,
+          name: `s${serverId}_${finalSaveFileName}`,
+        });
+        return {
+          scenarioName: save.scenarioName,
+          attachmentFile: saveAttachment
+        };
       };
+    } catch { };
 
-      const finalSaveFileName = /^autosave_\d{4}-\d{2}-\d{2}/.test(saveFileScenarioName)
-        ? `final_${createDateTimestamp()}${scenarioSaveFile.fileExtension}`
-        : `${saveFileScenarioName}_final_${createDateTimestamp()}${scenarioSaveFile.fileExtension}`;
-      const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
-      await serverDir.addScenarioSaveFile(scenarioSaveFile, finalSaveFileName);
-      const saveAttachment = await MessagePayload.resolveFile({
-        attachment: scenarioSaveFile.path,
-        name: `s${serverId}_${finalSaveFileName}`,
-      });
-      return {
-        scenarioName: saveFileScenarioName,
-        attachmentFile: saveAttachment
-      };
-    } catch {
-      return null;
-    };
+    return null;
   };
 
   /**

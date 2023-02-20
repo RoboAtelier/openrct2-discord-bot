@@ -338,23 +338,27 @@ export class ServerCommand extends BotCommand<
       } else {
         if (this.isInteractionUnderSubcommandGroup(interaction, 'start')) {
           if (userLevel > CommandPermissionLevel.User) {
-            await interaction.deferReply();
+            if (this.openRCT2ServerController.isGameServerStarting(serverId)) {
+              commandResponse.appendToError(`Can't start ${underscore(italic(`Server ${serverId}`))}. It's already in the middle of starting a scenario.`);
+            } else {
+              await interaction.deferReply();
 
-            if (this.isInteractionUsingSubcommand(interaction, 'scenario')) {
-              const scenarioName = this.getInteractionOption(interaction, 'name').value as string;
-              commandResponse = await this.startServerOnScenario(serverId, scenarioName);
-            } else if (this.isInteractionUsingSubcommand(interaction, 'autosave')) {
-              const autosaveIndex = this.doesInteractionHaveOption(interaction, 'index') 
-                ? this.getInteractionOption(interaction, 'index').value as number
-                : 1;
-              commandResponse = await this.startServerOnAutosave(serverId, autosaveIndex);
-            } else if (this.isInteractionUsingSubcommand(interaction, 'queue')) {
-              const defer = this.doesInteractionHaveOption(interaction, 'defer') 
-                ? this.getInteractionOption(interaction, 'defer').value as boolean
-                : false;
-              commandResponse = await this.startServerFromQueue(serverId, defer);
-            } else if (this.isInteractionUsingSubcommand(interaction, 'random')) {
-              commandResponse = await this.startServerOnRandomScenario(serverId);
+              if (this.isInteractionUsingSubcommand(interaction, 'scenario')) {
+                const scenarioName = this.getInteractionOption(interaction, 'name').value as string;
+                commandResponse = await this.startServerOnScenario(serverId, scenarioName);
+              } else if (this.isInteractionUsingSubcommand(interaction, 'autosave')) {
+                const autosaveIndex = this.doesInteractionHaveOption(interaction, 'index') 
+                  ? this.getInteractionOption(interaction, 'index').value as number
+                  : 1;
+                commandResponse = await this.startServerOnAutosave(serverId, autosaveIndex);
+              } else if (this.isInteractionUsingSubcommand(interaction, 'queue')) {
+                const defer = this.doesInteractionHaveOption(interaction, 'defer') 
+                  ? this.getInteractionOption(interaction, 'defer').value as boolean
+                  : false;
+                commandResponse = await this.startServerFromQueue(serverId, defer);
+              } else if (this.isInteractionUsingSubcommand(interaction, 'random')) {
+                commandResponse = await this.startServerOnRandomScenario(serverId);
+              };
             };
           } else {
             commandResponse.appendToError(this.formatSubcommandGroupPermissionError('start'));
@@ -611,29 +615,22 @@ export class ServerCommand extends BotCommand<
   private async startServerOnScenario(serverId: number, scenarioName: string) {
     const commandResponse = new CommandResponseBuilder();
 
-    if (this.openRCT2ServerController.isGameServerStarting(serverId)) {
-      commandResponse.appendToError(
-        `Can't start ${underscore(italic(`Server ${serverId}`))}.`,
-        'It\'s already in the middle of starting a scenario.'
-      );
-    } else {
-      const scenarios = await this.scenarioRepo.getScenarioByFuzzySearch(scenarioName);
-      if (1 === scenarios.length) {
-        try {
-          await this.openRCT2ServerController.startGameServerOnScenario(serverId, scenarios[0]);
-          commandResponse.appendToMessage(
-            `Started ${
-              underscore(italic(`Server ${serverId}`))
-            } on the ${bold(scenarios[0].nameNoExtension)} scenario.`
-          );
-        } catch (err) {
-          commandResponse.appendToError((err as Error).message);
-        };
-      } else {
-        commandResponse.appendToError(
-          this.formatNonsingleScenarioError(scenarios.map(scenario => scenario.name), scenarioName)
+    const scenarios = await this.scenarioRepo.getScenarioByFuzzySearch(scenarioName);
+    if (1 === scenarios.length) {
+      try {
+        await this.openRCT2ServerController.startGameServerOnScenario(serverId, scenarios[0]);
+        commandResponse.appendToMessage(
+          `Started ${
+            underscore(italic(`Server ${serverId}`))
+          } on the ${bold(scenarios[0].nameNoExtension)} scenario.`
         );
+      } catch (err) {
+        commandResponse.appendToError((err as Error).message);
       };
+    } else {
+      commandResponse.appendToError(
+        this.formatNonsingleScenarioError(scenarios.map(scenario => scenario.name), scenarioName)
+      );
     };
 
     return commandResponse;
@@ -645,23 +642,16 @@ export class ServerCommand extends BotCommand<
       autosaveIndex = 1;
     };
 
-    if (this.openRCT2ServerController.isGameServerStarting(serverId)) {
-      commandResponse.appendToError(
-        `Can't start ${underscore(italic(`Server ${serverId}`))}.`,
-        'It\'s already in the middle of starting a scenario.'
-      );
-    } else {
-      try {
-        if (1 === autosaveIndex) {
-          await this.openRCT2ServerController.startGameServerOnAutosave(serverId);
-          commandResponse.appendToMessage(`Started ${underscore(italic(`Server ${serverId}`))} on the latest autosave.`);
-        } else {
-          await this.openRCT2ServerController.startGameServerOnAutosave(serverId, autosaveIndex - 1);
-          commandResponse.appendToMessage(`Started ${underscore(italic(`Server ${serverId}`))} on autosave ${autosaveIndex}.`);
-        };
-      } catch (err) {
-        commandResponse.appendToError((err as Error).message);
+    try {
+      if (1 === autosaveIndex) {
+        await this.openRCT2ServerController.startGameServerOnAutosave(serverId);
+        commandResponse.appendToMessage(`Started ${underscore(italic(`Server ${serverId}`))} on the latest autosave.`);
+      } else {
+        await this.openRCT2ServerController.startGameServerOnAutosave(serverId, autosaveIndex - 1);
+        commandResponse.appendToMessage(`Started ${underscore(italic(`Server ${serverId}`))} on autosave ${autosaveIndex}.`);
       };
+    } catch (err) {
+      commandResponse.appendToError((err as Error).message);
     };
 
     return commandResponse;
@@ -670,38 +660,31 @@ export class ServerCommand extends BotCommand<
   private async startServerFromQueue(serverId: number, defer: boolean) {
     const commandResponse = new CommandResponseBuilder();
 
-    if (this.openRCT2ServerController.isGameServerStarting(serverId)) {
-      commandResponse.appendToError(
-        `Can't start ${underscore(italic(`Server ${serverId}`))}.`,
-        'It\'s already in the middle of starting a scenario.'
-      );
-    } else {
-      const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
-      const queue = await serverDir.getQueue();
+    const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+    const queue = await serverDir.getQueue();
 
-      if (queue.scenarioQueue.length > 0) {
-        try {
-          if (defer) {
-            this.openRCT2ServerController.startGameServerFromQueue(serverId, defer);
-            commandResponse.appendToMessage(
-              `Initiated to start the next scenario in the ${
-                underscore(italic(`Server ${serverId}`))
-              } scenario queue.`
-            );
-          } else {
-            await this.openRCT2ServerController.startGameServerFromQueue(serverId);
-            commandResponse.appendToMessage(
-              `Started the next scenario in the ${
-                underscore(italic(`Server ${serverId}`))
-              } scenario queue.`
-            );
-          };
-        } catch (err) {
-          commandResponse.appendToError((err as Error).message);
+    if (queue.scenarioQueue.length > 0) {
+      try {
+        if (defer) {
+          this.openRCT2ServerController.startGameServerFromQueue(serverId, defer);
+          commandResponse.appendToMessage(
+            `Initiated to start the next scenario in the ${
+              underscore(italic(`Server ${serverId}`))
+            } scenario queue.`
+          );
+        } else {
+          await this.openRCT2ServerController.startGameServerFromQueue(serverId);
+          commandResponse.appendToMessage(
+            `Started the next scenario in the ${
+              underscore(italic(`Server ${serverId}`))
+            } scenario queue.`
+          );
         };
-      } else {
-        commandResponse.appendToError(`${underscore(italic(`Server ${serverId}`))} scenario queue is currently empty.`);
+      } catch (err) {
+        commandResponse.appendToError((err as Error).message);
       };
+    } else {
+      commandResponse.appendToError(`${underscore(italic(`Server ${serverId}`))} scenario queue is currently empty.`);
     };
 
     return commandResponse;
@@ -710,28 +693,21 @@ export class ServerCommand extends BotCommand<
   private async startServerOnRandomScenario(serverId: number) {
     const commandResponse = new CommandResponseBuilder();
 
-    if (this.openRCT2ServerController.isGameServerStarting(serverId)) {
-      commandResponse.appendToError(
-        `Can't start ${underscore(italic(`Server ${serverId}`))}.`,
-        'It\'s already in the middle of starting a scenario.'
-      );
-    } else {
-      const scenarios = fisherYatesShuffle(await this.scenarioRepo.getAvailableScenarios());
+    const scenarios = fisherYatesShuffle(await this.scenarioRepo.getAvailableScenarios());
 
-      if (scenarios.length > 0) {
-        try {
-          this.openRCT2ServerController.startGameServerOnScenario(serverId, scenarios[0]);
-          commandResponse.appendToMessage(
-            `Started ${
-              underscore(italic(`Server ${serverId}`))
-            } on the ${bold(scenarios[0].nameNoExtension)} scenario.`
-          );
-        } catch (err) {
-          commandResponse.appendToError((err as Error).message);
-        };
-      } else {
-        commandResponse.appendToError(`There are currently no available scenarios.`);
+    if (scenarios.length > 0) {
+      try {
+        this.openRCT2ServerController.startGameServerOnScenario(serverId, scenarios[0]);
+        commandResponse.appendToMessage(
+          `Started ${
+            underscore(italic(`Server ${serverId}`))
+          } on the ${bold(scenarios[0].nameNoExtension)} scenario.`
+        );
+      } catch (err) {
+        commandResponse.appendToError((err as Error).message);
       };
+    } else {
+      commandResponse.appendToError(`There are currently no available scenarios.`);
     };
 
     return commandResponse;

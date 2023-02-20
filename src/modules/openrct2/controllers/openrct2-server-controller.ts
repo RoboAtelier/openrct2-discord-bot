@@ -15,6 +15,8 @@ import {
 import { wait } from '@modules/utils/runtime-utils';
 import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
 
+type ProcessName = 'save' | 'screenshot';
+
 export declare interface OpenRCT2ServerController {
 
   /**
@@ -85,7 +87,7 @@ export class OpenRCT2ServerController extends EventEmitter {
   private readonly gameServers = new Map<number, OpenRCT2Server>();
   private readonly activeStarts = new Map<number, boolean>();
   private readonly activeDeferrals = new Map<number, ScenarioFile | null>();
-  private readonly activeProcesses = new Map<number, boolean>();
+  private readonly activeProcesses = new Map<number, ProcessName>();
 
   constructor(
     logger: Logger,
@@ -100,15 +102,14 @@ export class OpenRCT2ServerController extends EventEmitter {
     this.serverHostRepo = serverHostRepo;
   };
 
-  getActiveGameServerById(serverId: number) {
-    return this.gameServers.get(serverId);
-  };
-
   isGameServerStarting(serverId: number) {
     return this.activeStarts.has(serverId);
   };
 
-  isGameServerProcessRunning(serverId: number) {
+  isGameServerProcessRunning(serverId: number, process?: ProcessName) {
+    if (process) {
+      return this.activeProcesses.get(serverId) === process;
+    };
     return this.activeProcesses.has(serverId);
   };
 
@@ -238,7 +239,7 @@ export class OpenRCT2ServerController extends EventEmitter {
               'server.start.defer',
               new ServerEventArgs(serverId, { scenarioFile: scenarioFile, delayDuration: remainingMinutes })
             );
-            const gameServer = this.getActiveGameServerById(serverId);
+            const gameServer = this.gameServers.get(serverId);
             if (gameServer && gameServer.pluginAdapter) {
               try {
                 const alert = `{YELLOW}Announcement: {WHITE}The server will change scenarios in ${remainingMinutes} ${
@@ -370,7 +371,7 @@ export class OpenRCT2ServerController extends EventEmitter {
     userId: string,
     args?: PluginActions[A]
   ) {
-    const gameServer = this.getActiveGameServerById(serverId);
+    const gameServer = this.gameServers.get(serverId);
     if (gameServer) {
       if (gameServer.pluginAdapter) {
         const result = await gameServer.pluginAdapter.executeAction(action, userId, args);
@@ -387,12 +388,12 @@ export class OpenRCT2ServerController extends EventEmitter {
    * @param userId 
    */
   async createServerScreenshot(serverId: number, userId: string) {
-    const gameServer = this.getActiveGameServerById(serverId);
-    const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+    if (!this.isGameServerProcessRunning(serverId, 'screenshot')) {
+      this.activeProcesses.set(serverId, 'screenshot');
 
-    if (!this.isGameServerProcessRunning(serverId)) {
-      this.activeProcesses.set(serverId, true);
-
+      const gameServer = this.gameServers.get(serverId);
+      const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+  
       try {
         const result: {
           screenshotFilePath: string,
@@ -400,18 +401,22 @@ export class OpenRCT2ServerController extends EventEmitter {
           scenarioName: string,
           usedPlugin: boolean
         } = { screenshotFilePath: '', scenarioName: '', usedPlugin: false };
-
+  
         if (gameServer && gameServer.pluginAdapter) {
           const startupOptions = await serverDir.getStartupOptions();
           if (startupOptions.headless) {
             const save = await this.createCurrentScenarioSave(serverId, userId);
-            result.screenshotFilePath = await this.openRCT2ProcessEngine.createScenarioScreenshot(
-              save.saveFile,
-              serverDir.getSubdirectoryPath(OpenRCT2ServerSubdirectoryName.Screenshot),
-              `s${serverId}_screenshot`
-            );
-            result.scenarioFile = save.saveFile;
-            result.scenarioName = save.scenarioName;
+            if (save) {
+              result.screenshotFilePath = await this.openRCT2ProcessEngine.createScenarioScreenshot(
+                save.saveFile,
+                serverDir.getSubdirectoryPath(OpenRCT2ServerSubdirectoryName.Screenshot),
+                `s${serverId}_screenshot`
+              );
+              result.scenarioFile = save.saveFile;
+              result.scenarioName = save.scenarioName;
+            } else {
+              throw new Error('Failed to get a scenario save for a screenshot.');
+            };
           } else {
             const screenshotFileName = await gameServer.pluginAdapter.executeAction('screenshot', userId);
             result.screenshotFilePath = await serverDir.getScreenshotByName(screenshotFileName);
@@ -430,7 +435,7 @@ export class OpenRCT2ServerController extends EventEmitter {
           result.scenarioFile = latestAutosave;
           result.scenarioName = initiatedScenario ? initiatedScenario.nameNoExtension : latestAutosave.nameNoExtension;
         };
-
+  
         await this.logger.writeLog(`Created a screenshot of Server ${serverId}.`);
         return result;
       } catch (err) {
@@ -440,42 +445,46 @@ export class OpenRCT2ServerController extends EventEmitter {
         this.activeProcesses.delete(serverId);
       };
     };
-
-    throw new Error(`Server ${serverId} is busy with another process.`);
   };
 
   async createCurrentScenarioSave(serverId: number, userId: string) {
-    const gameServer = this.getActiveGameServerById(serverId);
-    const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+    if (!this.isGameServerProcessRunning(serverId, 'save')) {
+      this.activeProcesses.set(serverId, 'save');
 
-    try {
-      if (gameServer && gameServer.pluginAdapter) {
-        const saveFileName = await gameServer.pluginAdapter.executeAction('save', userId);
-        await this.logger.writeLog(`Created a save file of Server ${serverId}.`);
-        return {
-          saveFile: await serverDir.getScenarioSaveByName(saveFileName.concat('.park')),
-          scenarioName: await gameServer.getScenarioName(),
-          usedPlugin: true
+      const gameServer = this.gameServers.get(serverId);
+      const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+
+      try {
+        if (gameServer && gameServer.pluginAdapter) {
+          const saveFileName = await gameServer.pluginAdapter.executeAction('save', userId);
+          await this.logger.writeLog(`Created a save file of Server ${serverId}.`);
+          return {
+            saveFile: await serverDir.getScenarioSaveByName(saveFileName.concat('.park')),
+            scenarioName: await gameServer.getScenarioName(),
+            usedPlugin: true
+          };
+        } else {
+          const latestAutosave = await serverDir.getScenarioAutosave();
+          const status = await serverDir.getStatus();
+          const initiatedScenario = await this.scenarioRepo.getScenarioByName(status.initiatedScenarioFileName);
+          await this.logger.writeLog(`Sharing latest autosave as the current save file for Server ${serverId}.`);
+          return {
+            saveFile: latestAutosave,
+            scenarioName: initiatedScenario ? initiatedScenario.nameNoExtension : latestAutosave.nameNoExtension,
+            usedPlugin: false
+          };
         };
-      } else {
-        const latestAutosave = await serverDir.getScenarioAutosave();
-        const status = await serverDir.getStatus();
-        const initiatedScenario = await this.scenarioRepo.getScenarioByName(status.initiatedScenarioFileName);
-        await this.logger.writeLog(`Sharing latest autosave as the current save file for Server ${serverId}.`);
-        return {
-          saveFile: latestAutosave,
-          scenarioName: initiatedScenario ? initiatedScenario.nameNoExtension : latestAutosave.nameNoExtension,
-          usedPlugin: false
-        };
+      } catch (err) {
+        await this.logger.writeError(err as Error);
+        throw err;
+      } finally {
+        this.activeProcesses.delete(serverId);
       };
-    } catch (err) {
-      await this.logger.writeError(err as Error);
-      throw err;
     };
   };
 
   private onServerClose(args: ServerEventArgs<{ code: number | null, signal: NodeJS.Signals | null }>) {
-    const gameServer = this.getActiveGameServerById(args.serverId);
+    const gameServer = this.gameServers.get(args.serverId);
     if (gameServer) {
       this.gameServers.delete(args.serverId);
     };
