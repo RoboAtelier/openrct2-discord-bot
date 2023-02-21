@@ -2,7 +2,8 @@ import {
   bold,
   italic,
   underscore,
-  ChatInputCommandInteraction
+  ChatInputCommandInteraction,
+  User
 } from 'discord.js';
 import { EOL } from 'os';
 import {
@@ -10,11 +11,21 @@ import {
   CommandPermissionLevel,
   CommandResponseBuilder
 } from '@modules/discord/commands';
-import { ScenarioMetadata } from '@modules/openrct2/data/models';
+import { 
+  ScenarioFile,
+  ScenarioMetadata
+} from '@modules/openrct2/data/models';
 import { ScenarioRepository } from '@modules/openrct2/data/repositories';
 import { ScenarioFileExtension } from '@modules/openrct2/data/types';
-import { getArraySectionWithDetails } from '@modules/utils/array-utils';
-import { isStringNullOrWhiteSpace, areStringsEqualCaseInsensitive } from '@modules/utils/string-utils';
+import { 
+  fisherYatesShuffle,
+  getArraySectionWithDetails,
+  selectRandomElement
+} from '@modules/utils/array-utils';
+import { 
+  areStringsEqualCaseInsensitive,
+  isStringNullOrWhiteSpace
+} from '@modules/utils/string-utils';
 
 type ScenarioCommandOptions =
   | 'scenario'
@@ -22,13 +33,31 @@ type ScenarioCommandOptions =
   | 'file-type' | 'page' // search, list
   | 'active' // modify
 type ScenarioCommandSubcommands =
+  | 'list'
   | 'search'
   | 'modify'
-  | 'list'
+  | 'gimme'
 
 const FileTypeOptionChoices = [
   { name: '.scv* (RCT1 & RCT2)', value: 'scv' },
   { name: '.park (ORCT2)', value: 'park' }
+];
+const GimmePhrases = [
+  'Are you feeling it now {user}?',
+  'Your menu, {user}.',
+  '{user} {user} {user}',
+  'To be honest, I have no idea what these are.',
+  'Will these work?',
+  'These seem fine, right?',
+  'I have a good feeling about these.',
+  'These may or may not work.',
+  'I prefer the grape-flavored ones.',
+  'Please leave a 5-star rating!',
+  'Here you go {user}.',
+  'They smell funny? Must be your imagination...',
+  'These will not explode this time, I promise.',
+  'These are not the things you are looking for.',
+  'No refunds.'
 ];
 
 /** Represents a command for managing RollerCoaster Tycoon scenario files. */
@@ -113,7 +142,12 @@ export class ScenarioCommand extends BotCommand<
               .setName(this.reflectOptionName('active'))
               .setDescription('Set active or inactive.')
           )
-      );
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName(this.reflectSubcommandName('gimme'))
+          .setDescription('Fetches a random selection of scenarios.')
+        );
 
     this.scenarioRepo = scenarioRepo;
   };
@@ -133,16 +167,17 @@ export class ScenarioCommand extends BotCommand<
           const scenarioName = this.getInteractionOption(interaction, 'scenario').value as string
           const newName = this.doesInteractionHaveOption(interaction, 'name') 
             ? this.getInteractionOption(interaction, 'name').value as string
-            : null;
+            : undefined;
           const newTags = this.doesInteractionHaveOption(interaction, 'tags')
             ? (this.getInteractionOption(interaction, 'tags').value as string).split(/\s+/)
-            : null;
+            : undefined;
           const active = this.doesInteractionHaveOption(interaction, 'active')
             ? this.getInteractionOption(interaction, 'active').value as boolean
-            : null;
+            : undefined;
           commandResponse = await this.setScenarioValues(scenarioName, newName, newTags, active);
         };
-
+      } else if (this.isInteractionUsingSubcommand(interaction, 'gimme')) {
+        commandResponse = await this.gimmeScenarios(scenarios, interaction.user);
       } else {
         const scenarioFileExts: ScenarioFileExtension[] = [];
 
@@ -161,11 +196,11 @@ export class ScenarioCommand extends BotCommand<
         if (this.isInteractionUsingSubcommand(interaction, 'search')) {
           const nameSearch = this.doesInteractionHaveOption(interaction, 'name') 
             ? this.getInteractionOption(interaction, 'name').value as string
-            : null;
+            : undefined;
           const tags = this.doesInteractionHaveOption(interaction, 'tags')
             ? (this.getInteractionOption(interaction, 'tags').value as string).split(/\s+/)
-            : null;
-          commandResponse = await this.getScenariosBySearchQuery(nameSearch, tags, scenarioFileExts, pageIndex);
+            : undefined;
+          commandResponse = await this.getScenariosBySearchQuery(scenarioFileExts, pageIndex, nameSearch, tags);
         } else if (this.isInteractionUsingSubcommand(interaction, 'list')) {
           commandResponse = await this.getScenarioList(scenarioFileExts, pageIndex);
         };
@@ -181,9 +216,9 @@ export class ScenarioCommand extends BotCommand<
 
   private async setScenarioValues(
     scenarioName: string,
-    newName: string | null,
-    newTags: string[] | null,
-    active: boolean | null
+    newName?: string,
+    newTags?: string[],
+    active?: boolean
   ) {
     const commandResponse = new CommandResponseBuilder();
     
@@ -194,13 +229,13 @@ export class ScenarioCommand extends BotCommand<
       const updateActions: (() => Promise<void>)[] = [];
       const performUpdates = async () => { for (const action of updateActions) { await action(); }; };
 
-      if (newTags !== null || active !== null) {
-        if (newTags !== null) {
+      if (newTags || active !== undefined) {
+        if (newTags) {
           metadata.tags = newTags;
           commandResponse.appendToMessage(`Applied data tags for ${italic(scenarioToChange.name)}: ${newTags.join(' ')}`);
         };
   
-        if (active !== null) {
+        if (active !== undefined) {
           metadata.active = active;
           commandResponse.appendToMessage(`Set ${italic(scenarioToChange.name)} to be ${active ? bold('ACTIVE') : bold('INACTIVE')}`)
         };
@@ -208,7 +243,7 @@ export class ScenarioCommand extends BotCommand<
         updateActions.push(() => this.scenarioRepo.updateScenarioMetadata(metadata));
       };
 
-      if (newName !== null) {
+      if (newName) {
         const fullNewName = newName.endsWith(scenarioToChange.fileExtension)
           ? newName
           : `${newName}${scenarioToChange.fileExtension}`;
@@ -238,25 +273,34 @@ export class ScenarioCommand extends BotCommand<
     return commandResponse;
   };
 
+  private async gimmeScenarios(scenarios: ScenarioFile[], user: User) {
+    const commandResponse = new CommandResponseBuilder();
+
+    const randomScenarios = fisherYatesShuffle(scenarios).slice(0, 10);
+    commandResponse.appendToMessage(selectRandomElement(GimmePhrases).replace('{user}', bold(user.username)), EOL);
+    for (const scenario of randomScenarios) {
+      commandResponse.appendToMessage(`▸ ${italic(scenario.name)}`);
+    };
+
+    return commandResponse;
+  };
+
   private async getScenariosBySearchQuery(
-    nameSearch: string | null,
-    tags: string[] | null,
     scenarioFileExts: ScenarioFileExtension[],
-    resultIndex: number
+    resultIndex: number,
+    nameSearch?: string,
+    tags?: string[]
   ) {
     const commandResponse = new CommandResponseBuilder();
 
-    if (
-      nameSearch === null
-      && tags === null
-    ) {
+    if (!(nameSearch || tags)) {
       return this.getScenarioList(scenarioFileExts, resultIndex);
     } else {
-      const metadata = nameSearch !== null
+      const metadata = nameSearch
         ? await this.scenarioRepo.getScenarioMetadataByFuzzySearch(nameSearch, ...scenarioFileExts)
         : await this.scenarioRepo.getScenarioMetadataByFileExtension(...scenarioFileExts)
 
-      const matchedMetadata = tags !== null
+      const matchedMetadata = tags
         ? metadata.filter(scenarioData => {
             return tags.every(tag => scenarioData.tags.includes(tag));
           })
@@ -302,16 +346,16 @@ export class ScenarioCommand extends BotCommand<
       sectionIndex: number,
       totalSections: number
     },
-    nameSearch: string | null,
-    tags: string[] | null
+    nameSearch?: string,
+    tags?: string[]
   ) {
     const metadataMsgSegments = [];
 
     const queryParameterSegments = [];
-    if (nameSearch !== null) {
+    if (nameSearch) {
       queryParameterSegments.push(`the name '${italic(nameSearch)}'`);
     };
-    if (tags !== null) {
+    if (tags) {
       queryParameterSegments.push(`the data tags ${italic(tags.join(' '))}`);
     };
     metadataMsgSegments.push(`Scenarios that match ${queryParameterSegments.join(' and ')}:${EOL}`);
@@ -334,12 +378,12 @@ export class ScenarioCommand extends BotCommand<
    * @param tags The tags used to search if specified.
    * @returns A custom formatted message for a specific feature.
    */
-  private formatEmptyResultMessage(nameSearch: string | null, tags: string[] | null) {
+  private formatEmptyResultMessage(nameSearch?: string, tags?: string[]) {
     const queryParameterSegments = [];
-    if (nameSearch !== null) {
+    if (nameSearch) {
       queryParameterSegments.push(`the name ${italic(nameSearch)}`);
     };
-    if (tags !== null) {
+    if (tags) {
       queryParameterSegments.push(`the data tags ${italic(tags.join(' '))}`);
     };
     
@@ -398,26 +442,26 @@ export class ScenarioCommand extends BotCommand<
     return errorMsgSegments.join(EOL);
   };
 
-  /**
-   * Constructs a phrase of declared scenario file extensions to be concatenated into a message.
-   * @param scenarioFileExts An array of declared scenario file extensions.
-   * @returns The constructed phrase.
-   */
-  private makeSpecifiedExtensionsPhrase(scenarioFileExts: ScenarioFileExtension[]) {
-    let phrase = '';
-    if (scenarioFileExts.length > 0) {
-      phrase = ` ending with ${scenarioFileExts[0]}`;
-      if (scenarioFileExts.length > 1) {
-        for (let i = 1; i < scenarioFileExts.length; ++i) {
-          const ext = scenarioFileExts[i];
-          if (i = scenarioFileExts.length - 1) {
-            phrase += ` or ${scenarioFileExts[i]}`;
-          } else {
-            phrase += `, ${ext}`;
-          };
-        };
-      };
-    };
-    return phrase;
-  };
+  // /**
+  //  * Constructs a phrase of declared scenario file extensions to be concatenated into a message.
+  //  * @param scenarioFileExts An array of declared scenario file extensions.
+  //  * @returns The constructed phrase.
+  //  */
+  // private makeSpecifiedExtensionsPhrase(scenarioFileExts: ScenarioFileExtension[]) {
+  //   let phrase = '';
+  //   if (scenarioFileExts.length > 0) {
+  //     phrase = ` ending with ${scenarioFileExts[0]}`;
+  //     if (scenarioFileExts.length > 1) {
+  //       for (let i = 1; i < scenarioFileExts.length; ++i) {
+  //         const ext = scenarioFileExts[i];
+  //         if (i = scenarioFileExts.length - 1) {
+  //           phrase += ` or ${scenarioFileExts[i]}`;
+  //         } else {
+  //           phrase += `, ${ext}`;
+  //         };
+  //       };
+  //     };
+  //   };
+  //   return phrase;
+  // };
 };

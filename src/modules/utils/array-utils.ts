@@ -1,6 +1,7 @@
 /**
  * Performs a Fisher-Yates shuffle on an array.
  * @param array The array to shuffle.
+ * @returns The shuffled array.
  */
 export function fisherYatesShuffle<T>(array: T[]) {
   let currentIndex = array.length, randomIndex;
@@ -11,6 +12,15 @@ export function fisherYatesShuffle<T>(array: T[]) {
   }
 
   return array;
+};
+
+/**
+ * Selects a random element from a given array.
+ * @param array The array to pick from.
+ * @returns A random element from the array.
+ */
+export function selectRandomElement<T>(array: T[]) {
+  return array[Math.floor(Math.random() * array.length)];
 };
 
 /**
