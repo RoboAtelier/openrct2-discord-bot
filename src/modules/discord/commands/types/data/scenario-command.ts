@@ -277,7 +277,7 @@ export class ScenarioCommand extends BotCommand<
     const commandResponse = new CommandResponseBuilder();
 
     const randomScenarios = fisherYatesShuffle(scenarios).slice(0, 10);
-    commandResponse.appendToMessage(selectRandomElement(GimmePhrases).replace('{user}', bold(user.username)), EOL);
+    commandResponse.appendToMessage(`${selectRandomElement(GimmePhrases).replace('{user}', bold(user.username))}${EOL}`);
     for (const scenario of randomScenarios) {
       commandResponse.appendToMessage(`▸ ${italic(scenario.name)}`);
     };
