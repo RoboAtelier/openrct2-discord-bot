@@ -11,10 +11,7 @@ import {
   CommandPermissionLevel,
   CommandResponseBuilder
 } from '@modules/discord/commands';
-import { 
-  ScenarioFile,
-  ScenarioMetadata
-} from '@modules/openrct2/data/models';
+import { ScenarioMetadata } from '@modules/openrct2/data/models';
 import { ScenarioRepository } from '@modules/openrct2/data/repositories';
 import { ScenarioFileExtension } from '@modules/openrct2/data/types';
 import { 
@@ -147,6 +144,11 @@ export class ScenarioCommand extends BotCommand<
         subcommand
           .setName(this.reflectSubcommandName('gimme'))
           .setDescription('Fetches a random selection of scenarios.')
+          .addStringOption(option =>
+            option
+              .setName(this.reflectOptionName('tags'))
+              .setDescription('The exact data tags to match.')
+          )
         );
 
     this.scenarioRepo = scenarioRepo;
@@ -177,7 +179,10 @@ export class ScenarioCommand extends BotCommand<
           commandResponse = await this.setScenarioValues(scenarioName, newName, newTags, active);
         };
       } else if (this.isInteractionUsingSubcommand(interaction, 'gimme')) {
-        commandResponse = await this.gimmeScenarios(scenarios, interaction.user);
+        const tags = this.doesInteractionHaveOption(interaction, 'tags')
+          ? (this.getInteractionOption(interaction, 'tags').value as string).split(/\s+/)
+          : undefined;
+        commandResponse = await this.gimmeScenarios(interaction.user, tags);
       } else {
         const scenarioFileExts: ScenarioFileExtension[] = [];
 
@@ -273,13 +278,27 @@ export class ScenarioCommand extends BotCommand<
     return commandResponse;
   };
 
-  private async gimmeScenarios(scenarios: ScenarioFile[], user: User) {
+  private async gimmeScenarios(user: User, tags?: string[]) {
     const commandResponse = new CommandResponseBuilder();
 
-    const randomScenarios = fisherYatesShuffle(scenarios).slice(0, 10);
-    commandResponse.appendToMessage(`${selectRandomElement(GimmePhrases).replace(/\{user\}/g, bold(user.username))}${EOL}`);
-    for (const scenario of randomScenarios) {
-      commandResponse.appendToMessage(`▸ ${italic(scenario.name)}`);
+    const metadata = await this.scenarioRepo.getScenarioMetadata();
+    const matchedMetadata = tags
+      ? metadata.filter(scenarioData => {
+          return tags.every(tag => scenarioData.tags.includes(tag));
+        })
+      : metadata;
+    const selectedMetadata = fisherYatesShuffle(matchedMetadata).slice(0, 10);
+
+    if (0 === selectedMetadata.length) {
+      commandResponse.appendToMessage(this.formatEmptyResultMessage(undefined, tags));
+    } else {
+      commandResponse.appendToMessage(`${selectRandomElement(GimmePhrases).replace(/\{user\}/g, bold(user.username))}${EOL}`);
+      if (tags) {
+        commandResponse.appendToMessage(`${italic(tags.join(' '))}${EOL}`);
+      };
+      for (const scenarioData of selectedMetadata) {
+        commandResponse.appendToMessage(`▸ ${italic(scenarioData.fileName)}`);
+      };
     };
 
     return commandResponse;
@@ -313,7 +332,6 @@ export class ScenarioCommand extends BotCommand<
         commandResponse.appendToMessage(this.formatScenarioSearchMessage(metadataSet, nameSearch, tags));
       };
     };
-
 
     return commandResponse;
   };
