@@ -196,27 +196,28 @@ export class ChannelCommand extends BotCommand<
     } else if (this.isInteractionUnderSubcommandGroup(interaction, 'assign')) {
       const debugChannelId = this.isInteractionUsingSubcommand(interaction, 'debug')
         ? this.getInteractionOption(interaction, 'channel').value as string
-        : null;
+        : undefined;
       const eventChannelId = this.isInteractionUsingSubcommand(interaction, 'event')
         ? this.getInteractionOption(interaction, 'channel').value as string
-        : null;
+        : undefined;
       const scenarioChannelId = this.isInteractionUsingSubcommand(interaction, 'scenario')
         ? this.getInteractionOption(interaction, 'channel').value as string
-        : null;
+        : undefined;
       const votingChannelId = this.isInteractionUsingSubcommand(interaction, 'voting')
         ? this.getInteractionOption(interaction, 'channel').value as string
-        : null;
+        : undefined;
       const botChannelId = this.isInteractionUsingSubcommand(interaction, 'bot')
         ? this.getInteractionOption(interaction, 'channel').value as string
-        : null;
-      let gameServerChannel: { serverId: number , channelId: string } | null = null;
+        : undefined;
+      let gameServerChannel: { serverId: number , channelId: string, autoRelay: boolean } | undefined;
       if (this.isInteractionUsingSubcommand(interaction, 'game-server')) {
         const serverId = this.doesInteractionHaveOption(interaction, 'server-id')
           ? this.getInteractionOption(interaction, 'server-id').value as number
           : 1;
         gameServerChannel = { 
           serverId: serverId,
-          channelId: this.getInteractionOption(interaction, 'channel').value as string
+          channelId: this.getInteractionOption(interaction, 'channel').value as string,
+          autoRelay: false
         };
       };
       commandResponse = await this.setChannelTypes(
@@ -234,18 +235,18 @@ export class ChannelCommand extends BotCommand<
       const unsetVoting = this.isInteractionUsingSubcommand(interaction, 'voting');
       const botChannelId = this.isInteractionUsingSubcommand(interaction, 'bot')
         ? this.getInteractionOption(interaction, 'channel').value as string
-        : null;
+        : undefined;
       const serverId = this.isInteractionUsingSubcommand(interaction, 'game-server')
         ? this.getInteractionOption(interaction, 'server-id').value as number
-        : null;
-        commandResponse = await this.unsetChannelTypes(
-          unsetDebug,
-          unsetEvent,
-          unsetScenario,
-          unsetVoting,
-          botChannelId,
-          serverId
-        );
+        : undefined;
+      commandResponse = await this.unsetChannelTypes(
+        unsetDebug,
+        unsetEvent,
+        unsetScenario,
+        unsetVoting,
+        botChannelId,
+        serverId
+      );
     } else if (this.isInteractionUsingSubcommand(interaction, 'reset')) {
       commandResponse = await this.resetChannelTypes();
     };
@@ -258,37 +259,37 @@ export class ChannelCommand extends BotCommand<
   };
 
   private async setChannelTypes(
-    debugChannelId: string | null,
-    eventChannelId: string | null,
-    scenarioChannelId: string | null,
-    votingChannelId: string | null,
-    botChannelId: string | null,
-    gameServerChannel: { serverId: number, channelId: string } | null
+    debugChannelId?: string,
+    eventChannelId?: string,
+    scenarioChannelId?: string,
+    votingChannelId?: string,
+    botChannelId?: string,
+    gameServerChannel?: { serverId: number, channelId: string, autoRelay: boolean }
   ) {
     const commandResponse = new CommandResponseBuilder();
     const guildInfo = await this.botDataRepo.getGuildInfo();
 
-    if (debugChannelId !== null) {
+    if (debugChannelId) {
       guildInfo.debugChannelId = debugChannelId;
       commandResponse.appendToMessage(`Set ${channelMention(debugChannelId)} as the ${italic('Debug Channel')}.`);
     };
 
-    if (eventChannelId !== null) {
+    if (eventChannelId) {
       guildInfo.eventChannelId = eventChannelId;
       commandResponse.appendToMessage(`Set ${channelMention(eventChannelId)} as the ${italic('Event Channel')}.`);
     };
 
-    if (scenarioChannelId !== null) {
+    if (scenarioChannelId) {
       guildInfo.scenarioChannelId = scenarioChannelId;
       commandResponse.appendToMessage(`Set ${channelMention(scenarioChannelId)} as the ${italic('Scenario Channel')}.`);
     };
 
-    if (votingChannelId !== null) {
+    if (votingChannelId) {
       guildInfo.votingChannelId = votingChannelId;
       commandResponse.appendToMessage(`Set ${channelMention(votingChannelId)} as the ${italic('Vote Channel')}.`);
     };
 
-    if (botChannelId !== null) {
+    if (botChannelId) {
       if (guildInfo.botChannelIds.includes(botChannelId)) {
         commandResponse.appendToError(`${channelMention(botChannelId)} is already set as a ${italic('Bot Channel')}.`);
       } else {
@@ -297,7 +298,7 @@ export class ChannelCommand extends BotCommand<
       };
     };
 
-    if (gameServerChannel !== null) {
+    if (gameServerChannel) {
       if (guildInfo.gameServerChannels.some(channel => channel.channelId === gameServerChannel.channelId)) {
         commandResponse.appendToError(`${
           channelMention(gameServerChannel.channelId)
@@ -329,8 +330,8 @@ export class ChannelCommand extends BotCommand<
     unsetEvent: boolean,
     unsetScenario: boolean,
     unsetVoting: boolean,
-    botChannelId: string | null,
-    serverId: number | null
+    botChannelId?: string,
+    serverId?: number
   ) {
     const commandResponse = new CommandResponseBuilder();
     const guildInfo = await this.botDataRepo.getGuildInfo();
@@ -355,7 +356,7 @@ export class ChannelCommand extends BotCommand<
       commandResponse.appendToMessage(`Unset the ${italic('Vote Channel')}.`);
     };
 
-    if (botChannelId !== null) {
+    if (botChannelId) {
       if (guildInfo.botChannelIds.includes(botChannelId)) {
         guildInfo.botChannelIds.splice(guildInfo.botChannelIds.indexOf(botChannelId), 1);
         commandResponse.appendToError(`Unset ${channelMention(botChannelId)} from being a ${italic('Bot Channel')}.`);
@@ -364,7 +365,7 @@ export class ChannelCommand extends BotCommand<
       };
     };
 
-    if (serverId !== null) {
+    if (serverId !== undefined) {
       const index = guildInfo.gameServerChannels.findIndex(channel => channel.serverId === serverId);
       if (index < 0) {
         commandResponse.appendToError(`${

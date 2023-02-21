@@ -17,7 +17,6 @@ import { BotDataRepository } from '@modules/discord/data/repositories';
 import { Logger } from '@modules/logging';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 import { ServerHostRepository } from '@modules/openrct2/data/repositories';
-import { ScenarioFile } from '@modules/openrct2/data/models';
 import { 
   createDateTimestamp,
   isStringNullOrWhiteSpace
