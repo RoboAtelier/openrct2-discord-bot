@@ -4,7 +4,6 @@ import { unlink } from 'fs/promises';
 import { Socket } from 'net';
 import { OpenRCT2Server } from '.';
 import { Configuration } from '@modules/configuration';
-import { Logger } from '@modules/logging';
 import { OpenRCT2PluginAdapter } from '@modules/openrct2/adapters';
 import { 
   PluginOptions,

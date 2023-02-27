@@ -79,7 +79,7 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
     const finalize = this.doesInteractionHaveOption(interaction, 'finalize')
       ? this.getInteractionOption(interaction, 'finalize').value as boolean
       : false;
-    if (this.openRCT2ServerController.isGameServerProcessRunning(serverId)) {
+    if (this.openRCT2ServerController.isServerProcessActive(serverId, 'save', 'screenshot')) {
       commandResponse.appendToError(`${underscore(italic(`Server ${serverId}`))} is busy with another process.`);
     } else if (finalize && userLevel < CommandPermissionLevel.Trusted) {
       commandResponse.appendToError(this.formatOptionPermissionError('finalize'));

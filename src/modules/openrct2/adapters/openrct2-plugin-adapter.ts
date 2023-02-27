@@ -1,25 +1,7 @@
 import { Socket } from 'net';
 import { EventEmitter } from 'events';
 
-export declare interface OpenRCT2PluginAdapter {
-
-  /**
-   * Adds the `listener` function to the end of the listeners array for the event named `eventName`.
-   * @param event The name of the event.
-   * @param listener The callback function.
-   */
-  on(event: 'data', listener: (args: PluginEventArgs) => void): this;
-};
-
-export interface PluginActions {
-  'chat': string;
-  'player.list': undefined;
-  'save': undefined;
-  'scenario': undefined;
-  'screenshot': undefined;
-};
-
-interface PluginActionResultValues {
+interface PluginActionResultValue {
   'chat': void;
   'player.list': {
     name: string,
@@ -33,6 +15,24 @@ interface PluginActionResultValues {
     status: 'inProgress' | 'completed' | 'failed'
   };
   'screenshot': string;
+};
+
+export declare interface OpenRCT2PluginAdapter {
+
+  /**
+   * Adds the `listener` function to the end of the listeners array for the event named `eventName`.
+   * @param event The name of the event.
+   * @param listener The callback function.
+   */
+  on(event: 'data', listener: (args: PluginEventArgs) => void): this;
+};
+
+export interface PluginAction {
+  'chat': string;
+  'player.list': undefined;
+  'save': undefined;
+  'scenario': undefined;
+  'screenshot': undefined;
 };
 
 /** Represents arguments returned from an emitted plugin event. */
@@ -78,11 +78,11 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
    * @param args Arguments to pass to the plugin call.
    * @returns A result from executing the plugin action.
    */
-  async executeAction<A extends keyof PluginActions>(
+  async executeAction<A extends keyof PluginAction>(
     action: A,
     userId: string,
-    args?: PluginActions[A]
-  ): Promise<PluginActionResultValues[A]> {
+    args?: PluginAction[A]
+  ): Promise<PluginActionResultValue[A]> {
     const actionStr = args === undefined || args === null
       ? `${action};${userId}`
       : typeof args === 'string'

@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import { Logger } from '@modules/logging';
-import { PluginActions } from '@modules/openrct2/adapters';
+import { PluginAction } from '@modules/openrct2/adapters';
 import { ScenarioFile } from '@modules/openrct2/data/models';
 import {
   ServerHostRepository,
@@ -12,10 +12,19 @@ import {
   OpenRCT2Server,
   ServerEventArgs
 } from '@modules/openrct2/runtime';
+import { 
+  Flag,
+  FlagManager
+} from '@modules/utils';
 import { wait } from '@modules/utils/runtime-utils';
 import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
 
-type ProcessName = 'save' | 'screenshot';
+interface ProcessFlag extends Flag {
+  'start': undefined;
+  'start.defer': ScenarioFile;
+  'screenshot': undefined;
+  'save': undefined;
+};
 
 export declare interface OpenRCT2ServerController {
 
@@ -24,8 +33,8 @@ export declare interface OpenRCT2ServerController {
    * @param event The name of the event.
    * @param listener The callback function.
    */
-  on<E extends keyof OpenRCT2ServerControllerEvents>(
-    event: E, listener: (args: ServerEventArgs<OpenRCT2ServerControllerEvents[E]>) => void
+  on<E extends keyof OpenRCT2ServerControllerEvent>(
+    event: E, listener: (args: ServerEventArgs<OpenRCT2ServerControllerEvent[E]>) => void
   ): this;
 
   /**
@@ -35,8 +44,8 @@ export declare interface OpenRCT2ServerController {
    * @param args Event arguments to pass to all listeners.
    * @returns `true` if the event had listeners, `false` otherwise.
    */
-  emit<E extends keyof OpenRCT2ServerControllerEvents>(
-    eventName: E, args: ServerEventArgs<OpenRCT2ServerControllerEvents[E]>
+  emit<E extends keyof OpenRCT2ServerControllerEvent>(
+    eventName: E, args: ServerEventArgs<OpenRCT2ServerControllerEvent[E]>
   ): boolean;
 };
 
@@ -44,7 +53,7 @@ export declare interface OpenRCT2ServerController {
  * Contains event names and their respective callback function definitions
  * for the `OpenRCT2ServerController` class.
  */
-export interface OpenRCT2ServerControllerEvents {
+export interface OpenRCT2ServerControllerEvent {
   'server.start': ScenarioFile;
   'server.restart': {
     autosaveIndex: number
@@ -85,9 +94,7 @@ export class OpenRCT2ServerController extends EventEmitter {
   private readonly serverHostRepo: ServerHostRepository;
 
   private readonly gameServers = new Map<number, OpenRCT2Server>();
-  private readonly activeStarts = new Map<number, boolean>();
-  private readonly activeDeferrals = new Map<number, ScenarioFile | null>();
-  private readonly activeProcesses = new Map<number, ProcessName>();
+  private readonly processFlags = new FlagManager<ProcessFlag>();
 
   constructor(
     logger: Logger,
@@ -102,15 +109,13 @@ export class OpenRCT2ServerController extends EventEmitter {
     this.serverHostRepo = serverHostRepo;
   };
 
-  isGameServerStarting(serverId: number) {
-    return this.activeStarts.has(serverId);
-  };
-
-  isGameServerProcessRunning(serverId: number, process?: ProcessName) {
-    if (process) {
-      return this.activeProcesses.get(serverId) === process;
+  isServerProcessActive(serverId: number, ...processNames: (keyof ProcessFlag)[]) {
+    const flagValues = this.processFlags.getFlagsForId(serverId);
+    if (processNames.length > 0) {
+      return processNames.every(processName => flagValues.find(flagValue => flagValue[0] === processName) !== undefined);
+    } else {
+      return flagValues.length > 0;
     };
-    return this.activeProcesses.has(serverId);
   };
 
   /**
@@ -119,15 +124,13 @@ export class OpenRCT2ServerController extends EventEmitter {
    * @param scenarioFile 
    */
   async startGameServerOnScenario(serverId: number, scenarioFile: ScenarioFile) {
-    if (!this.isGameServerStarting(serverId)) {
-      this.activeStarts.set(serverId, true);
-
+    if (this.processFlags.trySetFlag(serverId, 'start')) {
       try {
         const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
-        const deferredScenario = this.activeDeferrals.get(serverId);
+        const deferredScenario = this.processFlags.getFlagValue(serverId, 'start.defer');
         if (deferredScenario) {
-          this.activeDeferrals.set(serverId, null);
-          this.emit('server.start.defer.cancel', new ServerEventArgs(serverId, deferredScenario));
+          this.processFlags.deleteFlag(serverId, 'start.defer');
+          this.emit('server.start.defer.cancel', new ServerEventArgs(serverId, deferredScenario as ScenarioFile));
         };
         if (this.gameServers.has(serverId)) {
           await this.stopGameServer(serverId, false);
@@ -146,7 +149,7 @@ export class OpenRCT2ServerController extends EventEmitter {
         status.isCurrentScenarioCompleted = null;
         status.lastStartupTime = new Date();
         ++metadata.plays;
-
+  
         const gameServer = await this.openRCT2ProcessEngine.createGameServerInstance(
           serverId,
           serverDir.path,
@@ -164,7 +167,7 @@ export class OpenRCT2ServerController extends EventEmitter {
         await this.logger.writeError(err as Error);
         throw err;
       } finally {
-        this.activeStarts.delete(serverId);
+        this.processFlags.deleteFlag(serverId, 'start');
       };
     };
   };
@@ -175,13 +178,13 @@ export class OpenRCT2ServerController extends EventEmitter {
    * @param autosaveIndex 
    */
   async startGameServerOnAutosave(serverId: number, autosaveIndex = 0) {
-    if (!this.isGameServerStarting(serverId)) {
+    if (this.processFlags.trySetFlag(serverId, 'start')) {
       try {
         const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
-        const deferredScenario = this.activeDeferrals.get(serverId);
+        const deferredScenario = this.processFlags.getFlagValue(serverId, 'start.defer');
         if (deferredScenario) {
-          this.activeDeferrals.set(serverId, null);
-          this.emit('server.start.defer.cancel', new ServerEventArgs(serverId, deferredScenario));
+          this.processFlags.deleteFlag(serverId, 'start.defer');
+          this.emit('server.start.defer.cancel', new ServerEventArgs(serverId, deferredScenario as ScenarioFile));
         };
         if (this.gameServers.has(serverId)) {
           await this.stopGameServer(serverId, false);
@@ -210,7 +213,7 @@ export class OpenRCT2ServerController extends EventEmitter {
         await this.logger.writeError(err as Error);
         throw err;
       } finally {
-        this.activeStarts.delete(serverId);
+        this.processFlags.deleteFlag(serverId, 'start');
       };
     };
   };
@@ -221,9 +224,7 @@ export class OpenRCT2ServerController extends EventEmitter {
    * @param scenarioFile 
    */
   async startGameServerOnScenarioDeferred(serverId: number, scenarioFile: ScenarioFile) {
-    if (!this.activeDeferrals.has(serverId)) {
-      this.activeDeferrals.set(serverId, scenarioFile);
-
+    if (this.processFlags.trySetFlag(serverId, 'start.defer', scenarioFile)) {
       const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
       const startupOptions = await serverDir.getStartupOptions();
       const now = Date.now();
@@ -233,7 +234,7 @@ export class OpenRCT2ServerController extends EventEmitter {
 
       await new Promise<void>(async resolve => {
         await this.logger.writeLog(`Server ${serverId} is on a deferred start launching ${scenarioFile.name}.`);
-        while (Date.now() < startTime && this.activeDeferrals.get(serverId)) {
+        while (Date.now() < startTime && this.processFlags.hasFlag(serverId, 'start.defer')) {
           if (Date.now() >= nextNoticeTime && nextNoticeTime < startTime) {
             this.emit(
               'server.start.defer',
@@ -253,8 +254,8 @@ export class OpenRCT2ServerController extends EventEmitter {
           };
           await wait(1, 's');
         };
-        if (this.activeDeferrals.get(serverId)) {
-          this.activeDeferrals.set(serverId, null);
+        if (this.processFlags.hasFlag(serverId, 'start.defer')) {
+          this.processFlags.deleteFlag(serverId, 'start.defer');
           try {
             await this.startGameServerOnScenario(serverId, scenarioFile);
           } catch { };
@@ -262,7 +263,7 @@ export class OpenRCT2ServerController extends EventEmitter {
         resolve();
       });
 
-      this.activeDeferrals.delete(serverId);
+      this.processFlags.deleteFlag(serverId, 'start.defer');
     };
   };
 
@@ -297,10 +298,10 @@ export class OpenRCT2ServerController extends EventEmitter {
    * @param emitEvent 
    */
   async stopGameServer(serverId: number, emitEvent = true) {
-    const deferredScenario = this.activeDeferrals.get(serverId);
+    const deferredScenario = this.processFlags.getFlagValue(serverId, 'start.defer');
     if (deferredScenario) {
-      this.activeDeferrals.set(serverId, null);
-      this.emit('server.start.defer.cancel', new ServerEventArgs(serverId, deferredScenario));
+      this.processFlags.deleteFlag(serverId, 'start.defer');
+      this.emit('server.start.defer.cancel', new ServerEventArgs(serverId, deferredScenario as ScenarioFile));
     };
 
     let stopped = false;
@@ -365,11 +366,11 @@ export class OpenRCT2ServerController extends EventEmitter {
    * @param args 
    * @returns 
    */
-  async executePluginAction<A extends keyof PluginActions>(
+  async executePluginAction<A extends keyof PluginAction>(
     serverId: number,
     action: A,
     userId: string,
-    args?: PluginActions[A]
+    args?: PluginAction[A]
   ) {
     const gameServer = this.gameServers.get(serverId);
     if (gameServer) {
@@ -388,9 +389,7 @@ export class OpenRCT2ServerController extends EventEmitter {
    * @param userId 
    */
   async createServerScreenshot(serverId: number, userId: string) {
-    if (!this.isGameServerProcessRunning(serverId, 'screenshot')) {
-      this.activeProcesses.set(serverId, 'screenshot');
-
+    if (this.processFlags.trySetFlag(serverId, 'screenshot')) {
       const gameServer = this.gameServers.get(serverId);
       const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
   
@@ -442,15 +441,13 @@ export class OpenRCT2ServerController extends EventEmitter {
         await this.logger.writeError(err as Error);
         throw err;
       } finally {
-        this.activeProcesses.delete(serverId);
+        this.processFlags.deleteFlag(serverId, 'screenshot');
       };
     };
   };
 
   async createCurrentScenarioSave(serverId: number, userId: string) {
-    if (!this.isGameServerProcessRunning(serverId, 'save')) {
-      this.activeProcesses.set(serverId, 'save');
-
+    if (this.processFlags.trySetFlag(serverId, 'save')) {
       const gameServer = this.gameServers.get(serverId);
       const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
 
@@ -478,7 +475,7 @@ export class OpenRCT2ServerController extends EventEmitter {
         await this.logger.writeError(err as Error);
         throw err;
       } finally {
-        this.activeProcesses.delete(serverId);
+        this.processFlags.deleteFlag(serverId, 'save');
       };
     };
   };

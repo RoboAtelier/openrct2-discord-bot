@@ -338,7 +338,7 @@ export class ServerCommand extends BotCommand<
       } else {
         if (this.isInteractionUnderSubcommandGroup(interaction, 'start')) {
           if (userLevel > CommandPermissionLevel.User) {
-            if (this.openRCT2ServerController.isGameServerStarting(serverId)) {
+            if (this.openRCT2ServerController.isServerProcessActive(serverId, 'start')) {
               commandResponse.appendToError(`Can't start ${underscore(italic(`Server ${serverId}`))}. It's already in the middle of starting a scenario.`);
             } else {
               await interaction.deferReply();
