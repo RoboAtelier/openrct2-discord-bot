@@ -684,14 +684,14 @@ export class VoteCommand extends BotCommand<
     ];
 
     if (winningCandidates.length > 1) {
-      let tieSegment = `There was a ${winningCandidates.length > 2 ? `${winningCandidates.length}-way ` : ' '}tie between `;
+      let tieSegment = `There was a ${winningCandidates.length > 2 ? `${winningCandidates.length}-way ` : ''}tie between `;
       for (const [index, winner] of winningCandidates.entries()) {
         if (0 === index) {
-          tieSegment += winner
+          tieSegment += bold(winner.fileName)
         } else if (index === winningCandidates.length - 1) {
-          tieSegment += ` and ${bold(winningScenario)} `;
+          tieSegment += ` and ${bold(winner.fileName)} `;
         } else {
-          tieSegment += `, ${winner}`
+          tieSegment += `, ${bold(winner.fileName)}`
         };
       };
       tieSegment += `with ${winningVoteCount} ${1 === winningVoteCount ? 'vote' : 'votes'} for each.${EOL}`;
