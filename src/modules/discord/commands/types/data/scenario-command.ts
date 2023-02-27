@@ -325,11 +325,11 @@ export class ScenarioCommand extends BotCommand<
           })
         : metadata;
 
-      if (0 === matchedMetadata.length) {
-        commandResponse.appendToError(this.formatEmptyResultMessage(nameSearch, tags));
-      } else {
+      if (matchedMetadata.length > 0) {
         const metadataSet = getArraySectionWithDetails(matchedMetadata, resultIndex);
         commandResponse.appendToMessage(this.formatScenarioSearchMessage(metadataSet, nameSearch, tags));
+      } else {
+        commandResponse.appendToError(this.formatEmptyResultMessage(nameSearch, tags));
       };
     };
 
