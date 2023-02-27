@@ -41,7 +41,7 @@ export class ScenarioFile {
    */
   hasFileExtension(...fileExtensions: ScenarioFileExtension[]) {
     return fileExtensions.some(ext => {
-      return this.fileExtension === ext;
+      return this.fileExtension.toLowerCase() === ext;
     });
   };
 };
