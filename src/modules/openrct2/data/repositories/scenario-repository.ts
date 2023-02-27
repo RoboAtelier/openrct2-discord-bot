@@ -1,5 +1,6 @@
 import path from 'path';
 import Fuse from 'fuse.js'
+import { Configuration } from '@modules/configuration';
 import { 
   ConcurrentDirectory,
   ConcurrentObjectArrayFile,
@@ -13,8 +14,10 @@ import {
   ScenarioFileExtension,
   ScenarioFileExtensionArray
 } from '@modules/openrct2/data/types';
-import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
-import { Configuration } from '@modules/configuration';
+import {
+  areStringsEqualCaseInsensitive,
+  isStringNullOrWhiteSpace
+} from '@modules/utils/string-utils';
 
 /** Represents a data repository for OpenRCT2 scenario files. */
 export class ScenarioRepository extends FileSystemCachedRepository<string, any> {
@@ -328,7 +331,8 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
   private async readScenarioFiles() {
     const files = await this.dataDir.getFilesExclusive();
     const scenarioDirents = files.filter(file => {
-      return ScenarioFileExtensionArray.some(ext => file.name.endsWith(ext));
+      const fileExtension = file.name.substring(file.name.lastIndexOf('.'));
+      return ScenarioFileExtensionArray.some(ext => areStringsEqualCaseInsensitive(fileExtension, ext));
     });
     return scenarioDirents.map(dirent => new ScenarioFile(path.join(this.dataDir.path, dirent.name)));
   };
@@ -358,11 +362,12 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
    */
   private getScenarioFileExtension(scenarioFileName: string) {
     const fileExtension = ScenarioFileExtensionArray.find(ext => {
-      return scenarioFileName.endsWith(ext);
+      const scenarioFileExtension = scenarioFileName.substring(scenarioFileName.lastIndexOf('.'));
+      return areStringsEqualCaseInsensitive(scenarioFileExtension, ext);
     });
-    if (fileExtension === undefined) {
-      throw new Error('A scenario file name did not contain a scenario file extension.');
+    if (fileExtension) {
+      return fileExtension
     };
-    return fileExtension;
+    throw new Error('A scenario file name did not contain a scenario file extension.');
   };
 };

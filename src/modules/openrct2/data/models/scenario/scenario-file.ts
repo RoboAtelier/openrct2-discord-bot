@@ -3,6 +3,7 @@ import {
   ScenarioFileExtension,
   ScenarioFileExtensionArray
 } from '@modules/openrct2/data/types';
+import { areStringsEqualCaseInsensitive } from '@modules/utils/string-utils';
 
 /** Represents a RollerCoaster Tycoon scenario file. */
 export class ScenarioFile {
@@ -11,18 +12,19 @@ export class ScenarioFile {
   readonly path: string;
 
   /** Gets the file extension of the scenario file. */
-  readonly fileExtension: string;
+  readonly fileExtension: ScenarioFileExtension;
 
   constructor(path: string) {
     const scenarioExtension = ScenarioFileExtensionArray.find(ext => {
-      return path.endsWith(ext);
+      const fileExtension = path.substring(path.lastIndexOf('.'));
+      return areStringsEqualCaseInsensitive(fileExtension, ext);
     });
-    if (!scenarioExtension) {
+    if (scenarioExtension) {
+      this.path = path;
+      this.fileExtension = scenarioExtension;
+    } else {
       throw new Error('A scenario file must have a valid OpenRCT2 scenario file extension.');
     };
-
-    this.path = path;
-    this.fileExtension = scenarioExtension;
   };
 
   /** Gets the name of the scenario file. */
@@ -32,7 +34,7 @@ export class ScenarioFile {
 
   /** Gets the name of the scenario file without its file extension. */
   get nameNoExtension() {
-    return this.name.substr(0, this.name.lastIndexOf(this.fileExtension));
+    return this.name.substring(0, this.name.lastIndexOf('.'));
   };
 
   /**
@@ -41,7 +43,7 @@ export class ScenarioFile {
    */
   hasFileExtension(...fileExtensions: ScenarioFileExtension[]) {
     return fileExtensions.some(ext => {
-      return this.fileExtension.toLowerCase() === ext;
+      return areStringsEqualCaseInsensitive(ext, this.fileExtension);
     });
   };
 };

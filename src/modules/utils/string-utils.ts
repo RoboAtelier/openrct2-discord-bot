@@ -1,14 +1,15 @@
 ﻿/**
- * Indicates whether two strings are equal, ignoring letter casing.
- * @param str1 Initial comparison string.
- * @param str2 Other string to compare with.
- * @returns `true` if equal; otherwise, `false`
+ * Indicates whether the given strings are equal, ignoring letter casing.
+ * @param str1 The initial string.
+ * @param strs The specified strings to compare with the initial string.
+ * @returns `true` if all the given strings are equal; otherwise, `false`
  */
-export function areStringsEqualCaseInsensitive(str1: string, str2: string) {
-  if (typeof str1 !== 'string' || typeof str2 !== 'string') {
-    throw new Error('A non-string object was passed.');
+export function areStringsEqualCaseInsensitive(str1: string, ...strs: string[]) {
+  if (strs.length > 0) {
+    const initial = str1.toUpperCase()
+    return (strs.every(str => initial === str.toUpperCase()));
   };
-  return (str1.toUpperCase() === str2.toUpperCase());
+  return true;
 };
 
 /**
