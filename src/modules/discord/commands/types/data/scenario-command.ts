@@ -345,8 +345,12 @@ export class ScenarioCommand extends BotCommand<
     const metadata = 0 === scenarioFileExts.length
       ? await this.scenarioRepo.getScenarioMetadata()
       : await this.scenarioRepo.getScenarioMetadataByFileExtension(...scenarioFileExts);
-    const metadataSet = getArraySectionWithDetails(metadata, resultIndex);
-    commandResponse.appendToMessage(this.formatScenarioListMessage(metadataSet));
+    if (metadata.length > 0) {
+      const metadataSet = getArraySectionWithDetails(metadata, resultIndex);
+      commandResponse.appendToMessage(this.formatScenarioListMessage(metadataSet));
+    } else {
+      commandResponse.appendToMessage(this.formatEmptyResultMessage());
+    };
 
     return commandResponse;
   };
@@ -405,7 +409,10 @@ export class ScenarioCommand extends BotCommand<
       queryParameterSegments.push(`the data tags ${italic(tags.join(' '))}`);
     };
     
-    return `No scenarios match ${queryParameterSegments.join(' and ')}.`;
+    if (queryParameterSegments.length > 0) {
+      return `No scenarios match ${queryParameterSegments.join(' and ')}.`;
+    };
+    return 'No scenarios were found with the specified parameters.';
   };
 
   /**
