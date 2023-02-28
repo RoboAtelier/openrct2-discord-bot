@@ -317,6 +317,8 @@ export class ScenarioCommand extends BotCommand<
     } else {
       const metadata = nameSearch
         ? await this.scenarioRepo.getScenarioMetadataByFuzzySearch(nameSearch, ...scenarioFileExts)
+        : 0 === scenarioFileExts.length
+        ? await this.scenarioRepo.getScenarioMetadata()
         : await this.scenarioRepo.getScenarioMetadataByFileExtension(...scenarioFileExts)
 
       const matchedMetadata = tags
