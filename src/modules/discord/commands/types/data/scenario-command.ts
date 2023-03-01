@@ -1,5 +1,6 @@
 import {
   bold,
+  inlineCode,
   italic,
   underscore,
   ChatInputCommandInteraction,
@@ -380,12 +381,15 @@ export class ScenarioCommand extends BotCommand<
       queryParameterSegments.push(`the name '${italic(nameSearch)}'`);
     };
     if (tags) {
-      queryParameterSegments.push(`the data tags ${italic(tags.join(' '))}`);
+      queryParameterSegments.push(`the data tags ${tags.map(tag => inlineCode(tag)).join(' ')}`);
     };
     metadataMsgSegments.push(`Scenarios that match ${queryParameterSegments.join(' and ')}:${EOL}`);
 
     for (const scenarioData of metadataSet.section) {
       let dataSegment = `▸ ${italic(scenarioData.fileName)} | ${italic(`${scenarioData.plays}P/${scenarioData.wins}W/${scenarioData.losses}L`)}`;
+      if (scenarioData.tags.length > 0) {
+        dataSegment += ` | ${italic(scenarioData.tags.map(tag => inlineCode(tag)).join(' '))}`;
+      };
       if (!scenarioData.active) {
         dataSegment += ` | ${underscore(italic('INACTIVE'))}`;
       };
@@ -408,7 +412,7 @@ export class ScenarioCommand extends BotCommand<
       queryParameterSegments.push(`the name ${italic(nameSearch)}`);
     };
     if (tags) {
-      queryParameterSegments.push(`the data tags ${italic(tags.join(' '))}`);
+      queryParameterSegments.push(`the data tags ${tags.map(tag => inlineCode(tag)).join(' ')}`);
     };
     
     if (queryParameterSegments.length > 0) {
@@ -435,7 +439,7 @@ export class ScenarioCommand extends BotCommand<
     for (const scenarioData of metadataSet.section) {
       let dataSegment = `▸ ${italic(scenarioData.fileName)} | ${italic(`${scenarioData.plays}P/${scenarioData.wins}W/${scenarioData.losses}L`)}`;
       if (scenarioData.tags.length > 0) {
-        dataSegment += ` | ${underscore('Tags')}: ${italic(scenarioData.tags.join(' '))}`;
+        dataSegment += ` | ${italic(scenarioData.tags.map(tag => inlineCode(tag)).join(' '))}`;
       };
       if (!scenarioData.active) {
         dataSegment += ` | ${bold('INACTIVE')}`;
