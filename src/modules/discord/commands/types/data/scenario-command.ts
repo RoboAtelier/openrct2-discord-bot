@@ -387,7 +387,7 @@ export class ScenarioCommand extends BotCommand<
 
     for (const scenarioData of metadataSet.section) {
       let dataSegment = `▸ ${italic(scenarioData.fileName)} | ${italic(`${scenarioData.plays}P/${scenarioData.wins}W/${scenarioData.losses}L`)}`;
-      if (scenarioData.tags.length > 0) {
+      if (!tags && scenarioData.tags.length > 0) {
         dataSegment += ` | ${italic(scenarioData.tags.map(tag => inlineCode(tag)).join(' '))}`;
       };
       if (!scenarioData.active) {
