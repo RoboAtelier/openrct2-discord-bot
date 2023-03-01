@@ -238,7 +238,7 @@ export class ScenarioCommand extends BotCommand<
       if (newTags || active !== undefined) {
         if (newTags) {
           metadata.tags = newTags;
-          commandResponse.appendToMessage(`Applied data tags for ${italic(scenarioToChange.name)}: ${newTags.join(' ')}`);
+          commandResponse.appendToMessage(`Applied data tags for ${italic(scenarioToChange.name)}: ${newTags.map(tag => inlineCode(tag)).join(' ')}`);
         };
   
         if (active !== undefined) {
