@@ -3,6 +3,7 @@
   "clientId": "",
   "dirs": {
     "bot": "",
+    "logs": "",
     "scenario": "",
     "serverHost": "",
     "plugin": ""
