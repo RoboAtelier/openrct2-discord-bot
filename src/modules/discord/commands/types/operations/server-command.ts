@@ -65,7 +65,7 @@ export class ServerCommand extends BotCommand<
     super(CommandPermissionLevel.User);
     this.data
       .setName('server')
-      .setDescription('Manages this server\'s OpenRCT2 game servers.')
+      .setDescription('Manages OpenRCT2 game servers.')
       .addSubcommand(subcommand =>
         subcommand
           .setName(this.reflectSubcommandName('create'))

@@ -30,7 +30,7 @@ export class ServerHostRepository extends FileSystemCachedRepository<number, Ope
   private static readonly dirKey = 'serverHost';
   private static readonly serverDirNameRegex = /^[sS]([1-9][0-9]*)(?:_(.+))?/;
   private static readonly serverDirNamePrefix = 's#';
-
+  
   protected readonly dataDir: ConcurrentDirectory;
   protected readonly dataCache = new Map<number, OpenRCT2ServerDirectory>();
 
@@ -66,7 +66,7 @@ export class ServerHostRepository extends FileSystemCachedRepository<number, Ope
    * @returns The newly created OpenRCT2 server data directory.
    */
   async createOpenRCT2ServerDirectory(name = 'server') {
-    const nextId = await this.identifyNextUnassignedId();
+    const nextId = this.identifyNextUnassignedId();
     const newDirPrefix = ServerHostRepository.serverDirNamePrefix.replace(
       '#',
       nextId.toString()
