@@ -419,7 +419,7 @@ export class OpenRCT2ServerController extends EventEmitter {
               throw new Error('Failed to get a scenario save for a screenshot.');
             };
           } else {
-            const screenshotFileName = await gameServer.pluginAdapter.executeAction('screenshot', userId);
+            const screenshotFileName = await gameServer.pluginAdapter.executeAction('screenshot', userId, undefined, 1 * 60 * 1000);
             result.screenshotFilePath = await serverDir.getScreenshotByName(screenshotFileName);
             result.scenarioName = await gameServer.getScenarioName();
           };

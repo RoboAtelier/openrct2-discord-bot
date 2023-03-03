@@ -16,6 +16,7 @@ import {
 import { BotDataRepository } from '@modules/discord/data/repositories';
 import { Logger } from '@modules/logging';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
+import { ScenarioFile } from '@modules/openrct2/data/models';
 import { ServerHostRepository } from '@modules/openrct2/data/repositories';
 import { 
   createDateTimestamp,
@@ -141,10 +142,10 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
     };
     
     if (finalize) {
-      const saveResult = await this.createFinalizedSave(serverId, userId);
+      const saveResult = await this.createFinalizedSave(serverId, userId, screenshotResult?.screenshot);
       if (saveResult) {
         if ((saveResult.attachmentFile.data as Buffer).length > 8 * 1024 * 1024) {
-          commandResponse.appendToError(italic('The final save file is too large to be posted.'));
+          commandResponse.appendToMessage('The final save file is too large to be posted. A manual save is required.');
         } else {
           attachments.finalizedSave = saveResult.attachmentFile;
 
@@ -187,11 +188,20 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
     return null;
   };
 
-  private async createFinalizedSave(serverId: number, userId: Snowflake) {
+  private async createFinalizedSave(
+    serverId: number,
+    userId: Snowflake,
+    existingSave?: { 
+      scenarioFile?: ScenarioFile,
+      scenarioName: string
+    }
+  ) {
     try {
-      const save = await this.openRCT2ServerController.createCurrentScenarioSave(serverId, userId);
+      const save = existingSave && existingSave.scenarioFile
+        ? { saveFile: existingSave.scenarioFile, scenarioName: existingSave.scenarioName }
+        : await this.openRCT2ServerController.createCurrentScenarioSave(serverId, userId);
       if (save) {
-          const finalSaveFileName = /^autosave_\d{4}-\d{2}-\d{2}/.test(save.saveFile.nameNoExtension)
+        const finalSaveFileName = /^autosave_\d{4}-\d{2}-\d{2}/.test(save.saveFile.nameNoExtension)
           ? `final_${createDateTimestamp()}${save.saveFile.fileExtension}`
           : `${save.scenarioName}_final_${createDateTimestamp()}${save.saveFile.fileExtension}`;
         const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
