@@ -126,7 +126,6 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, Snapshot
         await interaction.reply(commandResponse.resolve());
       };
     } else {
-      const messagePayload = new MessagePayload(interaction, { content: commandResponse.resolve() });
       const attachmentFiles = [];
       for (const attachment of Object.values(attachments)) {
         if (attachment) {
@@ -141,6 +140,8 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, Snapshot
           await interaction.editReply('Failed to post the snapshot.');
         };
       } else {
+        const messagePayload = new MessagePayload(interaction, { content: commandResponse.resolve() });
+        messagePayload.files = attachmentFiles;
         await interaction.editReply(messagePayload);
       };
     };
@@ -212,28 +213,48 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, Snapshot
       };
 
       if (scenarioName.length > 0) {
+        const noteSegments = [];
         commandResponse.appendToMessage(`${underscore(italic(`Server ${serverId}`))} - ${bold(scenarioName)} - Snapshot`);
         if (screenshot && attachments.screenshot) {
           if ((attachments.screenshot.data as Buffer).length > SnapshotCommand.byteSizeLimit) {
-            commandResponse.appendToMessage('The screenshot file is too large to be posted.');
+            commandResponse.appendToMessage('Could not post screenshot as the file size is too big.');
             attachments.screenshot = undefined;
           } else {
             if (!screenshot.usedPlugin) {
-              commandResponse.appendToMessage(`${bold('NOTE')}: This screenshot may be inaccurate as it is based off of the most recent autosave.`);
+              noteSegments.push('This screenshot may be inaccurate as it is based off of the most recent autosave.');
             };
           };
         };
         if (save && attachments.finalizedSave) {
           if ((attachments.finalizedSave.data as Buffer).length > SnapshotCommand.byteSizeLimit) {
-            commandResponse.appendToMessage('The finalized save file is too large to be posted.');
             attachments.finalizedSave = undefined;
+            try {
+              const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+              const latestAutosave = await serverDir.getScenarioAutosave();
+              const saveAttachment = await MessagePayload.resolveFile({
+                attachment: latestAutosave.path,
+                name: `s${serverId}_final_${createDateTimestamp()}${latestAutosave.fileExtension}`,
+              });
+              if ((saveAttachment.data as Buffer).length > SnapshotCommand.byteSizeLimit) {
+                commandResponse.appendToMessage('Could not post the finalized save file as the file size is too big.');
+              } else {
+                attachments.finalizedSave = saveAttachment;
+                noteSegments.push('This save file is from the most recent autosave and could be outdated.');
+                noteSegments.push('The original finalized save file size was too big to post.');
+              };
+            } catch {
+              commandResponse.appendToMessage('Could not post the finalized save file as the file size is too big.');
+            };
           } else {
             if (!save.usedPlugin) {
-              commandResponse.appendToMessage(`${bold('NOTE')}: This save file may be out of date as it is based off of the most recent autosave.`);
+              noteSegments.push('This save file is from the most recent autosave and could be outdated.');
             };
           };
         };
 
+        if (noteSegments.length > 0) {
+          commandResponse.appendToMessage(`${bold('NOTE')}: ${noteSegments.join(' ')}`);
+        };
         return {
           attachments: attachments,
           response: commandResponse
