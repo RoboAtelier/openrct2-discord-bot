@@ -52,7 +52,6 @@ export class PluginEventArgs {
  */
 export class OpenRCT2PluginAdapter extends EventEmitter {
   private static readonly pluginResponseRegex = /([a-z\.]+)_([0-9]+|e)_([\s\S]*?)\n/g;
-  private static readonly timeoutMs = 10000;
 
   private readonly client: Socket;
 
@@ -81,7 +80,8 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
   async executeAction<A extends keyof PluginAction>(
     action: A,
     userId: string,
-    args?: PluginAction[A]
+    args?: PluginAction[A],
+    timeoutMs: number = 10000
   ): Promise<PluginActionResultValue[A]> {
     const actionStr = args === undefined || args === null
       ? `${action};${userId}`
@@ -93,7 +93,7 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
     const result = await new Promise<any>((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error(`Plugin action '${action}' timed out.`));
-      }, OpenRCT2PluginAdapter.timeoutMs);
+      }, timeoutMs);
       this.once(`${action}${userId}`, data => {
         clearTimeout(timeout);
         resolve(data);

@@ -143,16 +143,20 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, null, nu
     if (finalize) {
       const saveResult = await this.createFinalizedSave(serverId, userId);
       if (saveResult) {
-        attachments.finalizedSave = saveResult.attachmentFile;
-
-        commandResponse.reset();
-        commandResponse.appendToMessage(`${underscore(italic(`Server ${serverId}`))} - ${bold(saveResult.scenarioName)} - Snapshot`);
-        if (screenshotResult) {
-          if (!screenshotResult.screenshot.usedPlugin) {
-            commandResponse.appendToMessage(`${bold('IMPORTANT')}: This snapshot may be outdated as it is based off of the most recent autosave.`);
-          };
+        if ((saveResult.attachmentFile.data as Buffer).length > 8 * 1024 * 1024) {
+          commandResponse.appendToError(italic('The final save file is too large to be posted.'));
         } else {
-          commandResponse.appendToMessage(italic('Screenshot could not be generated.'));
+          attachments.finalizedSave = saveResult.attachmentFile;
+
+          commandResponse.reset();
+          commandResponse.appendToMessage(`${underscore(italic(`Server ${serverId}`))} - ${bold(saveResult.scenarioName)} - Snapshot`);
+          if (screenshotResult) {
+            if (!screenshotResult.screenshot.usedPlugin) {
+              commandResponse.appendToMessage(`${bold('IMPORTANT')}: This snapshot may be outdated as it is based off of the most recent autosave.`);
+            };
+          } else {
+            commandResponse.appendToMessage(italic('Screenshot could not be generated.'));
+          };
         };
       } else {
         commandResponse.appendToError(`Failed to finalize a save file of ${underscore(italic(`Server ${serverId}`))}.`);

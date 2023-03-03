@@ -364,18 +364,20 @@ export class OpenRCT2ServerController extends EventEmitter {
    * @param action 
    * @param userId 
    * @param args 
+   * @param timeoutMs
    * @returns 
    */
   async executePluginAction<A extends keyof PluginAction>(
     serverId: number,
     action: A,
     userId: string,
-    args?: PluginAction[A]
+    args?: PluginAction[A],
+    timeoutMs: number = 10000
   ) {
     const gameServer = this.gameServers.get(serverId);
     if (gameServer) {
       if (gameServer.pluginAdapter) {
-        const result = await gameServer.pluginAdapter.executeAction(action, userId, args);
+        const result = await gameServer.pluginAdapter.executeAction(action, userId, args, timeoutMs);
         return result;
       };
       throw new Error(`Could not run plugin action. Server ${serverId} does not have the adapter plugin active.`);
@@ -453,23 +455,22 @@ export class OpenRCT2ServerController extends EventEmitter {
 
       try {
         if (gameServer && gameServer.pluginAdapter) {
-          const saveFileName = await gameServer.pluginAdapter.executeAction('save', userId);
+          const saveFileName = await gameServer.pluginAdapter.executeAction('save', userId, undefined, 2 * 60 * 1000);
           await this.logger.writeLog(`Created a save file of Server ${serverId}.`);
           return {
             saveFile: await serverDir.getScenarioSaveByName(saveFileName.concat('.park')),
             scenarioName: await gameServer.getScenarioName(),
             usedPlugin: true
           };
-        } else {
-          const latestAutosave = await serverDir.getScenarioAutosave();
-          const status = await serverDir.getStatus();
-          const initiatedScenario = await this.scenarioRepo.getScenarioByName(status.initiatedScenarioFileName);
-          await this.logger.writeLog(`Sharing latest autosave as the current save file for Server ${serverId}.`);
-          return {
-            saveFile: latestAutosave,
-            scenarioName: initiatedScenario ? initiatedScenario.nameNoExtension : latestAutosave.nameNoExtension,
-            usedPlugin: false
-          };
+        };
+        const latestAutosave = await serverDir.getScenarioAutosave();
+        const status = await serverDir.getStatus();
+        const initiatedScenario = await this.scenarioRepo.getScenarioByName(status.initiatedScenarioFileName);
+        await this.logger.writeLog(`Sharing latest autosave as the current save file for Server ${serverId}.`);
+        return {
+          saveFile: latestAutosave,
+          scenarioName: initiatedScenario ? initiatedScenario.nameNoExtension : latestAutosave.nameNoExtension,
+          usedPlugin: false
         };
       } catch (err) {
         await this.logger.writeError(err as Error);
