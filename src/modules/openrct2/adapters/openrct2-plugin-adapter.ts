@@ -81,7 +81,7 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
     action: A,
     userId: string,
     args?: PluginAction[A],
-    timeoutMs: number = 10000
+    timeoutMs = 10 * 1000
   ): Promise<PluginActionResultValue[A]> {
     const actionStr = args === undefined || args === null
       ? `${action};${userId}`

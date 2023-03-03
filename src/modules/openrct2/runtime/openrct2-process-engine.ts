@@ -15,7 +15,6 @@ import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
 /** Represents a class that handles running built-in processes using the OpenRCT2 application executable. */
 export class OpenRCT2ProcessEngine {
   private static readonly exePathKey = 'openRCT2ExecutablePath';
-  private static readonly processTimeoutMs = 1 * 1000 * 30;
 
   private readonly openRCT2ExecutablePath: string;
 
@@ -24,7 +23,7 @@ export class OpenRCT2ProcessEngine {
     this.openRCT2ExecutablePath = path.resolve(exePath);
   };
 
-  async initializeGameConfiguration(openRCT2DataPath: string, rct2GamePath: string) {
+  async initializeGameConfiguration(openRCT2DataPath: string, rct2GamePath: string, timeoutMs = 30 * 1000) {
     const params = ['set-rct2', rct2GamePath, '--user-data-path', openRCT2DataPath];
 
     const setProcess = spawn(
@@ -36,7 +35,7 @@ export class OpenRCT2ProcessEngine {
     await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('RCT2 game data set process timed out.'));
-      }, OpenRCT2ProcessEngine.processTimeoutMs);
+      }, timeoutMs);
       setProcess.on('exit', async (code, signal) => {
         clearTimeout(timeout);
         resolve({ code: code, signal: signal });
@@ -62,7 +61,8 @@ export class OpenRCT2ProcessEngine {
     openRCT2DataPath: string,
     scenarioFile: ScenarioFile,
     startupOptions: StartupOptions,
-    pluginOptions: PluginOptions
+    pluginOptions: PluginOptions,
+    timeoutMs = 60 * 1000
   ) {
     const params = ['host', scenarioFile.path, '--user-data-path', openRCT2DataPath, '--port'];
     if (startupOptions.port < Math.pow(2, 10) + 1 || startupOptions.port > Math.pow(2, 16) - 1) {
@@ -92,7 +92,7 @@ export class OpenRCT2ProcessEngine {
       const timeout = setTimeout(() => {
         gameInstance.kill('SIGKILL');
         reject(new Error('The game instance failed to start correctly.'))
-      }, OpenRCT2ProcessEngine.processTimeoutMs);
+      }, timeoutMs);
       gameInstance.once('error', err => {
         reject(err);
       });
@@ -137,7 +137,7 @@ export class OpenRCT2ProcessEngine {
    * @param outputDirPath
    * @param screenshotName 
    */
-  async createScenarioScreenshot(scenarioFile: ScenarioFile, outputDirPath: string, screenshotName = '') {
+  async createScenarioScreenshot(scenarioFile: ScenarioFile, outputDirPath: string, screenshotName = '', timeoutMs = 60 * 1000) {
     const screenshotFilePath = isStringNullOrWhiteSpace(screenshotName)
       ? path.join(outputDirPath, `${scenarioFile.nameNoExtension}.png`)
       : path.join(outputDirPath, `${screenshotName}.png`);
@@ -165,7 +165,7 @@ export class OpenRCT2ProcessEngine {
     await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('Screenshot generation timed out.'));
-      }, OpenRCT2ProcessEngine.processTimeoutMs);
+      }, timeoutMs);
       screenshotProcess.on('exit', async (code, signal) => {
         clearTimeout(timeout);
         resolve({ code: code, signal: signal });
