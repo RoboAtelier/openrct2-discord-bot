@@ -1,7 +1,12 @@
 import path from 'path';
 import { Abortable } from 'events';
 import { Stream } from 'stream';
-import { mkdirSync } from 'fs';
+import {
+  createReadStream,
+  createWriteStream,
+  existsSync,
+  mkdirSync
+} from 'fs';
 import {
   appendFile, 
   copyFile,
@@ -12,9 +17,14 @@ import {
   rm,
   stat,
   unlink,
-  writeFile
+  writeFile,
+  FileHandle
 } from 'fs/promises';
-import { ConcurrentFileSystemObject } from '.';
+import {
+  ConcurrentFileSystemObject,
+  FixedPathReadStream,
+  FixedPathWriteStream
+} from '.';
 import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
 
 /** 
@@ -30,6 +40,61 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
     } catch (err) {
       throw err;
     };
+  };
+
+  /**
+   * Creates a read stream on a managed file path.
+   * @param fileNameOrRelPath The name or relative path to the file to read data from.
+   * @param options An optional encoding or an object that contains optional flags.
+   * See https://nodejs.org/api/fs.html#fscreatereadstreampath-options.
+   * @returns A read stream to a fixed file path.
+   */
+  createFixedPathReadStream(
+    fileNameOrRelPath: string,
+    options?: BufferEncoding | {
+      flags?: string,
+      encoding?: BufferEncoding,
+      fd?: number | FileHandle,
+      mode?: number,
+      autoClose?: boolean,
+      emitClose?: boolean,
+      start?: number,
+      highWaterMark?: number,
+      end?: number
+    }
+  ) {
+    this.validateActive();
+    const fullFilePath = path.join(this.objPath, fileNameOrRelPath);
+    this.validateManagedFilePath(fullFilePath);
+
+    return createReadStream(fullFilePath, options) as FixedPathReadStream;
+  };
+
+  /**
+   * Creates a write stream on a managed file path.
+   * @param fileNameOrRelPath The name or relative path to the file to write data to.
+   * @param options An optional encoding or an object that contains optional flags.
+   * See https://nodejs.org/api/fs.html#fscreatewritestreampath-options.
+   * @returns A write stream to a fixed file path.
+   */
+  createFixedPathWriteStream(
+    fileNameOrRelPath: string,
+    options?: BufferEncoding | {
+      flags?: string,
+      encoding?: BufferEncoding,
+      fd?: number | FileHandle,
+      mode?: number,
+      autoClose?: boolean,
+      emitClose?: boolean,
+      start?: number,
+      highWaterMark?: number
+    }
+  ) {
+    this.validateActive();
+    const fullFilePath = path.join(this.objPath, fileNameOrRelPath);
+    this.validateManagedFilePath(fullFilePath);
+
+    return createWriteStream(fullFilePath, options) as FixedPathWriteStream;
   };
 
   /**
@@ -62,20 +127,32 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
 
   /**
    * Creates a new subdirectory into the managed directory.
+   * @async
    * @param newSubdirNameOrRelPath The name or relative path to the subdirectory to create.
+   * @param options An object optionally specifying the file mode and whether subdirectories are created recursively.
+   * If a string for the file mode is passed, it is parsed as an octal integer.
+   * If a file mode is not specified, defaults to `0o777`.
+   * If no options are specified, subdirectories are created recursively by default.
    */
-  async createSubdirectory(newSubdirNameOrRelPath: string) {
+  async createSubdirectoryExclusive(
+    newSubdirNameOrRelPath: string,
+    options: {
+      mode?: string | number,
+      recursive?: boolean
+    } = { recursive: true }
+  ) {
     this.validateActive();
     return this.ioMutex.runExclusive(async () => {
       const fullDirPath = path.join(this.objPath, newSubdirNameOrRelPath);
       this.validateManagedDirectoryPath(fullDirPath);
       
-      return mkdir(path.basename(fullDirPath), { recursive: true });
+      return mkdir(fullDirPath, options);
     });
   };
 
   /**
    * Gets all directory entries in the managed directory or subdirectory with locking.
+   * @async
    * @param subdirNameOrRelPath If specified, gets directory entries in the relative path to the subdirectory.
    * @returns An array of directory entries.
    */
@@ -91,6 +168,7 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
 
   /**
    * Gets all directories in the managed directory or subdirectory with locking.
+   * @async
    * @param subdirNameOrRelPath If specified, gets directories in the relative path to the subdirectory.
    * @returns An array of directory entries that are only directories.
    */
@@ -109,6 +187,7 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
 
   /**
    * Gets all files in the managed directory or subdirectory with locking.
+   * @async
    * @param subdirNameOrRelPath If specified, gets files in the relative path to the subdirectory.
    * @returns An array of directory entries that are only files.
    */
@@ -126,22 +205,21 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
   };
 
   /**
-   * Reads the entire contents of a file with locking.
+   * Reads the entire contents of a file as a string with locking.
    * @async
    * @param fileNameOrRelPath The name or relative path to the file to read.
    * @param options Either the encoding for the result, or an object that contains the encoding and an optional flag.
-   * If a flag is not provided, it defaults to `'r'`. If no option is specified,
-   * the default encoding used is `'utf8'` with the default flag `'r'`.
-   * @returns File contents as a string.
+   * If a flag is not provided, it defaults to `'r'`.
+   * @returns File contents as a string of the specified encoding.
    */
-  async readFileExclusive(
+  async readFileAsStringExclusive(
     fileNameOrRelPath: string,
     options: 
       | ({
           encoding: BufferEncoding;
-          flag?: string | undefined;
+          flag?: number | string;
         } & Abortable)
-      | BufferEncoding = 'utf8'
+      | BufferEncoding
   ) {
     this.validateActive();
     return this.ioMutex.runExclusive(async () => { 
@@ -151,6 +229,30 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
       return readFile(fullFilePath, options);
     });
   };
+
+  /**
+   * Reads the entire contents of a file as a buffer with locking.
+   * @async
+   * @param fileNameOrRelPath The name or relative path to the file to read.
+   * @param options An object that contains an optional flag.
+   * If a flag is not provided or no option is specified, it defaults to `'r'`.
+   * @returns File contents as a buffer.
+   */
+    async readFileAsBufferExclusive(
+      fileNameOrRelPath: string,
+      options?: 
+        ({
+          flag?: number | string;
+        } & Abortable)
+    ) {
+      this.validateActive();
+      return this.ioMutex.runExclusive(async () => { 
+        const fullFilePath = path.join(this.objPath, fileNameOrRelPath);
+        this.validateManagedDirectoryPath(path.dirname(fullFilePath));
+  
+        return readFile(fullFilePath, options);
+      });
+    };
 
   /**
    * Renames the managed directory with locking.
@@ -176,7 +278,7 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
         };
       } catch { };
       if (newDirExists) {
-        throw new Error('A directory with the same name as new requested name for the directory already exists.');
+        throw new Error(`A directory with the name ${newDirName} already exists in the same parent directory.`);
       };
 
       await rename(this.objPath, renamedObjPath);
@@ -212,15 +314,52 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
 
       const currentStat = await stat(fullFilePath);
       if (currentStat.isFile()) {
-        this.validatePath(newFileNameOrRelPath);
+        this.validateManagedFilePath(fullFilePath);
+        this.validateManagedFilePath(newFullFilePath);
       } else {
-        throw new Error('Specified path is not a file.');
+        throw new Error(`Specified name ${fileNameOrRelPath} did not point to a file.`);
       };
-      this.validateManagedFilePath(fullFilePath);
-      this.validatePath(newFullFilePath);
+      
       await mkdir(path.dirname(newFullFilePath), { recursive: true });
-
       return rename(fullFilePath, newFullFilePath);
+    });
+  };
+
+  /**
+   * Renames or moves a subdirectory or path to a subdirectory with locking.
+   * If the new subdirectory name already exists, the operation will fail.
+   * @async
+   * @param subdirNameOrRelPath The name or relative path to the subdirectory to rename.
+   * @param newSubdirNameOrRelPath The new name or relative path to the subdirectory.
+   */
+  async renameOrMoveSubdirectoryExclusive(
+    subdirNameOrRelPath: string,
+    newSubdirNameOrRelPath: string
+  ) {
+    this.validateActive();
+    return this.ioMutex.runExclusive(async () => {
+      const fullDirPath = path.join(this.objPath, subdirNameOrRelPath);
+      const newFullDirPath = path.join(this.objPath, newSubdirNameOrRelPath);
+
+      const currentStat = await stat(fullDirPath);
+      if (currentStat.isDirectory()) {
+        this.validateManagedDirectoryPath(fullDirPath);
+        this.validateManagedDirectoryPath(newFullDirPath);
+      } else {
+        throw new Error(`Specified name ${subdirNameOrRelPath} did not point to a directory.`);
+      };
+      if (existsSync(newFullDirPath)) {
+        throw new Error(`Can't rename ${subdirNameOrRelPath} as ${newSubdirNameOrRelPath} already exists.`);
+      };
+
+      const direntPaths = await this.getSubdirectoryDirentPaths(subdirNameOrRelPath);
+      for (const filePath of direntPaths.filePaths) {
+        this.validateManagedFilePath(filePath);
+      };
+      for (const dirPath of direntPaths.subdirPaths) {
+        this.validateManagedDirectoryPath(dirPath);
+      };
+      return rename(fullDirPath, newFullDirPath);
     });
   };
 
@@ -233,8 +372,9 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
     return this.ioMutex.runExclusive(async () => {
       const fullFilePath = path.join(this.objPath, fileNameOrRelPath);
       this.validateManagedFilePath(fullFilePath);
-
-      return unlink(fullFilePath);
+      if (existsSync(fullFilePath)) {
+        return unlink(fullFilePath);
+      };
     });
   };
 
@@ -248,17 +388,17 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
       const fullDirPath = path.join(this.objPath, subdirNameOrRelPath);
       this.validateManagedDirectoryPath(fullDirPath); 
       if (path.resolve(fullDirPath) === this.objPath) {
-        throw new Error('Cannot remove the managed directory.');
+        throw new Error(`Cannot remove the managed directory ${fullDirPath}.`);
+      } else if (existsSync(fullDirPath)) {
+        const direntPaths = await this.getSubdirectoryDirentPaths(subdirNameOrRelPath);
+        for (const filePath of direntPaths.filePaths) {
+          this.validateManagedFilePath(filePath);
+        };
+        for (const dirPath of direntPaths.subdirPaths) {
+          this.validateManagedDirectoryPath(dirPath);
+        };
+        return rm(fullDirPath, { recursive: true, force: true });
       };
-
-      const direntPaths = await this.getDirectoryDirents(fullDirPath);
-      for (const filePath of direntPaths.filePaths) {
-        this.validateManagedFilePath(filePath);
-      };
-      for (const dirPath of direntPaths.dirPaths) {
-        this.validateManagedDirectoryPath(dirPath);
-      };
-      return rm(subdirNameOrRelPath, { recursive: true, force: true });
     });
   };
 
@@ -268,6 +408,8 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
    * @param fileNameOrRelPath The name or relative path to the file to write data to.
    * @param data The data to write. If something other than a Buffer or Uint8Array is provided,
    * the value is coerced to a string.
+   * @param options An encoding name or an object that contains the encoding and an optional flag.
+   * If an encoding is not provided or no option is specified, it defaults to `'utf8'`.
    */
   async writeFileExclusive(
     fileNameOrRelPath: string,
@@ -298,6 +440,8 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
    * @async
    * @param fileNameOrRelPath The name or relative path to the file to append data to.
    * @param data The data to append to the file.
+   * @param options A buffer encoding or an object that contains the encoding and an optional flag.
+   * If an encoding is not provided or no option is specified, it defaults to `'utf8'`.
    */
   async appendFileExclusive(
     fileNameOrRelPath: string,
@@ -321,16 +465,18 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
   };
 
   /**
-   * Resursively gets all directory entries within a directory.
-   * @param dirPath The directory to check for directory entries.
-   * @param subdirPaths A starting array of current directory entries.
+   * Resursively gets all directory entries within a subdirectory.
+   * @param subdirPath The directory to check for directory entries.
+   * @param filePaths A starting array of current file paths.
+   * @param subdirPaths A starting array of current directory paths.
+   * @returns All discovered directory entry paths in the specified directory.
    */
-  private async getDirectoryDirents(
-    dirPath: string,
+  private async getSubdirectoryDirentPaths(
+    subdirPath: string,
     filePaths: string[] = [],
-    dirPaths: string[] = []
+    subdirPaths: string[] = []
   ) {
-    const fullDirPath = path.join(this.objPath, dirPath);
+    const fullDirPath = path.join(this.objPath, subdirPath);
     const dirents = await readdir(fullDirPath, { withFileTypes: true });
     for (const dirent of dirents) {
       const fullDirentPath = path.join(fullDirPath, dirent.name);
@@ -338,11 +484,12 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
         filePaths.push(fullDirentPath);
       };
       if (dirent.isDirectory()) {
-        dirPaths.push(fullDirentPath);
-        await this.getDirectoryDirents(fullDirentPath, filePaths, dirPaths);
+        subdirPaths.push(fullDirentPath);
+        const innerSubdirPath = path.join(subdirPath, dirent.name);
+        await this.getSubdirectoryDirentPaths(innerSubdirPath, filePaths, subdirPaths);
       };
     };
-    return { filePaths, dirPaths };
+    return { filePaths, subdirPaths };
   };
 
   /**
@@ -353,9 +500,9 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
     const resolvedDirPath = path.resolve(dirPath);
     if (resolvedDirPath !== this.objPath) {
       if (!resolvedDirPath.includes(this.objPath)) {
-        throw Error(`Invalid path specified. '${dirPath}' is not within '${this.objPath}'.`);
+        throw Error(`Invalid path specified. ${dirPath} is not within ${this.objPath}.`);
       } else if (ConcurrentFileSystemObject.fsObjMutexes.has(resolvedDirPath)) {
-        throw Error(`Cannot interact with '${dirPath}', as it is managed by a different mutex.`);
+        throw Error(`Cannot interact with ${dirPath}, as it is managed by a different mutex.`);
       };
       this.validatePath(dirPath);
     };
@@ -367,7 +514,7 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
    */
   private validateManagedFilePath(filePath: string) {
     if (ConcurrentFileSystemObject.fsObjMutexes.has(filePath)) {
-      throw Error(`Cannot interact with '${filePath}', as it is managed by a different mutex.`);
+      throw Error(`Cannot interact with ${filePath}, as it is managed by a different mutex.`);
     };
     this.validateManagedDirectoryPath(path.dirname(filePath));
   };

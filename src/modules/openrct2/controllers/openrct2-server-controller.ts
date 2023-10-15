@@ -403,14 +403,15 @@ export class OpenRCT2ServerController extends EventEmitter {
           usedPlugin: boolean
         } = { screenshotFilePath: '', scenarioName: '', usedPlugin: false };
   
+        const startupOptions = await serverDir.getStartupOptions();
         if (gameServer && gameServer.pluginAdapter) {
-          const startupOptions = await serverDir.getStartupOptions();
           if (startupOptions.headless) {
             const save = await this.createCurrentScenarioSave(serverId, userId);
             if (save) {
               result.screenshotFilePath = await this.openRCT2ProcessEngine.createScenarioScreenshot(
                 save.saveFile,
                 serverDir.getSubdirectoryPath(OpenRCT2ServerSubdirectoryName.Screenshot),
+                startupOptions.openRCT2ExecutablePath,
                 `s${serverId}_screenshot`
               );
               result.scenarioFile = save.saveFile;
@@ -431,6 +432,7 @@ export class OpenRCT2ServerController extends EventEmitter {
           result.screenshotFilePath = await this.openRCT2ProcessEngine.createScenarioScreenshot(
             latestAutosave,
             serverDir.getSubdirectoryPath(OpenRCT2ServerSubdirectoryName.Screenshot),
+            startupOptions.openRCT2ExecutablePath,
             `s${serverId}_screenshot`
           );
           result.scenarioFile = latestAutosave;

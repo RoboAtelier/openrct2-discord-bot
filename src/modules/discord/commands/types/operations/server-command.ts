@@ -1,3 +1,4 @@
+import path from 'path';
 import {
   bold,
   inlineCode,
@@ -18,6 +19,7 @@ import {
   PluginOptions
 } from '@modules/openrct2/data/models';
 import { 
+  OpenRCT2BuildRepository,
   PluginRepository,
   ScenarioRepository,
   ServerHostRepository
@@ -31,7 +33,7 @@ type ServerCommandOptions =
   | 'name' // scenario
   | 'index' // autosave, restart
   | 'defer' // start queue
-  | 'port' | 'headless' // modify startup
+  | 'port' | 'headless' | 'build' // modify startup
   | 'size' | 'clear' // modify queue
   | 'use' | 'adapter-port' // modify plugin
 type ServerCommandSubcommands =
@@ -51,12 +53,14 @@ export class ServerCommand extends BotCommand<
   ServerCommandSubcommands,
   ServerCommandSubcommandGroups
 > {
+  private readonly gameBuildRepo: OpenRCT2BuildRepository;
   private readonly pluginRepo: PluginRepository;
   private readonly scenarioRepo: ScenarioRepository;
   private readonly serverHostRepo: ServerHostRepository;
   private readonly openRCT2ServerController: OpenRCT2ServerController;
 
   constructor(
+    gameBuildRepo: OpenRCT2BuildRepository,
     pluginRepo: PluginRepository,
     scenarioRepo: ScenarioRepository,
     serverHostRepo: ServerHostRepository,
@@ -257,6 +261,12 @@ export class ServerCommand extends BotCommand<
                   .setName(this.reflectOptionName('headless'))
                   .setDescription('To run headless or not.')
               )
+              .addStringOption(option =>
+                option
+                  .setName(this.reflectOptionName('build'))
+                  .setDescription('The exact build name to run. Format is v#.#.#(-<commit>)_<os/os-codename>(_<architecture>)')
+                  .setMinLength(5)
+              )
               .addIntegerOption(option =>
                 option
                   .setName(this.reflectOptionName('server-id'))
@@ -266,6 +276,7 @@ export class ServerCommand extends BotCommand<
           )
       );
 
+    this.gameBuildRepo = gameBuildRepo;
     this.pluginRepo = pluginRepo;
     this.scenarioRepo = scenarioRepo;
     this.serverHostRepo = serverHostRepo;
@@ -312,7 +323,10 @@ export class ServerCommand extends BotCommand<
             const headless = this.doesInteractionHaveOption(interaction, 'headless') 
               ? this.getInteractionOption(interaction, 'headless').value as boolean
               : null;
-            commandResponse = await this.setServerStartupOptions(serverId, portNumber, headless);
+            let buildName = this.doesInteractionHaveOption(interaction, 'build')
+              ? this.getInteractionOption(interaction, 'build').value as string
+              : null;
+            commandResponse = await this.setServerStartupOptions(serverId, portNumber, headless, buildName);
           };
         } else {
           commandResponse.appendToError(this.formatSubcommandGroupPermissionError('modify'));
@@ -395,7 +409,8 @@ export class ServerCommand extends BotCommand<
   private async setServerStartupOptions(
     serverId: number,
     portNumber: number | null,
-    headless: boolean | null
+    headless: boolean | null,
+    buildName: string | null
   ) {
     const commandResponse = new CommandResponseBuilder();
 
@@ -414,6 +429,18 @@ export class ServerCommand extends BotCommand<
     if (headless !== null) {
       startupOptions.headless = headless;
       commandResponse.appendToMessage(`Updated ${underscore(italic(`Server ${serverId}`))} to${headless ? '' : ' not'} run as a headless server.`);
+    };
+
+    if (buildName !== null) {
+      const gameBuilds = await this.gameBuildRepo.getOpenRCT2BuildsByFuzzySearch(buildName);
+      if (!gameBuilds.length) {
+        commandResponse.appendToError('Specified name returned no OpenRCT2 builds.');
+      } else if (gameBuilds.length > 1) {
+        commandResponse.appendToError('Specified name returned multiple OpenRCT2 builds.');
+      } else {
+        startupOptions.openRCT2ExecutablePath = gameBuilds[0].pathToExecutable;
+        commandResponse.appendToMessage(`Updated ${underscore(italic(`Server ${serverId}`))} to use build ${bold(gameBuilds[0].name)}.`);
+      };
     };
 
     if (isStringNullOrWhiteSpace(commandResponse.message)) {
@@ -615,7 +642,7 @@ export class ServerCommand extends BotCommand<
   private async startServerOnScenario(serverId: number, scenarioName: string) {
     const commandResponse = new CommandResponseBuilder();
 
-    const scenarios = await this.scenarioRepo.getScenarioByFuzzySearch(scenarioName);
+    const scenarios = await this.scenarioRepo.getScenariosByFuzzySearch(scenarioName);
     if (1 === scenarios.length) {
       try {
         await this.openRCT2ServerController.startGameServerOnScenario(serverId, scenarios[0]);
@@ -727,6 +754,7 @@ export class ServerCommand extends BotCommand<
 
     channelMsgSegments.push(`Port Number: ${startupOptions.port}`);
     channelMsgSegments.push(`Start Mode: ${startupOptions.headless ? italic('Headless') : italic('Windowed')}`);
+    channelMsgSegments.push(`Build Target: ${path.basename(path.dirname(startupOptions.openRCT2ExecutablePath))}`);
 
     return channelMsgSegments.join(EOL);
   };

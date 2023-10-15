@@ -59,6 +59,9 @@ export class CommandExecutor {
           } catch (err) {
             console.error(err);
             await this.logger.writeError(err as Error);
+            if (interaction.deferred) {
+              interaction.editReply((err as Error).message);
+            };
           };
         } else {
           await interaction.reply({ content: 'You cannot use that command here.', ephemeral: true });

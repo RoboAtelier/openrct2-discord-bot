@@ -2,6 +2,9 @@ import { SerializableObject } from '@modules/io';
 
 /** Represents startup options for a hosted OpenRCT2 game server instance. */
 export class StartupOptions extends SerializableObject<StartupOptions> {
+  
+  /** Gets or sets the target executable to run to start the OpenRCT2 game server instance. */
+  openRCT2ExecutablePath: string;
 
   /** Gets or sets the port number that a game server would be running on. */
   port: number;
@@ -25,6 +28,7 @@ export class StartupOptions extends SerializableObject<StartupOptions> {
   delayDuration: number;
 
   constructor(
+    openRCT2ExecutablePath = '',
     port = -1,
     password = '',
     headless = false,
@@ -34,6 +38,7 @@ export class StartupOptions extends SerializableObject<StartupOptions> {
     delayDuration = 1
   ) {
     super();
+    this.openRCT2ExecutablePath = openRCT2ExecutablePath;
     this.port = port;
     this.password = password;
     this.headless = headless;

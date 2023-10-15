@@ -5,9 +5,12 @@
   "author": "",
   "dependencies": {
     "async-mutex": "^0.3.2",
-    "discord.js": "14.6",
+    "cheerio": "^1.0.0-rc.12",
+    "discord.js": "^14.9.0",
     "fuse.js": "^6.5.3",
-    "module-alias": "^2.2.2"
+    "module-alias": "^2.2.2",
+    "tar": "^6.1.13",
+    "zip-lib": "^0.7.3"
   },
   "main": "dist/src/app.js",
   "scripts": {
@@ -17,5 +20,8 @@
   "type": "commonjs",
   "_moduleAliases": {
     "@modules": "dist/modules"
+  },
+  "devDependencies": {
+    "@types/tar": "^6.1.4"
   }
 }

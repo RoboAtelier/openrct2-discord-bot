@@ -1,2 +1,2 @@
 export * from './openrct2-master-server';
-export * from './public-openrct2-server-info';
+export * from './openrct2-build-downloader';

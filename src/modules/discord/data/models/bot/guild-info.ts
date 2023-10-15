@@ -26,9 +26,9 @@ export class GuildInfo extends SerializableObject<GuildInfo> {
 
   /**
    * Gets or sets the array of ids of guild channels
-   * set for relaying messages between Discord and the game servers.
+   * set for relaying chat messages between Discord and the game servers.
    */
-  gameServerChannels: { serverId: number, channelId: string }[];
+  gameServerChannels: { serverId: number, channelId: string, autoRelay: boolean }[];
 
   /** Gets or sets the array of ids of guild roles assigned for trusted users. */
   trustedRoleIds: string[];

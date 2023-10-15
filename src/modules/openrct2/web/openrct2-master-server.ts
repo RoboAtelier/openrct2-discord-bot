@@ -1,5 +1,36 @@
 import Fuse from 'fuse.js';
-import { PublicOpenRCT2ServerInfo } from '.';
+import { wait } from '@modules/utils/runtime-utils';
+
+/** Represents information about a public OpenRCT2 server broadcasting on the master server list. */
+export interface PublicOpenRCT2ServerInfo {
+  readonly ip: {
+    readonly v4: string[];
+    readonly v6: string[];
+  };
+  readonly port: number;
+  readonly version: string;
+  readonly requiresPassword: boolean;
+  readonly players: number;
+  readonly maxPlayers: number;
+  readonly name: string;
+  readonly description: string;
+  readonly provider: {
+    readonly name: string;
+    readonly email: string;
+    readonly website: string;
+  };
+  readonly gameInfo: {
+    readonly mapSize: {
+      readonly x: number;
+      readonly y: number;
+    };
+    readonly day: number;
+    readonly month: number;
+    readonly guests: number;
+    readonly parkValue: number;
+    readonly cash: number;
+  };
+};
 
 export class OpenRCT2MasterServer {
   private static readonly formatCodeRegex = /{[A-Z0-9_]+}/g;
@@ -55,10 +86,10 @@ export class OpenRCT2MasterServer {
         return json.servers as PublicOpenRCT2ServerInfo[];
       } catch (err) {
         ++attempts;
-        await new Promise(resolve => {
-          setTimeout(resolve, 1000);
-        });
-        //logging
+        if (attempts >= 3) {
+          throw err;
+        };
+        wait(1, 's');
       };
     };
     throw new Error('Failed to get the OpenRCT2 server list from the master server.');

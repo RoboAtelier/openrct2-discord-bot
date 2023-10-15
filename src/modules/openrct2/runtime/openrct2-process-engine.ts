@@ -3,7 +3,6 @@ import { spawn } from 'child_process';
 import { unlink } from 'fs/promises';
 import { Socket } from 'net';
 import { OpenRCT2Server } from '.';
-import { Configuration } from '@modules/configuration';
 import { OpenRCT2PluginAdapter } from '@modules/openrct2/adapters';
 import { 
   PluginOptions,
@@ -14,20 +13,24 @@ import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
 
 /** Represents a class that handles running built-in processes using the OpenRCT2 application executable. */
 export class OpenRCT2ProcessEngine {
-  private static readonly exePathKey = 'openRCT2ExecutablePath';
 
-  private readonly openRCT2ExecutablePath: string;
-
-  constructor(config: Configuration) {
-    const exePath = config.getValue<string>(OpenRCT2ProcessEngine.exePathKey);
-    this.openRCT2ExecutablePath = path.resolve(exePath);
-  };
-
-  async initializeGameConfiguration(openRCT2DataPath: string, rct2GamePath: string, timeoutMs = 30 * 1000) {
+  /**
+   * 
+   * @param openRCT2DataPath 
+   * @param openRCT2ExecutablePath 
+   * @param rct2GamePath 
+   * @param timeoutMs 
+   */
+  async initializeGameConfiguration(
+    openRCT2DataPath: string,
+    openRCT2ExecutablePath: string,
+    rct2GamePath: string,
+    timeoutMs = 30 * 1000
+  ) {
     const params = ['set-rct2', rct2GamePath, '--user-data-path', openRCT2DataPath];
 
     const setProcess = spawn(
-      this.openRCT2ExecutablePath,
+      openRCT2ExecutablePath,
       params,
       { stdio: ['ignore', 'pipe', 'ignore'] }
     );
@@ -54,6 +57,7 @@ export class OpenRCT2ProcessEngine {
    * @param scenarioFile 
    * @param startupOptions 
    * @param pluginOptions 
+   * @param timeoutMs 
    * @returns 
    */
   async createGameServerInstance(
@@ -81,7 +85,7 @@ export class OpenRCT2ProcessEngine {
     };
 
     const gameInstance = spawn(
-      this.openRCT2ExecutablePath,
+      startupOptions.openRCT2ExecutablePath,
       params,
       { stdio: ['ignore', 'pipe', 'ignore'] }
     );
@@ -134,10 +138,19 @@ export class OpenRCT2ProcessEngine {
   /**
    * 
    * @param scenarioFile 
-   * @param outputDirPath
+   * @param outputDirPath 
+   * @param openRCT2ExecutablePath 
    * @param screenshotName 
+   * @param timeoutMs 
+   * @returns 
    */
-  async createScenarioScreenshot(scenarioFile: ScenarioFile, outputDirPath: string, screenshotName = '', timeoutMs = 60 * 1000) {
+  async createScenarioScreenshot(
+    scenarioFile: ScenarioFile,
+    outputDirPath: string,
+    openRCT2ExecutablePath: string,
+    screenshotName = '',
+    timeoutMs = 60 * 1000
+  ) {
     const screenshotFilePath = isStringNullOrWhiteSpace(screenshotName)
       ? path.join(outputDirPath, `${scenarioFile.nameNoExtension}.png`)
       : path.join(outputDirPath, `${screenshotName}.png`);
@@ -157,7 +170,7 @@ export class OpenRCT2ProcessEngine {
     ];
 
     const screenshotProcess = spawn(
-      this.openRCT2ExecutablePath,
+      openRCT2ExecutablePath,
       params,
       { stdio: ['ignore', 'pipe', 'ignore'] }
     );

@@ -17,7 +17,7 @@ export function areStringsEqualCaseInsensitive(str1: string, ...strs: string[]) 
  * @param str The string to test.
  * @returns `true` if `null` or empty; otherwise, `false`
  */
-export function isStringNullOrEmpty(str: string | null | undefined) {
+export function isStringNullOrEmpty(str: string | null | undefined): str is null | undefined | '' {
   if (str === undefined || str === null) {
     return true;
   } else if (typeof str !== 'string') {

@@ -16,13 +16,17 @@ import { BotDataRepository } from '@modules/discord/data/repositories';
 import { Logger } from '@modules/logging';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 import { 
+  OpenRCT2BuildRepository,
   PluginRepository,
   ScenarioRepository,
   ServerHostRepository
 } from '@modules/openrct2/data/repositories';
 import { BotPluginFileName } from '@modules/openrct2/data/types';
 import { OpenRCT2ProcessEngine } from '@modules/openrct2/runtime';
-import { OpenRCT2MasterServer } from '@modules/openrct2/web';
+import {
+  OpenRCT2MasterServer,
+  OpenRCT2BuildDownloader
+} from '@modules/openrct2/web';
 import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
 
 /** Main application entry point. */
@@ -44,19 +48,23 @@ async function main() {
   );
   const logger = new Logger(config);
   const botDataRepo = new BotDataRepository(config);
+  const gameBuildRepo = new OpenRCT2BuildRepository(config);
   const pluginRepo = new PluginRepository(config);
   const scenarioRepo = new ScenarioRepository(config);
   const serverHostRepo = new ServerHostRepository(config);
-  const openRCT2ProcessEngine = new OpenRCT2ProcessEngine(config);
+  const openRCT2ProcessEngine = new OpenRCT2ProcessEngine();
   const openRCT2MasterServer = new OpenRCT2MasterServer();
+  const openRCT2BuildDownloader = new OpenRCT2BuildDownloader();
   const openRCT2ServerController = new OpenRCT2ServerController(logger, openRCT2ProcessEngine, scenarioRepo, serverHostRepo);
   const commandFactory = new CommandFactory(
     config,
     logger,
     botDataRepo,
+    gameBuildRepo,
     pluginRepo,
     scenarioRepo,
     serverHostRepo,
+    openRCT2BuildDownloader,
     openRCT2MasterServer,
     openRCT2ServerController
   );
@@ -86,7 +94,7 @@ async function main() {
     const guildInfo = await botDataRepo.getGuildInfo();
     if (isStringNullOrWhiteSpace(guildInfo.guildId)) {
       const guilds = [...discordClient.guilds.cache.values()];
-      if (guilds.length > 0) {
+      if (guilds.length) {
         guildInfo.guildId = guilds[0].id;
         await botDataRepo.updateGuildInfo(guildInfo);
       } else {
@@ -98,6 +106,7 @@ async function main() {
     await rest.put(
       Routes.applicationGuildCommands(config.getValue('clientId'), guildInfo.guildId),
       { body: commandFactory.commandDataArray }
+      //{ body: commandFactory.commandDataArray.filter(data => ['game-build', 'server'].includes(data.name)) }
     );
 
     console.log(`${discordClient.user.tag} has logged in!`);

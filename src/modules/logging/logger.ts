@@ -37,7 +37,7 @@ export class Logger {
     const logFileName = `${this.getDateString(new Date())}.error`;
     const fullLog = typeof err === 'string'
       ? `[${createDateTimestamp()}] ${err}`
-      : `[${createDateTimestamp()}] ${err.message}${err.stack ? ` ${err.stack}` : ''}${EOL}`
+      : `[${createDateTimestamp()}] ${err.message}${err.stack ? ` ${err.stack}` : ''}${EOL}`;
     await this.writeToLogFile(fullLog, logFileName);
   };
 
@@ -52,7 +52,12 @@ export class Logger {
    * @param logFileName The name of the log file to write to.
    */
   private async writeToLogFile(log: string, logFileName: string) {
-    await this.logDir.appendFileExclusive(logFileName, log);
+    try {
+      await this.logDir.appendFileExclusive(logFileName, log);
+    } catch (err) {
+      console.log(`Failed to log in ${logFileName}. ${err}`);
+    };
+
     console.log(log.trimEnd());
   };
 

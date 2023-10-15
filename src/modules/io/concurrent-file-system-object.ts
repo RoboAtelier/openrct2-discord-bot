@@ -85,7 +85,7 @@ export abstract class ConcurrentFileSystemObject {
    */
   protected validateFileName(fileName: string) {
     if (!isStringValidForFileName(fileName)) {
-      throw new Error('Specified name is not a valid file name.');
+      throw new Error(`Specified name ${fileName} is not a valid file name.`);
     };
   };
 
