@@ -225,11 +225,11 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
 
   /**
    * Gets a subdirectory that the OpenRCT2 server directory manages.
-   * @param subDirName The name of a valid OpenRCT2 server subdirectory.
+   * @param subdirName The name of a valid OpenRCT2 server subdirectory.
    * @returns The path to the requested subdirectory.
    */
-  getSubdirectoryPath(subDirName: OpenRCT2ServerSubdirectoryName) {
-    return path.join(this.path, subDirName);
+  getSubdirectoryPath(subdirName: OpenRCT2ServerSubdirectoryName) {
+    return path.join(this.path, subdirName);
   };
 
   /** 

@@ -367,8 +367,11 @@ export class VoteCommand extends BotCommand<
       const voteMessage = await this.postVoteSession(interaction, payload);
   
       if (voteMessage) {
-        const voteCollector = voteMessage.createMessageComponentCollector<ComponentType.Button>(
-          { time: voteSession.duration * 60000 }
+        const voteCollector = voteMessage.createMessageComponentCollector(
+          { 
+            componentType: ComponentType.Button,
+            time: voteSession.duration * 60000
+          }
         );
         voteSession.stoppable = true;
         voteSession.interactionCollector = voteCollector;
@@ -533,8 +536,11 @@ export class VoteCommand extends BotCommand<
     try {
       await voteSession.setupNewVoteRound();
       await voteMessage.edit(this.formatScenarioVoteEmbed(serverId, voteSession));
-      const voteCollector = voteMessage.createMessageComponentCollector<ComponentType.Button>(
-        { time: voteSession.duration * 60000 }
+      const voteCollector = voteMessage.createMessageComponentCollector(
+        { 
+          componentType: ComponentType.Button,
+          time: voteSession.duration * 60000
+        }
       );
       voteSession.stoppable = true;
       voteSession.interactionCollector = voteCollector;

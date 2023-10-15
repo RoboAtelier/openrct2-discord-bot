@@ -88,7 +88,7 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
    * @param fileExtensions The file extensions to match for the scenarios.
    * @returns An array of scenario files that closely match the parameters.
    */
-  async getScenarioByFuzzySearch(name: string, ...fileExtensions: ScenarioFileExtension[]) {
+  async getScenariosByFuzzySearch(name: string, ...fileExtensions: ScenarioFileExtension[]) {
     const scenarioFiles = fileExtensions.length > 0
       ? await this.getScenariosByFileExtension(...fileExtensions)
       : await this.getAvailableScenarios()
@@ -262,7 +262,7 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
    * @returns An array of scenario metadata records that closely match the parameters.
    */
   async getScenarioMetadataByFuzzySearch(scenarioFileName: string, ...fileExtensions: ScenarioFileExtension[]) {
-    const requestedScenarioFiles = await this.getScenarioByFuzzySearch(scenarioFileName, ...fileExtensions);
+    const requestedScenarioFiles = await this.getScenariosByFuzzySearch(scenarioFileName, ...fileExtensions);
     const metadata = await this.getScenarioMetadata();
     const requestedMetadata = requestedScenarioFiles.map(file => {
       const currentInfo = metadata.find(scenarioData => {
@@ -323,26 +323,15 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
     this.refreshLog.set(keyName, new Date(0).getMilliseconds());
   };
 
-  /** 
-   * Reads for all scenario files in the data directory.
-   * @async
-   * @returns An array of all discovered scenario files.
-   */
   private async readScenarioFiles() {
     const files = await this.dataDir.getFilesExclusive();
-    const scenarioDirents = files.filter(file => {
+    const scenarioFiles = files.filter(file => {
       const fileExtension = file.name.substring(file.name.lastIndexOf('.'));
       return ScenarioFileExtensionArray.some(ext => areStringsEqualCaseInsensitive(fileExtension, ext));
     });
-    return scenarioDirents.map(dirent => new ScenarioFile(path.join(this.dataDir.path, dirent.name)));
+    return scenarioFiles.map(dirent => new ScenarioFile(path.join(this.dataDir.path, dirent.name)));
   };
 
-  /**
-   * Reads the metadata file for all scenario metadata records
-   * and fills in missing records based on the current available scenario files.
-   * @async
-   * @returns An array of the current scenario metadata records.
-   */
   private async readAndFillScenarioMetadata() {
     const metadata = await this.metadataFile.readExclusive();
     const scenarioFiles = await this.getAvailableScenarios();
@@ -356,10 +345,6 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
     return updatedMetadata;
   };
 
-  /**
-   * Gets the file extension of a scenario file.
-   * @param scenarioFileName The scenario file name to parse.
-   */
   private getScenarioFileExtension(scenarioFileName: string) {
     const fileExtension = ScenarioFileExtensionArray.find(ext => {
       const scenarioFileExtension = scenarioFileName.substring(scenarioFileName.lastIndexOf('.'));

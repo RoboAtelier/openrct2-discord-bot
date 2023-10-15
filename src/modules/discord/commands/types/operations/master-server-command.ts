@@ -47,7 +47,7 @@ export class MasterServerCommand extends BotCommand<
     super(CommandPermissionLevel.User);
     this.data
       .setName('master-server')
-      .setDescription('Gets OpenRCT2 game server information from the master server.')
+      .setDescription('Looks up OpenRCT2 game server information from the master server.')
       .addSubcommand(subcommand =>
         subcommand
           .setName(this.reflectSubcommandName('here'))

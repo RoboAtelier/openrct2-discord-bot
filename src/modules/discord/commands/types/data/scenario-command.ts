@@ -228,7 +228,7 @@ export class ScenarioCommand extends BotCommand<
   ) {
     const commandResponse = new CommandResponseBuilder();
     
-    const scenarios = await this.scenarioRepo.getScenarioByFuzzySearch(scenarioName);
+    const scenarios = await this.scenarioRepo.getScenariosByFuzzySearch(scenarioName);
     if (1 === scenarios.length) {
       const scenarioToChange = scenarios[0];
       const metadata = await this.scenarioRepo.getScenarioMetadataForFile(scenarioToChange);
