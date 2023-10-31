@@ -1,5 +1,5 @@
 export * from './bot-command';
-export * from './command-access-result';
+export * from './command-access-result-builder';
 export * from './command-permission-level';
 export * from './command-type';
 export * from './command-response-builder';
