@@ -6,19 +6,25 @@ import {
 } from 'discord.js';
 import { EOL } from 'os';
 import { 
-  BotCommand,
   CommandPermissionLevel,
   CommandResponseBuilder,
-  CommandType
+  CommandType,
+  SubcommandsDiscordBotCommand
 } from '@modules/discord/commands';
 import { BotDataRepository } from '@modules/discord/data/repositories';
 import { Logger } from '@modules/logging';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 
-type PlayerCommandSubcommands = 'list'
+const PlayerSubcommands = <const>[
+  { 
+    name: 'list',
+    description: 'Gets the current player list on an OpenRCT2 game server.',
+    options: null
+  }
+];
 
 /** Represents a command for getting player information or managing them on an OpenRCT2 game server. */
-export class PlayerCommand extends BotCommand<null, PlayerCommandSubcommands, null> {
+export class PlayerCommand extends SubcommandsDiscordBotCommand<undefined, typeof PlayerSubcommands[number]> {
   private static readonly formatCodeRegex = /{[A-Z0-9_]+}/g;
 
   private readonly logger: Logger;
@@ -30,15 +36,14 @@ export class PlayerCommand extends BotCommand<null, PlayerCommandSubcommands, nu
     botDataRepo: BotDataRepository,
     openRCT2ServerController: OpenRCT2ServerController
   ) {
-    super(CommandPermissionLevel.User, CommandType.Game);
-    this.data
-      .setName('player')
-      .setDescription('Gets and manages an OpenRCT2 game server\'s current players.')
-      .addSubcommand(subcommand =>
-        subcommand
-          .setName(this.reflectSubcommandName('list'))
-          .setDescription('Gets the current player list on an OpenRCT2 game server.')
-      );
+    super(
+      'player',
+      'Gets and manages an OpenRCT2 game server\'s current players.',
+      undefined,
+      PlayerSubcommands,
+      CommandPermissionLevel.User,
+      CommandType.Game
+    );
 
     this.logger = logger;
     this.botDataRepo = botDataRepo;
@@ -46,7 +51,7 @@ export class PlayerCommand extends BotCommand<null, PlayerCommandSubcommands, nu
   };
 
   /** @override */
-  async execute(interaction: ChatInputCommandInteraction, userLevel: CommandPermissionLevel) {
+  async execute(interaction: ChatInputCommandInteraction) {
     let commandResponse = new CommandResponseBuilder();
 
     const guildInfo = await this.botDataRepo.getGuildInfo();

@@ -34,7 +34,7 @@ export interface PublicOpenRCT2ServerInfo {
 
 export class OpenRCT2MasterServer {
   private static readonly formatCodeRegex = /{[A-Z0-9_]+}/g;
-  private static readonly fuseOptions = { keys: ['name'], threshold: 0.1 };
+  private static readonly fuseOptions = { keys: ['name'], threshold: 0.2 };
 
   /**
    * Gets public OpenRCT2 server information by an approximate search of its name.
@@ -86,9 +86,6 @@ export class OpenRCT2MasterServer {
         return json.servers as PublicOpenRCT2ServerInfo[];
       } catch (err) {
         ++attempts;
-        if (attempts >= 3) {
-          throw err;
-        };
         wait(1, 's');
       };
     };

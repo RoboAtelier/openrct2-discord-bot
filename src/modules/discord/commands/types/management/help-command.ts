@@ -1,75 +1,63 @@
 import { EOL } from 'os';
 import {
-  inlineCode,
-  italic,
-  underscore,
   ChatInputCommandInteraction,
   Colors,
   EmbedBuilder,
+  inlineCode,
+  italic,
+  MessagePayload,
   SlashCommandBuilder,
-  MessagePayload
+  underscore
 } from 'discord.js';
 import { 
-  BotCommand,
+  addCommandOptionChoices,
   CommandPermissionLevel,
-  CommandResponseBuilder
+  CommandResponseBuilder,
+  OptionsDiscordBotCommand,
+  SlashCommandData,
+  SubcommandData,
+  SubcommandGroupData
 } from '@modules/discord/commands';
 import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
 
-type SlashCommand = {
-  name: string,
-  description: string,
-  options: Option[] | undefined,
-  subcommandGroups: Map<string, SubcommandGroup> | undefined
-}
-type Option = {
-  name: string,
-  description: string,
-  type: number
-};
-type Subcommand = {
-  name: string,
-  description: string,
-  options: Option[]
-};
-type SubcommandGroup = {
-  name: string,
-  description: string,
-  subcommands: Map<string, Subcommand>
-};
-
-type HelpCommandOptions = 'command' | 'group' | 'subcommand'
+const HelpCommandOptions = <const>[
+  { 
+    name: 'command',
+    type: 'string',
+    description: 'The name of the command to get help for.',
+    required: true
+  },
+  {
+    name: 'group',
+    type: 'string',
+    description: 'The name of the subcommand group.'
+  },
+  {
+    name: 'subcommand',
+    type: 'string',
+    description: 'The name of the subcommand.'
+  }
+];
 
 /** Represents a command for information on bot commands. */
-export class HelpCommand extends BotCommand<HelpCommandOptions, null, null> {
-  private readonly slashCommands = new Map<string, SlashCommand>();
+export class HelpCommand extends OptionsDiscordBotCommand<typeof HelpCommandOptions[number]> {
+  private readonly slashCommands = new Map<string, SlashCommandData>();
 
   constructor(commandData: SlashCommandBuilder[]) {
-    super(CommandPermissionLevel.User);
-    this.data
-      .setName('help')
-      .setDescription('Provides command information for this bot.')
-      .addStringOption(option =>
-        option
-          .setName(this.reflectOptionName('command'))
-          .setDescription('The name of the command to get help for.')
-          .setChoices(...commandData.map(data => { 
-            return { name: data.name, value: data.name };
-          }))
-      )
-      .addStringOption(option =>
-        option
-          .setName(this.reflectOptionName('group'))
-          .setDescription('The name of the subcommand group.')
-      )
-      .addStringOption(option =>
-        option
-          .setName(this.reflectOptionName('subcommand'))
-          .setDescription('The name of the subcommand.')
-      );
+    super(
+      'help',
+      'Provides command information for this bot.',
+      HelpCommandOptions,
+      CommandPermissionLevel.User
+    );
+    addCommandOptionChoices(
+      this.data,
+      'command',
+      commandData.map(data => { return { name: data.name, value: data.name }; })
+    );
 
     for (const data of commandData) {
-      const slashCommand: SlashCommand = {
+      const slashCommand: SlashCommandData = {
         name: data.name,
         description: data.description,
         options: undefined,
@@ -78,23 +66,23 @@ export class HelpCommand extends BotCommand<HelpCommandOptions, null, null> {
       if (data.options.length > 0) {
         const optionCheck = data.options[0] as any;
         if (optionCheck.options !== undefined) {
-          slashCommand.subcommandGroups = new Map<string, SubcommandGroup>();
-          const subcommands = new Map<string, Subcommand>();
+          slashCommand.subcommandGroups = new Map<string, SubcommandGroupData>();
+          const subcommands = new Map<string, SubcommandData>();
           for (const subcommandOrGroup of data.options as any[]) {
             if (0 === subcommandOrGroup.options.length || subcommandOrGroup.options[0].type !== undefined) { // subcommand
-              const subcommand: Subcommand = { name: subcommandOrGroup.name, description: subcommandOrGroup.description, options: [] };
+              const subcommand: SubcommandData = { name: subcommandOrGroup.name, description: subcommandOrGroup.description, options: [] };
               subcommand.options = subcommandOrGroup.options.map((option: any) => {
                 return { name: option.name, description: option.description, type: option.type };
               });
               subcommands.set(subcommand.name, subcommand);
             } else { // group
-              const group: SubcommandGroup = { 
+              const group: SubcommandGroupData = { 
                 name: subcommandOrGroup.name,
                 description: subcommandOrGroup.description,
-                subcommands: new Map<string, Subcommand>()
+                subcommands: new Map<string, SubcommandData>()
               };
               for (const subcommand of subcommandOrGroup.options) {
-                const groupSubcommand: Subcommand = { name: subcommand.name, description: subcommand.description, options: [] };
+                const groupSubcommand: SubcommandData = { name: subcommand.name, description: subcommand.description, options: [] };
                 groupSubcommand.options = subcommand.options.map((option: any) => {
                   return { name: option.name, description: option.description, type: option.type };
                 });
@@ -115,25 +103,20 @@ export class HelpCommand extends BotCommand<HelpCommandOptions, null, null> {
   };
 
   /** @override */
-  async execute(interaction: ChatInputCommandInteraction, userLevel: CommandPermissionLevel) {
-    const commandName = this.doesInteractionHaveOption(interaction, 'command')
-      ? this.getInteractionOption(interaction, 'command').value as string
-      : '';
-    const groupName = this.doesInteractionHaveOption(interaction, 'group')
-      ? this.getInteractionOption(interaction, 'group').value as string
-      : '';
-    const subcommandName = this.doesInteractionHaveOption(interaction, 'subcommand')
-      ? this.getInteractionOption(interaction, 'subcommand').value as string
-      : '';
-    const result = this.getCommandHelp(commandName, groupName, subcommandName);
+  async execute(interaction: ChatInputCommandInteraction) {
+    const commandOptions = this.getInteractionOptionValues(interaction);
+    const commandName = commandOptions.get('command')?.value as string ?? '';
+    const groupName = commandOptions.get('group')?.value as string ?? '';
+    const subcommandName = commandOptions.get('subcommand')?.value as string ?? '';
+    const commandResponse = this.getCommandHelp(commandName, groupName, subcommandName);
     
-    await interaction.reply(new MessagePayload(interaction, result));
+    await interaction.reply(new MessagePayload(interaction, commandResponse));
   };
 
   private getCommandHelp(commandName: string, groupName: string, subcommandName: string) {
     const commandResponse = new CommandResponseBuilder();
 
-    let helpEmbed: EmbedBuilder | undefined = undefined;
+    let helpEmbed: EmbedBuilder | null = null;
     if (isStringNullOrWhiteSpace(commandName)) {
       helpEmbed = this.formatCommandListEmbed();
     } else {
@@ -177,10 +160,6 @@ export class HelpCommand extends BotCommand<HelpCommandOptions, null, null> {
     };
   };
 
-  /** 
-   * Constructs a message of the current available commands.
-   * @returns A custom formatted embed object for a specific feature.
-   */
   private formatCommandListEmbed() {
     const embedBuilder = new EmbedBuilder();
     const helpEmbedFields: { name: string, value: string }[] = [];
@@ -210,14 +189,7 @@ export class HelpCommand extends BotCommand<HelpCommandOptions, null, null> {
     return embedBuilder;
   };
 
-  /** 
-   * Constructs a message of the requested command information.
-   * @param slashCommand The requested slash command.
-   * @param groupName The subcommand group name to query.
-   * @param subcommandName The subcommand name to query.
-   * @returns A custom formatted embed object for a specific feature.
-   */
-  private formatCommandHelpEmbed(slashCommand: SlashCommand, groupName = '', subcommandName = '') {
+  private formatCommandHelpEmbed(slashCommand: SlashCommandData, groupName = '', subcommandName = '') {
     const embedBuilder = new EmbedBuilder();
     const helpEmbedFields: { name: string, value: string }[] = [];
 

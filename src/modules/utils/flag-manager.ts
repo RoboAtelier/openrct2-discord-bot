@@ -20,7 +20,7 @@ export class FlagManager<T extends Flag> {
 
   setFlag<K extends keyof T>(id: number, flag: K, value?: T[K]) {
     if (this.activeFlags.has(`${id}.${String(flag)}`)) {
-      throw new Error(`Process ${id} '${String(flag)}' is already active.`);
+      throw new Error(`Process ${id} '${String(flag)}' is already set.`);
     };
     this.activeFlags.set(`${id}.${String(flag)}`, value);
   };

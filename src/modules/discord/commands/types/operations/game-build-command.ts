@@ -1,17 +1,17 @@
 import {
   bold,
+  ChatInputCommandInteraction,
   inlineCode,
-  italic,
-  ChatInputCommandInteraction
+  italic
 } from 'discord.js';
 import {
   platform,
   EOL
 } from 'os';
-import { 
-  BotCommand,
+import {
   CommandPermissionLevel,
-  CommandResponseBuilder
+  CommandResponseBuilder,
+  SubcommandsDiscordBotCommand
 } from '@modules/discord/commands';
 import { Logger } from '@modules/logging';
 import {
@@ -39,11 +39,80 @@ const OperatingSystemChoices = [
   { name: 'Ubuntu/Debian', value: 'linux/ubuntu' }
 ];
 
+const GameBuildSubcommands = <const>[
+  {
+    name: 'check',
+    description: 'Checks for available downloads for an OpenRCT2 build.',
+    options: [
+      {
+        name: 'version',
+        type: 'string',
+        description: 'The build version number. Format is v#.#.#',
+        minLength: 5
+      },
+      {
+        name: 'commit',
+        type: 'string',
+        description: 'The commit header for a develop build.',
+        minLength: 7,
+        maxLength: 7
+      },
+      {
+        name: 'index',
+        type: 'integer',
+        description: 'The index ordinal of the latest develop builds.',
+        minValue: 1,
+        maxValue: 30
+      }
+    ]
+  },
+  {
+    name: 'download',
+    description: 'Downloads a game build.',
+    options: [
+      {
+        name: 'version',
+        type: 'string',
+        description: 'The build version number. Format is v#.#.#',
+        required: true,
+        minLength: 5
+      },
+      {
+        name: 'commit',
+        type: 'string',
+        description: 'The commit header for a develop build.',
+        minLength: 7,
+        maxLength: 7
+      },
+      {
+        name: 'os',
+        type: 'string',
+        description: 'The target operating system to download for.',
+        choices: OperatingSystemChoices
+      },
+      {
+        name: 'codename',
+        type: 'string',
+        description: 'The version codename for a related Linux operating system.'
+      },
+      {
+        name: 'architecture',
+        type: 'string',
+        description: 'The target operating system CPU architecture.'
+      }
+    ]
+  },
+  {
+    name: 'list',
+    description: 'Gets the current list of downloaded OpenRCT2 builds.',
+    options: null
+  },
+];
+  
 /** Represents a command for downloading, installing, and managing OpenRCT2 builds. */
-export class GameBuildCommand extends BotCommand<
-  GameBuildCommandOptions,
-  GameBuildCommandSubcommands,
-  null
+export class GameBuildCommand extends SubcommandsDiscordBotCommand<
+  undefined,
+  typeof GameBuildSubcommands[number]
 > {
   private readonly logger;
   private readonly gameBuildRepo;
@@ -54,74 +123,13 @@ export class GameBuildCommand extends BotCommand<
     gameBuildRepo: OpenRCT2BuildRepository,
     openRCT2BuildDownloader: OpenRCT2BuildDownloader
   ) {
-    super(CommandPermissionLevel.Moderator);
-    this.data
-      .setName('game-build')
-      .setDescription('Manages OpenRCT2 builds.')
-      .addSubcommand(subcommand =>
-        subcommand
-          .setName(this.reflectSubcommandName('check'))
-          .setDescription('Checks for available downloads for an OpenRCT2 build.')
-          .addStringOption(option =>
-            option
-              .setName(this.reflectOptionName('version'))
-              .setDescription('The build version number. Format is v#.#.#')
-              .setMinLength(5)
-          )
-          .addStringOption(option =>
-            option
-              .setName(this.reflectOptionName('commit'))
-              .setDescription('The commit header for a develop build.')
-              .setMinLength(7)
-              .setMaxLength(7)
-          )
-          .addIntegerOption(option =>
-            option
-              .setName(this.reflectOptionName('index'))
-              .setDescription('The index ordinal of the latest develop builds.')
-              .setMinValue(1)
-              .setMaxValue(30)
-          )
-      )
-      .addSubcommand(subcommand =>
-        subcommand
-          .setName(this.reflectSubcommandName('download'))
-          .setDescription('Downloads a game build.')
-          .addStringOption(option =>
-            option
-              .setName(this.reflectOptionName('version'))
-              .setDescription('The build version number. Format is v#.#.#')
-              .setMinLength(5)
-              .setRequired(true)
-          )
-          .addStringOption(option =>
-            option
-              .setName(this.reflectOptionName('commit'))
-              .setDescription('The commit header for a develop build.')
-              .setMinLength(7)
-              .setMaxLength(7)
-          )
-          .addStringOption(option => 
-            option
-              .setName(this.reflectOptionName('os'))
-              .setDescription('The target operating system to download for.')
-              .setChoices(...OperatingSystemChoices)
-          )
-          .addStringOption(option =>
-            option
-              .setName(this.reflectOptionName('codename'))
-              .setDescription('The version codename for a related Linux operating system.')
-          )
-          .addStringOption(option =>
-            option
-              .setName(this.reflectOptionName('architecture'))
-              .setDescription('The target operating system CPU architecture.'))
-      )
-      .addSubcommand(subcommand =>
-        subcommand
-          .setName(this.reflectSubcommandName('list'))
-          .setDescription('Gets the current installed OpenRCT2 build.')
-      );
+    super(
+      'game-build',
+      'Manages OpenRCT2 builds.',
+      undefined,
+      GameBuildSubcommands,
+      CommandPermissionLevel.Moderator
+    );
 
     this.logger = logger;
     this.gameBuildRepo = gameBuildRepo;
@@ -130,62 +138,51 @@ export class GameBuildCommand extends BotCommand<
 
   /** @override */
   async execute(interaction: ChatInputCommandInteraction) {
+    const subcommandName = this.getInteractionSubcommandName(interaction);
     let commandResponse = new CommandResponseBuilder();
 
     await interaction.deferReply();
 
-    if (this.isInteractionUsingSubcommand(interaction, 'check')) {
-      let baseVersion = this.doesInteractionHaveOption(interaction, 'version')
-        ? this.getInteractionOption(interaction, 'version').value as string
-        : undefined;
+    if (subcommandName === 'check') {
+      const options = this.getInteractionSubcommandOptions(interaction, 'check');
+      let baseVersion = options.get('version')?.value as string;
       if (baseVersion && !baseVersion.startsWith('v')) {
         baseVersion = `v${baseVersion}`;
       };
-      const commitHeader = this.doesInteractionHaveOption(interaction, 'commit')
-        ? this.getInteractionOption(interaction, 'commit').value as string
-        : undefined;
-      const buildIndex = this.doesInteractionHaveOption(interaction, 'index')
-        ? this.getInteractionOption(interaction, 'index').value as number
-        : 1;
 
-      commandResponse = await this.requestOpenRCT2BuildInfo(buildIndex, baseVersion, commitHeader);
-    } else if (this.isInteractionUsingSubcommand(interaction, 'download')) {
-      let baseVersion = this.getInteractionOption(interaction, 'version').value as string;
+      commandResponse = await this.requestOpenRCT2BuildInfo(
+        options.get('index')?.value as number ?? 1,
+        baseVersion,
+        options.get('commit')?.value as string
+      );
+    } else if (subcommandName === 'download') {
+      const options = this.getInteractionSubcommandOptions(interaction, 'download');
+      let baseVersion = options.get('version')?.value as string;
       if (baseVersion && !baseVersion.startsWith('v')) {
         baseVersion = `v${baseVersion}`;
       };
-      const commitHeader = this.doesInteractionHaveOption(interaction, 'commit')
-        ? this.getInteractionOption(interaction, 'commit').value as string
-        : undefined;
+
       let distro;
-      let operatingSystem = this.doesInteractionHaveOption(interaction, 'os')
-        ? this.getInteractionOption(interaction, 'os').value as string
-        : platform();
+      let operatingSystem = options.get('os')?.value as string ?? platform();
       if (operatingSystem && operatingSystem.startsWith('linux')) {
         distro = operatingSystem.substring(operatingSystem.indexOf('/') + 1) as OpenRCT2LinuxDistro;
         operatingSystem = 'linux';
       };
-      let architecture = this.doesInteractionHaveOption(interaction, 'architecture')
-        ? this.getInteractionOption(interaction, 'architecture').value as string
-        : undefined;
-      const codename = this.doesInteractionHaveOption(interaction, 'codename')
-        ? this.getInteractionOption(interaction, 'codename').value as string
-        : undefined;
 
       const platformInfo = new OpenRCT2PlatformInfo(
         operatingSystem as OpenRCT2Platform,
-        architecture,
+        options.get('architecture')?.value as string,
         undefined,
         distro,
-        codename
+        options.get('codename')?.value as string
       );
       commandResponse = await this.downloadOpenRCT2Build(
         interaction,
         platformInfo,
         baseVersion,
-        commitHeader
+        options.get('commit')?.value as string
       );
-    } else if (this.isInteractionUsingSubcommand(interaction, 'list')) {
+    } else if (subcommandName === 'list') {
       commandResponse = await this.getGameBuildVersionList();
     };
 

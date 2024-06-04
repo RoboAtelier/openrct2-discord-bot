@@ -2,11 +2,11 @@ import os from 'os';
 
 /** Represents a valid OS platform that OpenRCT2 can be run on. */
 export type OpenRCT2Platform = typeof OpenRCT2PlatformArray[number];
-const OpenRCT2PlatformArray = ['win32', 'darwin', 'linux'] as const;
+const OpenRCT2PlatformArray = <const>['win32', 'darwin', 'linux'];
 
 /** Represents a valid Linux distro that OpenRCT2 can be run on. */
 export type OpenRCT2LinuxDistro = typeof OpenRCT2LinuxDistroArray[number];
-const OpenRCT2LinuxDistroArray = ['ubuntu', 'debian'] as const;
+const OpenRCT2LinuxDistroArray = <const>['ubuntu', 'debian'];
 
 /** Represents platform information for an OpenRCT2 runtime target. */
 export class OpenRCT2PlatformInfo {
@@ -40,7 +40,7 @@ export class OpenRCT2PlatformInfo {
     this.codeName = codeName;
   };
 
-  /** Gets a more common name of the operating system platform. */
+  /** Gets a more recognizable name of the operating system platform. */
   get friendlyName() {
     switch (this.name) {
       case 'win32':
@@ -48,10 +48,7 @@ export class OpenRCT2PlatformInfo {
       case 'darwin':
         return 'macos';
       case 'linux':
-        if (this.distro) {
-          return this.distro;
-        };
-        return 'linux';
+        return this.distro ?? 'linux';
       default:
         throw new Error('Could not return a friendly operating system name.');
     }

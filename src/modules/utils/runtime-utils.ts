@@ -19,7 +19,12 @@ export async function wait(value: number, unit: 'ms' | 's' | 'min' = 'ms') {
   await new Promise(resolve => setTimeout(resolve, totalWait));
 };
 
-export async function getLinuxDistroInfo() {
+/**
+ * Returns the distro information parsed from the `cat /etc/os-release` command.
+ * This should only be called on a valid operating system with this command available.
+ * @returns Distro name, version and codename if available.
+ */
+export async function getDistroInfo() {
   const output = await new Promise<string>(resolve => {
     let output = '';
     const terminal = exec('cat /etc/os-release');

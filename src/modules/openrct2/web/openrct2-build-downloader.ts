@@ -9,7 +9,7 @@ import {
 import { FixedPathWriteStream } from '@modules/io';
 import { OpenRCT2PlatformInfo } from '@modules/openrct2/data/models';
 import { OpenRCT2BuildFileExtension } from '@modules/openrct2/data/types';
-import { getLinuxDistroInfo } from '@modules/utils/runtime-utils';
+import { getDistroInfo } from '@modules/utils/runtime-utils';
 
 interface PlatformTargetInfo {
   readonly name: string;
@@ -177,7 +177,7 @@ export class OpenRCT2BuildDownloader {
     } else if (platform.name === 'linux') {
       const linuxPlatform = platform.distro
         ? Object.assign({}, platform)
-        : await getLinuxDistroInfo();
+        : await getDistroInfo();
       
       if (linuxPlatform) {
         fileExtension = '.tar.gz';

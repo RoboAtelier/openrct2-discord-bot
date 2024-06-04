@@ -13,6 +13,6 @@ export enum CommandPermissionLevel {
   /** Specifies a level with moderator access. */
   Moderator = 3,
 
-  /** Specifies a level with manager access. */
-  Manager = 4
+  /** Specifies a level with administrator(esque) access. */
+  Administrator = 4
 };

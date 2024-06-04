@@ -12,7 +12,7 @@ import {
   PluginFile,
   PluginOptions,
   ScenarioFile,
-  ServerQueue,
+  ScenarioQueue,
   ServerStatus,
   StartupOptions
 } from '@modules/openrct2/data/models';
@@ -155,7 +155,7 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
   private static readonly statusFileName = 'status.json';
 
   private readonly configFile: ConcurrentObjectFile<OpenRCT2GameConfiguration>;
-  private readonly queueFile: ConcurrentObjectFile<ServerQueue>;
+  private readonly queueFile: ConcurrentObjectFile<ScenarioQueue>;
   private readonly pluginFile: ConcurrentObjectFile<PluginOptions>;
   private readonly startupFile: ConcurrentObjectFile<StartupOptions>;
   private readonly statusFile: ConcurrentObjectFile<ServerStatus>;
@@ -174,7 +174,7 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
     );
     this.queueFile = new ConcurrentObjectFile(
       path.join(this.path, OpenRCT2ServerDirectory.queueFileName),
-      new ServerQueue()
+      new ScenarioQueue()
     );
     this.pluginFile = new ConcurrentObjectFile(
       path.join(this.path, OpenRCT2ServerDirectory.pluginFileName),
@@ -264,7 +264,7 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
    * @async
    * @param config The updated queue data object.
    */
-  async updateQueue(queue: ServerQueue) {
+  async updateQueue(queue: ScenarioQueue) {
     return this.queueFile.writeExclusive(queue);
   };
 

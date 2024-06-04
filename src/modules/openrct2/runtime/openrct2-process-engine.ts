@@ -10,6 +10,7 @@ import {
   StartupOptions
 } from '@modules/openrct2/data/models';
 import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
+import { BotPluginFileName } from '@modules/openrct2/data/types';
 
 /** Represents a class that handles running built-in processes using the OpenRCT2 application executable. */
 export class OpenRCT2ProcessEngine {
@@ -91,7 +92,7 @@ export class OpenRCT2ProcessEngine {
     );
     
     let launched = false;
-    let adapterPlugin = !pluginOptions.useBotPlugins;
+    let adapterPlugin = false;
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         gameInstance.kill('SIGKILL');
@@ -117,7 +118,7 @@ export class OpenRCT2ProcessEngine {
     });
 
     let pluginAdapter = null;
-    if (pluginOptions.useBotPlugins) {
+    if (pluginOptions.plugins.includes(BotPluginFileName.ServerAdapter)) {
       const client = new Socket();
       client.connect(pluginOptions.adapterPluginPort, 'localhost');
       await new Promise<void>((resolve, reject) => {

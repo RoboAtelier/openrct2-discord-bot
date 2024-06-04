@@ -88,6 +88,7 @@ export class OpenRCT2BuildRepository extends FileSystemRepository {
 
   /**
    * 
+   * @async
    * @param name
    * @returns 
    */

@@ -7,12 +7,10 @@ import {
 /** Represents an OpenRCT2 game plugin file. */
 export class PluginFile {
 
-  /** Gets the file path to the plugin file. */
-  readonly path: string;
-
-  constructor(path: string) {
-    this.path = path;
-  };
+  constructor(
+    /** Gets the file path to the plugin file. */
+    public readonly path: string
+  ) {};
 
   /** Gets the name of the plugin file. */
   get name() {

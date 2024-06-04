@@ -271,12 +271,12 @@ export class OpenRCT2ServerController extends EventEmitter {
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
     const queue = await serverDir.getQueue();
 
-    if (queue.scenarioQueue.length > 0) {
-      const scenariosInQueue = await Promise.all(queue.scenarioQueue.map(inQueue => {
+    if (queue.waitingScenarios.length > 0) {
+      const scenariosInQueue = await Promise.all(queue.waitingScenarios.map(inQueue => {
         return this.scenarioRepo.getScenarioByName(inQueue);
       }));
       const validScenarios = scenariosInQueue.filter(inQueue => inQueue) as ScenarioFile[];
-      queue.scenarioQueue = validScenarios.map(scenarioFile => scenarioFile.name);
+      queue.waitingScenarios = validScenarios.map(scenarioFile => scenarioFile.name);
       await serverDir.updateQueue(queue);
 
       const scenarioToRun = validScenarios.splice(0, 1)[0];
@@ -287,7 +287,7 @@ export class OpenRCT2ServerController extends EventEmitter {
         await this.startGameServerOnScenario(serverId, scenarioToRun);
       };
 
-      queue.scenarioQueue = validScenarios.map(scenarioFile => scenarioFile.name);
+      queue.waitingScenarios = validScenarios.map(scenarioFile => scenarioFile.name);
       await serverDir.updateQueue(queue);
     };
   };
@@ -347,8 +347,8 @@ export class OpenRCT2ServerController extends EventEmitter {
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
     const queue = await serverDir.getQueue();
 
-    if (queue.scenarioQueueSize > 0 && queue.scenarioQueue.length < queue.scenarioQueueSize) {
-      queue.scenarioQueue.push(scenarioFile.name);
+    if (queue.size > 0 && queue.waitingScenarios.length < queue.size) {
+      queue.waitingScenarios.push(scenarioFile.name);
       await serverDir.updateQueue(queue);
       await this.logger.writeLog(`Server ${serverId} queued up ${scenarioFile.name}.`);
       const status = await serverDir.getStatus();

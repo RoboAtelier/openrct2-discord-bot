@@ -6,7 +6,7 @@ import {
   PermissionFlagsBits
 } from 'discord.js';
 import { 
-  BotCommand,
+  DiscordBotCommand,
   CommandFactory,
   CommandPermissionLevel,
   CommandType
@@ -39,10 +39,10 @@ export class CommandExecutor {
     const userPermLevel = await this.identifyInvokerPermissionLevel(interaction, guildInfo);
     
     if (commandSettings.adminRestricted) {
-      if (userPermLevel === CommandPermissionLevel.Manager) {
+      if (userPermLevel === CommandPermissionLevel.Administrator) {
         const command = this.commandFactory.getCommand(interaction.commandName);
         if (command) {
-          await command.execute(interaction, userPermLevel);
+          await command.execute(interaction);
         };
       } else {
         await interaction.reply({ content: 'Commands are locked down.', ephemeral: true });
@@ -53,9 +53,10 @@ export class CommandExecutor {
       if (command && this.canUserCallCommand(command, userPermLevel)) {
         if (this.canUserCallCommandInChannel(command, userPermLevel, interaction, guildInfo)) {
           try {
+            const accessResult = command.confirmCommandAccess(interaction, userPermLevel);
             const log = `${interaction.user.username} called the '${command.data.name}' command.`;
             await this.logger.writeLog(log);
-            await command.execute(interaction, userPermLevel);
+            await command.execute(interaction);
           } catch (err) {
             console.error(err);
             await this.logger.writeError(err as Error);
@@ -73,14 +74,14 @@ export class CommandExecutor {
   };
 
   private canUserCallCommand(
-    command: BotCommand<string | null, string | null, string | null>,
+    command: DiscordBotCommand,
     userPermLevel: CommandPermissionLevel
   ) {
     return userPermLevel >= command.permissionLevel;
   };
 
   private canUserCallCommandInChannel(
-    command: BotCommand<string | null, string | null, string | null>,
+    command: DiscordBotCommand,
     userPermLevel: CommandPermissionLevel,
     interaction: ChatInputCommandInteraction,
     guildInfo: GuildInfo
@@ -111,7 +112,7 @@ export class CommandExecutor {
 
   private async identifyUserPermissionLevelFromGuildInfo(guild: Guild, member: GuildMember, guildInfo: GuildInfo) {
     if (guild.ownerId === member.id || member.permissions.has(PermissionFlagsBits.ManageGuild)) {
-      return CommandPermissionLevel.Manager;
+      return CommandPermissionLevel.Administrator;
     } else if (member.permissions.has(PermissionFlagsBits.KickMembers)) {
       return CommandPermissionLevel.Moderator;
     } else if (member.roles.cache.some(role => guildInfo.trustedRoleIds.includes(role.id))) {

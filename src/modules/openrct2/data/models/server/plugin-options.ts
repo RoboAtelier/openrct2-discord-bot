@@ -6,19 +6,37 @@ import { SerializableObject } from '@modules/io';
  */
 export class PluginOptions extends SerializableObject<PluginOptions> {
 
-  /** Specifies if a game server will use managed bot plugins. */
-  useBotPlugins: boolean;
+  /** Gets or sets the plugins in use. */
+  plugins: string[];
 
   /** Gets or sets the port number for the server adapter plugin. */
   adapterPluginPort: number;
 
+  /** Gets or sets the welcome message properties for the welcome plugin. */
+  welcomeMessage: {
+    title: string;
+    bodyLines: [number, string][];
+    bodyAlignment: 'left' | 'centred';
+    listTitle?: string;
+    listLines?: [number, string][];
+    listAlignment?: 'left' | 'centred';
+    footerLines?: [number, string][];
+    footerAlignment?: 'left' | 'centred';
+  };
+
   constructor(
-    useBotPlugins = false,
-    adapterPluginPort = -1
+    plugins = [],
+    adapterPluginPort = -1,
+    welcomeMessage = {
+      title: '',
+      bodyLines: [],
+      bodyAlignment: <const>'left'
+    }
   ) {
     super();
-    this.useBotPlugins = useBotPlugins;
+    this.plugins = plugins;
     this.adapterPluginPort = adapterPluginPort;
+    this.welcomeMessage = welcomeMessage;
   };
 
   fromDataString(dataStr: string) {

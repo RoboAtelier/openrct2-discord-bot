@@ -10,7 +10,7 @@ import {
 } from '@modules/openrct2/web';
 
 export class CommandFactory {
-  private readonly commandCache = new Map<string, Commands.BotCommand<string | null, string | null, string | null>>();
+  private readonly commandCache = new Map<string, Commands.DiscordBotCommand>();
 
   constructor(
     config: Configuration,
@@ -24,7 +24,7 @@ export class CommandFactory {
     openRCT2MasterServer: OpenRCT2MasterServer,
     openRCT2ServerController: OpenRCT2ServerController,
   ) {
-    const commands: Commands.BotCommand<string | null, string | null, string | null>[] = [
+    const commands: Commands.DiscordBotCommand[] = [
       new Commands.ServerCommand(gameBuildRepo, pluginRepo, scenarioRepo, serverHostRepo, openRCT2ServerController),
       new Commands.MasterServerCommand(config, openRCT2MasterServer),
       new Commands.VoteCommand(logger, botDataRepo, scenarioRepo, serverHostRepo, openRCT2ServerController),

@@ -3,19 +3,28 @@ import {
   User
 } from 'discord.js';
 import { 
-  BotCommand,
   CommandPermissionLevel,
   CommandResponseBuilder,
-  CommandType
+  CommandType,
+  OptionsDiscordBotCommand
 } from '@modules/discord/commands';
 import { BotDataRepository } from '@modules/discord/data/repositories';
 import { Logger } from '@modules/logging';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 
-type ChatCommandOptions = 'message'
+const ChatCommandOptions = <const>[
+  { 
+    name: 'message',
+    type: 'string',
+    description: 'The chat message to send (max length 200).',
+    required: true,
+    minLength: 1,
+    maxLength: 200
+  }
+];
 
 /** Represents a command for sending chat messages to an OpenRCT2 game server. */
-export class ChatCommand extends BotCommand<ChatCommandOptions, null, null> {
+export class ChatCommand extends OptionsDiscordBotCommand<typeof ChatCommandOptions[number]> {
   private readonly logger: Logger;
   private readonly botDataRepo: BotDataRepository;
   private readonly openRCT2ServerController: OpenRCT2ServerController;
@@ -25,18 +34,13 @@ export class ChatCommand extends BotCommand<ChatCommandOptions, null, null> {
     botDataRepo: BotDataRepository,
     openRCT2ServerController: OpenRCT2ServerController
   ) {
-    super(CommandPermissionLevel.User, CommandType.Game);
-    this.data
-      .setName('chat')
-      .setDescription('Sends a chat message to an OpenRCT2 game server.')
-      .addStringOption(option =>
-        option
-          .setName(this.reflectOptionName('message'))
-          .setDescription('The chat message to send (max length 200).')
-          .setMinLength(1)
-          .setMaxLength(200)
-          .setRequired(true)
-      );
+    super(
+      'chat',
+      'Sends a chat message to an OpenRCT2 game server.',
+      ChatCommandOptions,
+      CommandPermissionLevel.User,
+      CommandType.Game
+    );
 
     this.logger = logger;
     this.botDataRepo = botDataRepo;
@@ -44,15 +48,18 @@ export class ChatCommand extends BotCommand<ChatCommandOptions, null, null> {
   };
 
   /** @override */
-  async execute(interaction: ChatInputCommandInteraction, userLevel: CommandPermissionLevel) {
+  async execute(interaction: ChatInputCommandInteraction) {
     let commandResponse = new CommandResponseBuilder();
 
     const guildInfo = await this.botDataRepo.getGuildInfo();
     const gameServerChannel = guildInfo.gameServerChannels.find(channel => channel.channelId === interaction.channelId)!;
-    const message = this.getInteractionOption(interaction, 'message').value as string;
 
     await interaction.deferReply();
-    commandResponse = await this.sendGameChatMessage(gameServerChannel.serverId, interaction.user, message);
+    commandResponse = await this.sendGameChatMessage(
+      gameServerChannel.serverId,
+      interaction.user,
+      this.getRequiredInteractionOption(interaction, 'message').value as string
+    );
 
     await interaction.editReply(commandResponse.resolve());
   };

@@ -41,6 +41,14 @@ export class CommandResponseBuilder {
   };
 
   /**
+   * Appends a message string to the beginning of the command response message.
+   * @param messageSegments - The message string(s) to add.
+   */
+  appendToMessageBeginning(...messageSegments: string[]) {
+    this.messageSegments.unshift(...messageSegments);
+  };
+
+  /**
    * Appends a message string to the error message.
    * @param errorSegments - The error message string(s) to add.
    */

@@ -1,223 +1,188 @@
 import {
   bold,
+  ChatInputCommandInteraction,
   inlineCode,
   italic,
-  underscore,
-  ChatInputCommandInteraction,
-  User
+  underscore
 } from 'discord.js';
 import { EOL } from 'os';
 import {
-  BotCommand,
   CommandPermissionLevel,
-  CommandResponseBuilder
+  CommandResponseBuilder,
+  SubcommandsDiscordBotCommand
 } from '@modules/discord/commands';
 import { ScenarioMetadata } from '@modules/openrct2/data/models';
 import { ScenarioRepository } from '@modules/openrct2/data/repositories';
 import { ScenarioFileExtension } from '@modules/openrct2/data/types';
-import { 
-  fisherYatesShuffle,
-  getArraySectionWithDetails,
-  selectRandomElement
-} from '@modules/utils/array-utils';
+import { getArraySectionWithDetails } from '@modules/utils/array-utils';
 import { 
   areStringsEqualCaseInsensitive,
   isStringNullOrWhiteSpace
 } from '@modules/utils/string-utils';
 
-type ScenarioCommandOptions =
-  | 'scenario'
-  | 'name' | 'tags' // search, modify
-  | 'file-type' | 'page' // search, list
-  | 'active' // modify
-type ScenarioCommandSubcommands =
-  | 'list'
-  | 'search'
-  | 'modify'
-  | 'gimme'
-
 const FileTypeOptionChoices = [
   { name: '.scv* (RCT1 & RCT2)', value: 'scv' },
   { name: '.park (ORCT2)', value: 'park' }
 ];
-const GimmePhrases = [
-  'Are you feeling it now {user}?',
-  'Your menu, {user}.',
-  '{user} {user} {user}',
-  'To be honest, I have no idea what these are.',
-  'Will these work?',
-  'These seem fine, right?',
-  'I have a good feeling about these.',
-  'These may or may not work.',
-  'I prefer the grape-flavored ones.',
-  'Please leave a 5-star rating!',
-  'Here you go {user}.',
-  'They smell funny? Must be your imagination...',
-  'These will not explode this time, I promise.',
-  'These are not the things you are looking for.',
-  'No refunds.'
+
+const ScenarioSubcommands = <const>[
+  {
+    name: 'list',
+    description: 'Gets the available RollerCoaster Tycoon scenarios.',
+    options: [
+      { 
+        name: 'file-type',
+        type: 'string',
+        description: 'The type of scenario files to return.',
+        choices: FileTypeOptionChoices
+      },
+      { 
+        name: 'page',
+        type: 'integer',
+        description: 'The starting page index of the listing.',
+        minValue: 1
+      }
+    ]
+  },
+  {
+    name: 'search',
+    description: 'Searches for RollerCoaster Tycoon scenarios using specified parameters.',
+    options: [
+      { 
+        name: 'name',
+        type: 'string',
+        description: 'The name of the scenario file to match.'
+      },
+      { 
+        name: 'tags',
+        type: 'string',
+        description: 'The exact data tags to match.'
+      },
+      { 
+        name: 'file-type',
+        type: 'string',
+        description: 'The type of scenario files to return.',
+        choices: FileTypeOptionChoices
+      },
+      { 
+        name: 'page',
+        type: 'integer',
+        description: 'The starting page index of the search result listing.',
+        minValue: 1
+      }
+    ]
+  },
+  {
+    name: 'edit',
+    description: 'Changes a RollerCoaster Tycoon scenario file and its data.',
+    permissionLevel: CommandPermissionLevel.Trusted,
+    options: [
+      { 
+        name: 'scenario',
+        type: 'string',
+        description: 'The name of the scenario to change.',
+        required: true
+      },
+      { 
+        name: 'name',
+        type: 'string',
+        description: 'A new name for the scenario.'
+      },
+      { 
+        name: 'tags',
+        type: 'string',
+        description: 'New data tags to set (overrides existing).'
+      },
+      { 
+        name: 'active',
+        type: 'boolean',
+        description: 'Set active or inactive.'
+      }
+    ]
+  }
 ];
+// const GimmePhrases = [
+//   'Are you feeling it now {user}?',
+//   'Your menu, {user}.',
+//   '{user} {user} {user}',
+//   'To be honest, I have no idea what these are.',
+//   'Will these work?',
+//   'These seem fine, right?',
+//   'I have a good feeling about these.',
+//   'These may or may not work.',
+//   'I prefer the grape-flavored ones.',
+//   'Please leave a 5-star rating!',
+//   'Here you go {user}.',
+//   'They smell funny? Must be your imagination...',
+//   'These will not explode this time, I promise.',
+//   'These are not the things you are looking for.',
+//   'No refunds.'
+// ];
 
 /** Represents a command for managing RollerCoaster Tycoon scenario files. */
-export class ScenarioCommand extends BotCommand<
-  ScenarioCommandOptions,
-  ScenarioCommandSubcommands,
-  null
-> {
+export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typeof ScenarioSubcommands[number]> {
   private readonly scenarioRepo: ScenarioRepository;
 
   constructor(scenarioRepo: ScenarioRepository) {
-    super(CommandPermissionLevel.User);
-    this.data
-      .setName('scenario')
-      .setDescription('Gets and manages RollerCoaster Tycoon scenario files for gameplay.')
-      .addSubcommand(subcommand =>
-        subcommand
-        .setName(this.reflectSubcommandName('list'))
-        .setDescription('Gets the available RollerCoaster Tycoon scenarios.')
-        .addStringOption(option => 
-          option
-            .setName(this.reflectOptionName('file-type'))
-            .setDescription('The type of scenario files to return.')
-            .setChoices(...FileTypeOptionChoices)
-        )
-        .addIntegerOption(option => 
-          option
-            .setName(this.reflectOptionName('page'))
-            .setDescription('The starting page of the search result listing.')
-            .setMinValue(1)
-        )
-      )
-      .addSubcommand(subcommand =>
-        subcommand
-          .setName(this.reflectSubcommandName('search'))
-          .setDescription('Searches for RollerCoaster Tycoon scenarios by specified search parameters.')
-          .addStringOption(option =>
-            option
-              .setName(this.reflectOptionName('name'))
-              .setDescription('The name of the scenario file to match.')
-          )
-          .addStringOption(option =>
-            option
-              .setName(this.reflectOptionName('tags'))
-              .setDescription('The exact data tags to match.')
-          )
-          .addStringOption(option => 
-            option
-              .setName(this.reflectOptionName('file-type'))
-              .setDescription('The type of scenario files to return.')
-              .setChoices(...FileTypeOptionChoices)
-          )
-          .addIntegerOption(option => 
-            option
-              .setName(this.reflectOptionName('page'))
-              .setDescription('The starting page of the search result listing.')
-              .setMinValue(1)
-          )
-      )
-      .addSubcommand(subcommand =>
-        subcommand
-          .setName(this.reflectSubcommandName('modify'))
-          .setDescription('Changes scenario data properties')
-          .addStringOption(option =>
-            option
-              .setName(this.reflectOptionName('scenario'))
-              .setDescription('The name of the scenario to modify.')
-              .setRequired(true)
-          )
-          .addStringOption(option =>
-            option
-              .setName(this.reflectOptionName('name'))
-              .setDescription('A new name for the scenario.')
-          )
-          .addStringOption(option =>
-            option
-              .setName(this.reflectOptionName('tags'))
-              .setDescription('The data tags to set.')
-          )
-          .addBooleanOption(option =>
-            option
-              .setName(this.reflectOptionName('active'))
-              .setDescription('Set active or inactive.')
-          )
-      )
-      .addSubcommand(subcommand =>
-        subcommand
-          .setName(this.reflectSubcommandName('gimme'))
-          .setDescription('Fetches a random selection of scenarios.')
-          .addStringOption(option =>
-            option
-              .setName(this.reflectOptionName('tags'))
-              .setDescription('The exact data tags to match.')
-          )
-        );
+    super(
+      'scenario',
+      'Gets and manages RollerCoaster Tycoon scenario files for gameplay.',
+      undefined,
+      ScenarioSubcommands,
+      CommandPermissionLevel.User
+    );
 
     this.scenarioRepo = scenarioRepo;
   };
 
   /** @override */
-  async execute(interaction: ChatInputCommandInteraction, userLevel: CommandPermissionLevel) {
-    let commandResponse = new CommandResponseBuilder();
+  async execute(interaction: ChatInputCommandInteraction) {
+    const subcommandName = this.getInteractionSubcommandName(interaction);
     const scenarios = await this.scenarioRepo.getAvailableScenarios();
+    let commandResponse = new CommandResponseBuilder();
 
     if (0 === scenarios.length) {
       commandResponse.appendToError('There are currently no scenarios to show or use.');
     } else {
-      if (this.isInteractionUsingSubcommand(interaction, 'modify')) {
-        if (userLevel < CommandPermissionLevel.Trusted) {
-          commandResponse.appendToError(this.formatSubcommandPermissionError(null, 'modify'))
-        } else {
-          const scenarioName = this.getInteractionOption(interaction, 'scenario').value as string
-          const newName = this.doesInteractionHaveOption(interaction, 'name') 
-            ? this.getInteractionOption(interaction, 'name').value as string
-            : undefined;
-          const newTags = this.doesInteractionHaveOption(interaction, 'tags')
-            ? (this.getInteractionOption(interaction, 'tags').value as string).split(/\s+/)
-            : undefined;
-          const active = this.doesInteractionHaveOption(interaction, 'active')
-            ? this.getInteractionOption(interaction, 'active').value as boolean
-            : undefined;
-          commandResponse = await this.setScenarioValues(scenarioName, newName, newTags, active);
-        };
-      } else if (this.isInteractionUsingSubcommand(interaction, 'gimme')) {
-        const tags = this.doesInteractionHaveOption(interaction, 'tags')
-          ? (this.getInteractionOption(interaction, 'tags').value as string).split(/\s+/)
+      if (subcommandName === 'edit') {
+        const options = this.getInteractionSubcommandOptions(interaction, 'edit');
+        const scenarioName = options.get('scenario')!.value as string;
+        const newName = options.get('name')?.value as string | undefined;
+        const newTags = options.get('tags')
+          ? (options.get('tags')!.value as string).split(/\s+/)
           : undefined;
-        commandResponse = await this.gimmeScenarios(interaction.user, tags);
+        const active = options.get('active')?.value as boolean;
+        commandResponse = await this.setScenarioValues(scenarioName, newName, newTags, active);
       } else {
         const scenarioFileExts: ScenarioFileExtension[] = [];
-
-        if (this.doesInteractionHaveOption(interaction, 'file-type')) {
-          const extChoice = this.getInteractionOption(interaction, 'file-type').value as string;
+        const fileType = this.getInteractionOption(interaction, 'file-type');
+        if (fileType) {
+          const extChoice = fileType.value as string;
           if ('scv' === extChoice) {
             scenarioFileExts.push('.sc4', '.sv4', '.sc6', '.sv6');
           } else if ('park' === extChoice) {
             scenarioFileExts.push('.park');
           };
         };
-        const pageIndex = this.doesInteractionHaveOption(interaction, 'page')
-          ? this.getInteractionOption(interaction, 'page').value as number - 1
-          : 0;
-  
-        if (this.isInteractionUsingSubcommand(interaction, 'search')) {
-          const nameSearch = this.doesInteractionHaveOption(interaction, 'name') 
-            ? this.getInteractionOption(interaction, 'name').value as string
-            : undefined;
-          const tags = this.doesInteractionHaveOption(interaction, 'tags')
-            ? (this.getInteractionOption(interaction, 'tags').value as string).split(/\s+/)
+        const pageIndex = (this.getInteractionOption(interaction, 'page')?.value as number ?? 1) - 1;
+
+        if (subcommandName === 'search') {
+          const options = this.getInteractionSubcommandOptions(interaction, 'search');
+          const nameSearch = options.get('name')?.value as string | undefined;
+          const tags = options.get('tags')
+            ? (options.get('tags')!.value as string).split(/\s+/)
             : undefined;
           commandResponse = await this.getScenariosBySearchQuery(scenarioFileExts, pageIndex, nameSearch, tags);
-        } else if (this.isInteractionUsingSubcommand(interaction, 'list')) {
+        } else if (subcommandName === 'list') {
           commandResponse = await this.getScenarioList(scenarioFileExts, pageIndex);
         };
       };
-    };
+      if (0 === commandResponse.resolve().length) {
+        commandResponse.appendToError('Unknown or unimplemented command specified.');
+      };
 
-    if (0 === commandResponse.resolve().length) {
-      commandResponse.appendToError('Unknown or unimplemented command specified.');
+      await interaction.reply(commandResponse.resolve());
     };
-
-    await interaction.reply(commandResponse.resolve());
   };
 
   private async setScenarioValues(
@@ -279,31 +244,31 @@ export class ScenarioCommand extends BotCommand<
     return commandResponse;
   };
 
-  private async gimmeScenarios(user: User, tags?: string[]) {
-    const commandResponse = new CommandResponseBuilder();
+  // private async gimmeScenarios(user: User, tags?: string[]) {
+  //   const commandResponse = new CommandResponseBuilder();
 
-    const metadata = await this.scenarioRepo.getScenarioMetadata();
-    const matchedMetadata = tags
-      ? metadata.filter(scenarioData => {
-          return tags.every(tag => scenarioData.tags.includes(tag));
-        })
-      : metadata;
-    const selectedMetadata = fisherYatesShuffle(matchedMetadata).slice(0, 10);
+  //   const metadata = await this.scenarioRepo.getScenarioMetadata();
+  //   const matchedMetadata = tags
+  //     ? metadata.filter(scenarioData => {
+  //         return tags.every(tag => scenarioData.tags.includes(tag));
+  //       })
+  //     : metadata;
+  //   const selectedMetadata = fisherYatesShuffle(matchedMetadata).slice(0, 10);
 
-    if (0 === selectedMetadata.length) {
-      commandResponse.appendToMessage(this.formatEmptyResultMessage(undefined, tags));
-    } else {
-      commandResponse.appendToMessage(`${selectRandomElement(GimmePhrases).replace(/\{user\}/g, bold(user.username))}${EOL}`);
-      if (tags) {
-        commandResponse.appendToMessage(`${italic(tags.join(' '))}${EOL}`);
-      };
-      for (const scenarioData of selectedMetadata) {
-        commandResponse.appendToMessage(`▸ ${italic(scenarioData.fileName)}`);
-      };
-    };
+  //   if (0 === selectedMetadata.length) {
+  //     commandResponse.appendToMessage(this.formatEmptyResultMessage(undefined, tags));
+  //   } else {
+  //     commandResponse.appendToMessage(`${selectRandomElement(GimmePhrases).replace(/\{user\}/g, bold(user.username))}${EOL}`);
+  //     if (tags) {
+  //       commandResponse.appendToMessage(`${italic(tags.join(' '))}${EOL}`);
+  //     };
+  //     for (const scenarioData of selectedMetadata) {
+  //       commandResponse.appendToMessage(`▸ ${italic(scenarioData.fileName)}`);
+  //     };
+  //   };
 
-    return commandResponse;
-  };
+  //   return commandResponse;
+  // };
 
   private async getScenariosBySearchQuery(
     scenarioFileExts: ScenarioFileExtension[],

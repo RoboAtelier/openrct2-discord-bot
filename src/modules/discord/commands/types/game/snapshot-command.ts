@@ -9,9 +9,9 @@ import {
   Snowflake
 } from 'discord.js';
 import { 
-  BotCommand,
   CommandPermissionLevel,
-  CommandResponseBuilder
+  CommandResponseBuilder,
+  SubcommandsDiscordBotCommand
 } from '@modules/discord/commands';
 import { BotDataRepository } from '@modules/discord/data/repositories';
 import { Logger } from '@modules/logging';
@@ -23,11 +23,36 @@ import {
 } from '@modules/utils/string-utils';
 import { wait } from '@modules/utils/runtime-utils';
 
-type SnapshotCommandOptions = 'server-id'
-type SnapshotSubcommands = 'screenshot' | 'finalize'
+const SnapshotSubcommands = <const>[
+  {
+    name: 'screenshot',
+    description: 'Creates snapshots of a OpenRCT2 game server.',
+    options: [
+      {
+        name: 'server-id',
+        type: 'integer',
+        description: 'The id number of the server to screenshot.',
+        minValue: 1
+      }
+    ]
+  },
+  {
+    name: 'finalize',
+    description: 'Finalizes the current state of a OpenRCT2 game server.',
+    options: [
+      {
+        name: 'server-id',
+        type: 'integer',
+        description: 'The id number of the server to finalize.',
+        minValue: 1,
+        permissionLevel: CommandPermissionLevel.Trusted
+      }
+    ]
+  }
+];
 
 /** Represents a command for creating screenshots and save snapshots of OpenRCT2 game server scenarios. */
-export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, SnapshotSubcommands, null> {
+export class SnapshotCommand extends SubcommandsDiscordBotCommand<undefined, typeof SnapshotSubcommands[number]> {
   private static readonly byteSizeLimit = 8 * 1024 * 1024;
 
   private readonly logger: Logger;
@@ -41,32 +66,13 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, Snapshot
     serverHostRepository: ServerHostRepository,
     openRCT2ServerController: OpenRCT2ServerController
   ) {
-    super(CommandPermissionLevel.User);
-    this.data
-      .setName('snapshot')
-      .setDescription('Creates snapshots of a OpenRCT2 game server.')
-      .addSubcommand(subcommand =>
-        subcommand
-          .setName(this.reflectSubcommandName('screenshot'))
-          .setDescription('Captures a screenshot of a OpenRCT2 game server.')
-          .addIntegerOption(option => 
-            option
-              .setName(this.reflectOptionName('server-id'))
-              .setDescription('The id number of the server to screenshot.')
-              .setMinValue(1)
-          )
-      )
-      .addSubcommand(subcommand =>
-        subcommand
-          .setName(this.reflectSubcommandName('finalize'))
-          .setDescription('Finalizes the current state of a OpenRCT2 game server.')
-          .addIntegerOption(option => 
-            option
-              .setName(this.reflectOptionName('server-id'))
-              .setDescription('The id number of the server to finalize.')
-              .setMinValue(1)
-          )
-      );
+    super(
+      'snapshot',
+      'Creates snapshots of a OpenRCT2 game server.',
+      undefined,
+      SnapshotSubcommands,
+      CommandPermissionLevel.User
+    );
 
     this.logger = logger;
     this.botDataRepo = botDataRepo;
@@ -75,7 +81,8 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, Snapshot
   };
 
   /** @override */
-  async execute(interaction: ChatInputCommandInteraction, userLevel: CommandPermissionLevel) {
+  async execute(interaction: ChatInputCommandInteraction) {
+    const subcommandName = this.getInteractionSubcommandName(interaction);
     let commandResponse = new CommandResponseBuilder();
     let attachments: {
       screenshot?: RawFile,
@@ -87,35 +94,29 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, Snapshot
       await interaction.reply(`Assign the ${italic('Scenario Channel')} with the ${inlineCode('/channel')} command first.`);
       return;
     };
-    
-    const serverId = this.doesInteractionHaveOption(interaction, 'server-id')
-      ? this.getInteractionOption(interaction, 'server-id').value as number
-      : 1;
-    if (this.openRCT2ServerController.isServerProcessActive(serverId, 'save', 'screenshot')) {
-      commandResponse.appendToError(`${underscore(italic(`Server ${serverId}`))} is busy with another process.`);
-    } else {
-      await interaction.deferReply();
 
-      if (this.isInteractionUsingSubcommand(interaction, 'screenshot')) {
-        const result = await this.createScreenshot(serverId, interaction.user.id);
-        if (result.attachment) {
-          attachments.screenshot = result.attachment;
-        };
-        commandResponse = result.response;
-      } else if (this.isInteractionUsingSubcommand(interaction, 'finalize')) {
-        if (userLevel > CommandPermissionLevel.User) {
-          const result = await this.createFinalizedSave(serverId, interaction.user.id);
-          if (result.attachments) {
-            attachments = result.attachments;
-          };
-          commandResponse = result.response;
-        } else {
-          commandResponse.appendToError(this.formatSubcommandPermissionError(null, 'finalize'));
-        };
-      };
+    const serverId = this.getInteractionOption(interaction, 'server-id')?.value as number ?? 1;
+    if (this.openRCT2ServerController.isServerProcessActive(serverId, 'save', 'screenshot')) {
+      await interaction.reply(`${underscore(italic(`Server ${serverId}`))} is busy with another process.`);
+      return;
     };
 
-    if (0 === commandResponse.resolve().length) {
+    await interaction.deferReply();
+    if (subcommandName === 'screenshot') {
+      const screenshotResult = await this.createScreenshot(serverId, interaction.user.id);
+      if (screenshotResult.attachment) {
+        attachments.screenshot = screenshotResult.attachment;
+      };
+      commandResponse = screenshotResult.response;
+    } else if (subcommandName === 'finalize') {
+      const saveResult = await this.createFinalizedSave(serverId, interaction.user.id);
+      if (saveResult.attachments) {
+        attachments = saveResult.attachments;
+      };
+      commandResponse = saveResult.response;
+    };
+
+    if (!commandResponse.resolve().length) {
       commandResponse.appendToError('Unknown or unimplemented command specified.');
     };
 
@@ -147,7 +148,10 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, Snapshot
     };
   };
 
-  private async createScreenshot(serverId: number, userId: Snowflake) {
+  private async createScreenshot(serverId: number, userId: Snowflake): Promise<{
+    attachment?: RawFile;
+    response: CommandResponseBuilder;
+  }> {
     const commandResponse = new CommandResponseBuilder();
 
     try {
@@ -176,7 +180,13 @@ export class SnapshotCommand extends BotCommand<SnapshotCommandOptions, Snapshot
     return { response: commandResponse };
   };
 
-  private async createFinalizedSave(serverId: number, userId: Snowflake) {
+  private async createFinalizedSave(serverId: number, userId: Snowflake): Promise<{
+    attachments?: {
+      screenshot?: RawFile,
+      finalizedSave?: RawFile
+    };
+    response: CommandResponseBuilder;
+  }> {
     const commandResponse = new CommandResponseBuilder();
     const attachments: {
       screenshot?: RawFile,

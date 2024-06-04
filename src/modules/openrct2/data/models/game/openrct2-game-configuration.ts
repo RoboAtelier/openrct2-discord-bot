@@ -2,16 +2,17 @@ import { EOL } from 'os';
 import { SerializableObject } from '@modules/io';
 import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
 
-/** Specifies a category name within the OpenRCT2 configuration file. */
-export enum OpenRCT2GameConfigurationCategory {
-  General = 'general',
-  Interface = 'interface',
-  Sound = 'sound',
-  Network = 'network',
-  Notifications = 'notifications',
-  Font = 'font',
-  Plugin = 'plugin'
-};
+/** Represents a category name within the OpenRCT2 configuration file. */
+export type OpenRCT2GameConfigurationCategory = typeof OpenRCT2GameConfigurationCategoryArray[number];
+export const OpenRCT2GameConfigurationCategoryArray = <const>[
+  'general',
+  'interface',
+  'sound',
+  'network',
+  'notifications',
+  'font',
+  'plugin'
+];
 
 /** 
  * Represents configuration settings for a OpenRCT2 game instance.
@@ -20,12 +21,12 @@ export enum OpenRCT2GameConfigurationCategory {
 export class OpenRCT2GameConfiguration extends SerializableObject<OpenRCT2GameConfiguration> {
 
   /** Gets the underlying data of the configuration object. */
-  readonly data: Map<string, Map<string, string | boolean | number>>;
+  readonly data: Map<OpenRCT2GameConfigurationCategory, Map<string, string | boolean | number>>;
 
   constructor() {
     super();
-    this.data = new Map<string, Map<string, string | boolean | number>>();
-    for (const category of Object.values(OpenRCT2GameConfigurationCategory)) {
+    this.data = new Map<OpenRCT2GameConfigurationCategory, Map<string, string | boolean | number>>();
+    for (const category of OpenRCT2GameConfigurationCategoryArray) {
       this.data.set(category, new Map<string, string | boolean | number>());
     };
   };
@@ -105,13 +106,12 @@ export class OpenRCT2GameConfiguration extends SerializableObject<OpenRCT2GameCo
 
   fromDataString(dataStr: string) {
     const newObj = new OpenRCT2GameConfiguration();
-    const requiredCategories: string[] = Object.values(OpenRCT2GameConfigurationCategory);
     
-    let currentCategory = requiredCategories[0];
+    let currentCategory = OpenRCT2GameConfigurationCategoryArray.slice(0, 1)[0];
     const dataLines = dataStr.split(EOL);
     for (const dataLine of dataLines) {
       if (dataLine.startsWith('[') && dataLine.endsWith(']')) {
-        const matchedCategory = requiredCategories.find(category => {
+        const matchedCategory = OpenRCT2GameConfigurationCategoryArray.find(category => {
           return dataLine.includes(category);
         });
         if (matchedCategory === undefined) {

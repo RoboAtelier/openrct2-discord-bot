@@ -1,4 +1,4 @@
-export * from './bot-command';
+export * from './discord-bot-command';
 export * from './command-access-result-builder';
 export * from './command-permission-level';
 export * from './command-type';

@@ -21,9 +21,9 @@ import {
 } from 'discord.js';
 import { EOL } from 'os';
 import { 
-  BotCommand,
   CommandPermissionLevel,
-  CommandResponseBuilder
+  CommandResponseBuilder,
+  SubcommandsDiscordBotCommand
 } from '@modules/discord/commands';
 import { BotDataRepository } from '@modules/discord/data/repositories';
 import { Logger } from '@modules/logging';
@@ -38,15 +38,66 @@ import {
 import { fisherYatesShuffle } from '@modules/utils/array-utils';
 import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
 
-type VoteCommandOptions =
-  | 'id' // stop
-  | 'server-id' | 'list-limit' | 'time' // scenario
-type VoteCommandSubcommands =
-  | 'scenario' // start
-  | 'stop'
-  | 'end'
-type VoteCommandSubcommandGroups =
-  | 'start'
+const VoteSubcommandGroups = <const>[
+  {
+    name: 'scenario',
+    subcommands: [
+      { 
+        name: 'start',
+        description: 'Starts a vote on a random list of scenarios to pick from to enqueue for an OpenRCT2 server.',
+        options: [
+          {
+            name: 'server-id',
+            type: 'integer',
+            description: 'The id number of the server to host a vote for (also is the vote session id).',
+            minValue: 1,
+            permissionLevel: CommandPermissionLevel.Moderator
+          },
+          {
+            name: 'list-limit',
+            type: 'integer',
+            description: 'The maximum number of scenarios displayed to vote on (min 3, max 10).',
+            minValue: 3,
+            maxValue: 10
+          },
+          {
+            name: 'time',
+            type: 'integer',
+            description: 'The maximum amount of time in minutes to allow for voting (max 60).',
+            minValue: 1,
+            maxValue: 60
+          }
+        ]
+      },
+      { 
+        name: 'stop',
+        description: 'Stops and cancels an active scenario vote.',
+        permissionLevel: CommandPermissionLevel.Moderator,
+        options: [
+          { 
+            name: 'id',
+            type: 'integer',
+            description: 'The id number of the vote session to stop.',
+            minValue: 0
+          }
+        ]
+      },
+      { 
+        name: 'end',
+        description: 'Finishes an active scenario vote early and gets its results.',
+        permissionLevel: CommandPermissionLevel.Moderator,
+        options: [
+          { 
+            name: 'id',
+            type: 'integer',
+            description: 'The id number of the vote session to end.',
+            minValue: 0
+          }
+        ]
+      }
+    ]
+  }
+];
 
 class VoteSession<T> {
   private readonly votes = new Map<string, number>();
@@ -114,16 +165,12 @@ class VoteSession<T> {
     };
   };
 
-  /** 
-   * Gets the current candidates up for voting.
-   */
+  /** Gets the current candidates up for voting. */
   getCurrentCandidates() {
     return this.currentCandidates;
   };
 
-  /** 
-   * Gets the current votes for a particular candidate by index.
-   */
+  /** Gets the current votes for a particular candidate by index. */
   getVoteCountForCandidate(candidateIndex: number) {
     const voteCount = this.voteCounter.get(candidateIndex);
     if (undefined === voteCount) {
@@ -186,11 +233,7 @@ class VoteSession<T> {
 };
 
 /** Represents a command for interacting with OpenRCT2 game servers. */
-export class VoteCommand extends BotCommand<
-  VoteCommandOptions,
-  VoteCommandSubcommands,
-  VoteCommandSubcommandGroups
-> {
+export class VoteCommand extends SubcommandsDiscordBotCommand<typeof VoteSubcommandGroups[number], undefined> {
   private readonly logger: Logger;
   private readonly botDataRepo: BotDataRepository;
   private readonly scenarioRepo: ScenarioRepository;
@@ -205,62 +248,13 @@ export class VoteCommand extends BotCommand<
     serverHostRepo: ServerHostRepository,
     openRCT2ServerController: OpenRCT2ServerController,
   ) {
-    super(CommandPermissionLevel.Trusted);
-    this.data
-      .setName('vote')
-      .setDescription('Starts a vote.')
-      .addSubcommand(subcommand =>
-        subcommand
-          .setName(this.reflectSubcommandName('stop'))
-          .setDescription('Stops and cancels an active vote.')
-          .addIntegerOption(option =>
-            option
-              .setName(this.reflectOptionName('id'))
-              .setDescription('The id number of the vote session to stop.')
-              .setMinValue(0)
-          )
-      )
-      .addSubcommand(subcommand =>
-        subcommand
-          .setName(this.reflectSubcommandName('end'))
-          .setDescription('Finishes an active vote early and gets its results.')
-          .addIntegerOption(option =>
-            option
-              .setName(this.reflectOptionName('id'))
-              .setDescription('The id number of the vote session to end.')
-              .setMinValue(0)
-          )
-      )
-      .addSubcommandGroup(subcommandGroup =>
-        subcommandGroup
-          .setName(this.reflectSubcommandGroupName('start'))
-          .setDescription('Starts a new server vote.')
-          .addSubcommand(subcommand =>
-            subcommand
-              .setName(this.reflectSubcommandName('scenario'))
-              .setDescription('Starts a vote on a random list of scenarios to pick from to enqueue for an OpenRCT2 server.')
-              .addIntegerOption(option =>
-                option
-                  .setName(this.reflectOptionName('server-id'))
-                  .setDescription('The id number of the server to host a vote for. Also serves as the vote session id.')
-                  .setMinValue(1)
-              )
-              .addIntegerOption(option =>
-                option
-                  .setName(this.reflectOptionName('list-limit'))
-                  .setDescription('The maximum number of scenarios displayed to vote on (min 3, max 10).')
-                  .setMinValue(3)
-                  .setMaxValue(10)
-              )
-              .addIntegerOption(option =>
-                option
-                  .setName(this.reflectOptionName('time'))
-                  .setDescription('The maximum amount of time in minutes to allow for voting (max 60).')
-                  .setMinValue(1)
-                  .setMaxValue(60)
-              )
-          )
-      );
+    super(
+      'vote',
+      'Handles voting sessions',
+      VoteSubcommandGroups,
+      undefined,
+      CommandPermissionLevel.Trusted
+    );
     
     this.logger = logger;
     this.botDataRepo = botDataRepo;
@@ -270,7 +264,9 @@ export class VoteCommand extends BotCommand<
   };
 
   /** @override */
-  async execute(interaction: ChatInputCommandInteraction, userLevel: CommandPermissionLevel) {
+  async execute(interaction: ChatInputCommandInteraction) {
+    const groupName = this.getInteractionSubcommandGroupName(interaction);
+    const subcommandName = this.getInteractionSubcommandName(interaction);
     let commandResponse = new CommandResponseBuilder();
 
     const guildInfo = await this.botDataRepo.getGuildInfo();
@@ -279,43 +275,26 @@ export class VoteCommand extends BotCommand<
       return;
     };
 
-    if (this.isInteractionUsingSubcommand(interaction, 'stop')) {
-      if (userLevel > CommandPermissionLevel.Trusted) {
-        const voteId = this.doesInteractionHaveOption(interaction, 'id')
-          ? this.getInteractionOption(interaction, 'id').value as number
-          : 1;
-        commandResponse = await this.stopActiveVote(voteId, interaction.user);
-      } else {
-        commandResponse.appendToError(this.formatSubcommandPermissionError(null, 'stop'));
-      };
-    } else if (this.isInteractionUsingSubcommand(interaction, 'end')) {
-      if (userLevel > CommandPermissionLevel.Trusted) {
-        const voteId = this.doesInteractionHaveOption(interaction, 'id')
-          ? this.getInteractionOption(interaction, 'id').value as number
-          : 1;
+    if (groupName === 'scenario') {
+      if (subcommandName === 'stop') {
+        commandResponse = await this.stopActiveVote(
+          this.getInteractionOption(interaction, 'id')?.value as number ?? 1,
+          interaction.user
+        );
+      } else if (subcommandName === 'end') {
+        const voteId = this.getInteractionOption(interaction, 'id')?.value as number ?? 1;
         commandResponse = await this.endActiveVote(voteId, interaction.user);
-      } else {
-        commandResponse.appendToError(this.formatSubcommandPermissionError(null, 'end'));
-      };
-    } else if (this.isInteractionUnderSubcommandGroup(interaction, 'start')) {
-      if (this.isInteractionUsingSubcommand(interaction, 'scenario')) {
-        const serverId = this.doesInteractionHaveOption(interaction, 'server-id')
-          ? this.getInteractionOption(interaction, 'server-id').value as number
-          : 1;
-        const candidateCount = this.doesInteractionHaveOption(interaction, 'list-limit')
-          ? this.getInteractionOption(interaction, 'list-limit').value as number
-          : 10;
-        const voteDuration = this.doesInteractionHaveOption(interaction, 'time')
-          ? this.getInteractionOption(interaction, 'time').value as number
-          : 2;
+      } else if (subcommandName === 'start') {
+        const options = this.getInteractionSubcommandGroupSubcommandOptions(interaction, 'scenario', 'start');
+        const serverId = options.get('server-id')?.value as number ?? 1;
+        const candidateCount = options.get('list-limit')?.value as number ?? 10;
+        const voteDuration = options.get('time')?.value as number ?? 2;
           
-        if (serverId !== 1 && userLevel < CommandPermissionLevel.Moderator) {
-          commandResponse.appendToError(`You can only interact with ${underscore(italic(`Server 1`))}.`)
-        } else if (this.activeVotes.has(serverId)) {
+        if (this.activeVotes.has(serverId)) {
           commandResponse.appendToError(`A vote is currently active for ${underscore(italic(`Server ${serverId}`))}.`);
         } else {
           await interaction.deferReply();
-
+  
           const voteSession = new VoteSession(
             interaction,
             candidateCount,
@@ -339,11 +318,9 @@ export class VoteCommand extends BotCommand<
       commandResponse.appendToError('Unknown or unimplemented command specified.');
     };
 
-    if (interaction.deferred) {
-      await interaction.editReply(commandResponse.resolve());
-    } else {
-      await interaction.reply(commandResponse.resolve());
-    };
+    interaction.deferred
+      ? await interaction.editReply(commandResponse.resolve())
+      : await interaction.reply(commandResponse.resolve());
   };
 
   private async startScenarioVote(
@@ -355,7 +332,7 @@ export class VoteCommand extends BotCommand<
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
     const queue = await serverDir.getQueue();
 
-    if (queue.scenarioQueueSize < 1 || queue.scenarioQueue.length < queue.scenarioQueueSize) {
+    if (queue.size < 1 || queue.waitingScenarios.length < queue.size) {
       this.activeVotes.set(serverId, voteSession);
 
       await voteSession.setupNewVoteRound();
@@ -506,10 +483,10 @@ export class VoteCommand extends BotCommand<
             );
             
             const scenarioFile = (await this.scenarioRepo.getScenarioByName(winningCandidate.fileName))!;
-            if (queue.scenarioQueueSize < 1) {
+            if (queue.size < 1) {
               this.openRCT2ServerController.startGameServerOnScenarioDeferred(serverId, scenarioFile);
               resultMessageBody += `${EOL}${scenarioFile.nameNoExtension} will start on ${underscore(italic(`Server ${serverId}`))} shortly.`;
-            } else if (queue.scenarioQueue.length < queue.scenarioQueueSize) {
+            } else if (queue.waitingScenarios.length < queue.size) {
               this.openRCT2ServerController.addToServerScenarioQueue(serverId, scenarioFile);
               resultMessageBody += `${EOL}${scenarioFile.nameNoExtension} has been added to the ${underscore(italic(`Server ${serverId}`))} scenario queue.`;
             } else {
