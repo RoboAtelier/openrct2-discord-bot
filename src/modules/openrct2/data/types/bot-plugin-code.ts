@@ -134,7 +134,7 @@ function removeNewLines(str) {
 
 function formatResponsePayload(actionName, source, dataStr) {
 	if (dataStr == null) {
-		return ''.concat(actionName, ';', source, ';\\n');
+		return ''.concat(actionName, ';', source, ';;\\n');
 	};
 	return ''.concat(actionName, ';', source, ';', removeNewLines(dataStr), ';\\n');
 };
