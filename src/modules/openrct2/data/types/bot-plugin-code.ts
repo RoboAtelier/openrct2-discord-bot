@@ -7,58 +7,58 @@ function main() {
 	server.on('connection', function (conn) {
 		conn.on('data', function(data) {
 			try {
-				var dataString = data.toString('utf8');
-				var args = dataString.split(';');
+				var dataStr = data.toString('utf8');
+				var args = dataStr.split(';', 3);
 				var actionQuery = args[0];
 				var userId = args[1];
 				
-				if ('chat' === actionQuery) {
+				if (actionQuery === 'chat') {
 					network.sendMessage(args[2]);
-					conn.write('chat'.concat(
-						'_',
-						userId,
-						'_\\n'
-					));
-				} else if ('player.list' === actionQuery) {
+					conn.write(formatResponsePayload(actionQuery, userId));
+				} else if (actionQuery === 'player.list') {
 					var playerObjects = [];
 					for (var i = 0; i < network.players.length; ++i) {
 						var player = network.players[i];
 						playerObjects.push({
-							name: removeNewLines(player.name),
-							group: removeNewLines(getPlayerGroupById(player.group).name)
+							name: player.name,
+							group: getPlayerGroupById(player.group).name
 						});
 					};
-					conn.write('player.list'.concat(
-						'_',
+					conn.write(formatResponsePayload(
+						actionQuery,
 						userId,
-						'_',
-						JSON.stringify(playerObjects),
-						'\\n'
+						JSON.stringify(playerObjects)
 					));
-				} else if ('save' === actionQuery) { // using legacy method, to change later
+				} else if (actionQuery === 'group.list') {
+					var groupObjects = [];
+					for (var i = 0; i < network.groups.length; ++i) {
+						var group = network.groups[i];
+						groupObjects.push({
+							id: group.id,
+							name: group.name
+						});
+					};
+					conn.write(formatResponsePayload(
+						actionQuery,
+						userId,
+						JSON.stringify(groupObjects)
+					));
+				} else if (actionQuery === 'save') { // using legacy method, to change later
 					var saveFileName = 's'.concat(serverId, '_save');
-					console.executeLegacy('save_park s'.concat(serverId, '_save'));
-					conn.write('save'.concat(
-						'_',
+					console.executeLegacy('save_park '.concat(saveFileName));
+					conn.write(formatResponsePayload(actionQuery, userId, saveFileName));
+				} else if (actionQuery === 'scenario') {
+					conn.write(formatResponsePayload(
+						actionQuery,
 						userId,
-						'_',
-						saveFileName,
-						'\\n'
-					));
-				} else if ('scenario' === actionQuery) {
-					conn.write('scenario'.concat(
-						'_',
-						userId,
-						'_',
 						JSON.stringify({
-							name: removeNewLines(scenario.name),
-							details: removeNewLines(scenario.details),
+							name: scenario.name,
+							details: scenario.details,
 							filename: scenario.filename,
 							status: scenario.status
-						}),
-						'\\n'
+						})
 					));
-				} else if ('screenshot' === actionQuery) {
+				} else if (actionQuery === 'screenshot') {
 					var screenshotFileName = scenario.name.concat('.png');
 					var screenshotParams = {
 						filename: screenshotFileName,
@@ -70,21 +70,11 @@ function main() {
 						// position: { x: map.size.x / 2 * 32, y: map.size.y / 2 * 32 }
 					};
 					context.captureImage(screenshotParams);
-					conn.write('screenshot'.concat(
-						'_',
-						userId,
-						'_',
-						screenshotFileName,
-						'\\n'
-					));
+					conn.write(formatResponsePayload(actionQuery, userId, screenshotFileName));
 				};
 			} catch (err) {
 				try {
-					conn.write('error'.concat(
-						'_e_',
-						removeNewLines(err.message),
-						'\\n'
-					));
+					conn.write(formatResponsePayload('error', 'e', err.message));
 				} catch (_) { };
 			};
 		});
@@ -101,31 +91,23 @@ function main() {
 
 function onNetworkChat(eventArgs, conn) {
 	if (!(0 === eventArgs.player && eventArgs.message.startsWith('{DISCORD}'))) {
-		conn.write('network.chat'.concat(
-			'_e_',
+		conn.write(formatResponsePayload(
+			'network.chat',
+			'e',
 			JSON.stringify({
-				playerName: removeNewLines(getPlayerById(eventArgs.player).name),
-				message: removeNewLines(eventArgs.message)
-			}),
-			'\\n'
+				playerName: getPlayerById(eventArgs.player).name,
+				message: eventArgs.message
+			})
 		));
 	};
 };
 
 function onNetworkJoin(eventArgs, conn) {
-	conn.write('network.join'.concat(
-		'_e_',
-		removeNewLines(getPlayerById(eventArgs.player).name),
-		'\\n'
-	));
+	conn.write(formatResponsePayload('network.join', 'e', getPlayerById(eventArgs.player).name));
 };
 
 function onNetworkLeave(eventArgs, conn) {
-	conn.write('network.leave'.concat(
-		'_e_',
-		removeNewLines(getPlayerById(eventArgs.player).name),
-		'\\n'
-	));
+	conn.write(formatResponsePayload('network.leave', 'e', getPlayerById(eventArgs.player).name));
 };
 
 function getPlayerById(id) {
@@ -147,12 +129,29 @@ function getPlayerGroupById(id) {
 };
 
 function removeNewLines(str) {
-	return str.replace('\\n', ' ').replace('\\r', ' ');
+	return str.replace('\n', ' ').replace('\r', ' ');
+};
+
+function formatResponsePayload(actionName, source, data) {
+	if (data == null) {
+		return ''.concat(actionName, ';', source, ';\0');
+	};
+	return ''.concat(actionName, ';', source, ';', data, '\0');
+};
+
+function toPlayerDto(player) {
+	return {
+		currentId: id,
+		name: player.name,
+		group: getPlayerGroupById(player.group).name,
+		ipAddress: player.ipAddress,
+		publicKeyHash: player.publicKeyHash
+	};
 };
 
 registerPlugin({
 	name: 'Server Adapter OpenRCT2 Plugin',
-	version: '0.1',
+	version: '0.1.1',
 	authors: ['Robo'],
 	type: 'remote',
 	licence: 'MIT',
