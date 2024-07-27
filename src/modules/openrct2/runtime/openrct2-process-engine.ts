@@ -103,6 +103,7 @@ export class OpenRCT2ProcessEngine {
       });
       gameInstance.stdout.on('data', (data: Buffer) => {
         const dataStr = data.toString('utf8');
+        console.log(dataStr);
         if (dataStr.includes(`istening for clients on *:${startupOptions.port}`)) {
           launched = true;
         } else if (dataStr.includes(`pter plugin for server ${serverId} is active`)) {
