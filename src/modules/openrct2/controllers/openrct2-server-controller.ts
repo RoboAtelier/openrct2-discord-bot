@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import { Logger } from '@modules/logging';
-import { PluginAction } from '@modules/openrct2/adapters';
+import { AdapterRequestArgTypes } from '@modules/openrct2/adapters';
 import { ScenarioFile } from '@modules/openrct2/data/models';
 import {
   ServerHostRepository,
@@ -367,11 +367,11 @@ export class OpenRCT2ServerController extends EventEmitter {
    * @param timeoutMs
    * @returns 
    */
-  async executePluginAction<A extends keyof PluginAction>(
+  async executePluginAction<A extends keyof AdapterRequestArgTypes>(
     serverId: number,
     action: A,
     userId: string,
-    args?: PluginAction[A],
+    args?: AdapterRequestArgTypes[A],
     timeoutMs: number = 10000
   ) {
     const gameServer = this.gameServers.get(serverId);

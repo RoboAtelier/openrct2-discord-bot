@@ -1,7 +1,7 @@
 import { Socket } from 'net';
 import { EventEmitter } from 'events';
 
-interface PluginActionResultValue {
+interface AdapterResponseValueTypes {
   'chat': void;
   'player.list': {
     name: string,
@@ -24,10 +24,10 @@ export declare interface OpenRCT2PluginAdapter {
    * @param event The name of the event.
    * @param listener The callback function.
    */
-  on(event: 'data', listener: (args: PluginEventArgs) => void): this;
+  on(event: 'data', listener: (args: PluginEventArgs<keyof AdapterResponseValueTypes>) => void): this;
 };
 
-export interface PluginAction {
+export interface AdapterRequestArgTypes {
   'chat': string;
   'player.list': undefined;
   'save': undefined;
@@ -36,14 +36,11 @@ export interface PluginAction {
 };
 
 /** Represents arguments returned from an emitted plugin event. */
-export class PluginEventArgs {
-  readonly eventName: string;
-  readonly data: any;
-
-  constructor(eventName: string, data: unknown) {
-    this.eventName = eventName;
-    this.data = data;
-  };
+export class PluginEventArgs<TypeName extends keyof AdapterResponseValueTypes> {
+  constructor(
+    public readonly eventName: TypeName,
+    public readonly data?: AdapterResponseValueTypes[TypeName]
+   ) {};
 };
 
 /**
@@ -51,7 +48,7 @@ export class PluginEventArgs {
  * with a TCP server port opened by a plugin.
  */
 export class OpenRCT2PluginAdapter extends EventEmitter {
-  private static readonly pluginResponseRegex = /([a-z\.]+)_([0-9]+|e)_([\s\S]*?)\n/g;
+  private static readonly pluginResponseRegex = /([a-z\.]+);([0-9]+|e);([^\0]*?)\0/g;
 
   private readonly client: Socket;
 
@@ -77,17 +74,15 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
    * @param args Arguments to pass to the plugin call.
    * @returns A result from executing the plugin action.
    */
-  async executeAction<A extends keyof PluginAction>(
-    action: A,
+  async executeAction<Action extends keyof AdapterRequestArgTypes>(
+    action: Action,
     userId: string,
-    args?: PluginAction[A],
+    args?: AdapterRequestArgTypes[Action],
     timeoutMs = 10 * 1000
-  ): Promise<PluginActionResultValue[A]> {
-    const actionStr = args === undefined || args === null
-      ? `${action};${userId}`
-      : typeof args === 'string'
-      ? `${action};${userId};${args}`
-      : `${action};${userId};${JSON.stringify(args)}`
+  ): Promise<AdapterResponseValueTypes[Action]> {
+    const actionStr = typeof args === 'string' || args == null
+      ? `${action};${userId};${args}\0`
+      : `${action};${userId};${JSON.stringify(args)}\0`
     
     this.client.write(actionStr);
     const result = await new Promise<any>((resolve, reject) => {
@@ -112,9 +107,9 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
     const responseArray = Array.from(dataStr.matchAll(OpenRCT2PluginAdapter.pluginResponseRegex));
     if (responseArray.length > 0) {
       for (const response of responseArray) {
-        const eventName = response[1];
+        const eventName = response[1] as keyof AdapterResponseValueTypes;
         const eventInitiator = response[2];
-        let eventData: unknown = response[3];
+        let eventData = response[3];
         try {
           eventData = JSON.parse(response[3]);
         } catch { };
