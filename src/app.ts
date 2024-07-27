@@ -76,14 +76,14 @@ async function main() {
   for (const [serverId, serverDir] of serverDirs) {
     await serverDir.removePluginFiles(...botPlugins.map(botPlugin => botPlugin.name));
     const pluginOptions = await serverDir.getPluginOptions();
-    // if (pluginOptions.useBotPlugins) {
-    //   await serverDir.addPluginFiles(...botPlugins);
-    //   const adapterPlugin = await serverDir.getPluginFileByName(BotPluginFileName.ServerAdapter);
-    //   await adapterPlugin.setGlobalVariables(
-    //     ['serverId', serverId],
-    //     ['port', pluginOptions.adapterPluginPort]
-    //   );
-    // };
+    if (pluginOptions.plugins.includes(BotPluginFileName.ServerAdapter)) {
+      await serverDir.addPluginFiles(...botPlugins);
+      const adapterPlugin = await serverDir.getPluginFileByName(BotPluginFileName.ServerAdapter);
+      await adapterPlugin.setGlobalVariables(
+        ['serverId', serverId],
+        ['port', pluginOptions.adapterPluginPort]
+      );
+    };
   };
 
   discordClient.on(Events.ClientReady, async () => {
