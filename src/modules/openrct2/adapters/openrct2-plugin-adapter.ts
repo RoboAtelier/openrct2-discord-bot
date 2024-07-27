@@ -1,22 +1,6 @@
 import { Socket } from 'net';
 import { EventEmitter } from 'events';
 
-interface AdapterResponseValueTypes {
-  'chat': void;
-  'player.list': {
-    name: string,
-    group: string,
-  }[];
-  'save': string;
-  'scenario': {
-    name: string
-    details: string
-    filename: string
-    status: 'inProgress' | 'completed' | 'failed'
-  };
-  'screenshot': string;
-};
-
 export declare interface OpenRCT2PluginAdapter {
 
   /**
@@ -33,6 +17,22 @@ export interface AdapterRequestArgTypes {
   'save': undefined;
   'scenario': undefined;
   'screenshot': undefined;
+};
+
+export interface AdapterResponseValueTypes {
+  'chat': void;
+  'player.list': {
+    name: string,
+    group: string,
+  }[];
+  'save': string;
+  'scenario': {
+    name: string
+    details: string
+    filename: string
+    status: 'inProgress' | 'completed' | 'failed'
+  };
+  'screenshot': string;
 };
 
 /** Represents arguments returned from an emitted plugin event. */

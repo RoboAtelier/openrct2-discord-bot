@@ -1,6 +1,7 @@
 import { ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { 
+  AdapterResponseValueTypes,
   OpenRCT2PluginAdapter,
   PluginEventArgs
 } from '@modules/openrct2/adapters';
@@ -30,7 +31,7 @@ export declare interface OpenRCT2Server {
   ): boolean;
 };
 
-export interface OpenRCT2ServerEvents {
+export interface OpenRCT2ServerEvents extends AdapterResponseValueTypes {
   'close': {
     code: number | null,
     signal: NodeJS.Signals | null
@@ -163,7 +164,7 @@ export class OpenRCT2Server extends EventEmitter {
    * An event handler for when the relay plugin adapter sends back data.
    * @param pluginArgs The response as event arguments from the plugin.
    */
-  private onPluginData(pluginArgs: PluginEventArgs) {
+  private onPluginData(pluginArgs: PluginEventArgs<keyof AdapterResponseValueTypes>) {
     const args = new ServerEventArgs(this.id, pluginArgs.data);
     this.emit(pluginArgs.eventName, args);
   };
