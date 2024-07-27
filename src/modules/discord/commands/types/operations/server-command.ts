@@ -622,6 +622,8 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       if (subcommandName === 'settings') {
         commandResponse = await this.getServerSettings(serverId);
       } else if (subcommandName === 'restart') {
+        await interaction.deferReply();
+
         const options = this.getInteractionSubcommandOptions(interaction, subcommandName);
         commandResponse = await this.startServerOnAutosave(
           serverId,
