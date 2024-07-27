@@ -128,10 +128,6 @@ function getPlayerGroupById(id) {
 	return null;
 };
 
-function removeNewLines(str) {
-	return str.replace('\n', ' ').replace('\r', ' ');
-};
-
 function formatResponsePayload(actionName, source, data) {
 	if (data == null) {
 		return ''.concat(actionName, ';', source, ';\0');
