@@ -114,6 +114,7 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
           eventData = JSON.parse(response[3]);
         } catch { };
 
+        console.log(dataStr);
         if ('e' === eventInitiator) {
           const args = new PluginEventArgs(eventName, eventData);
           this.emit('data', args);
