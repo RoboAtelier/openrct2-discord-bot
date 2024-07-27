@@ -48,7 +48,7 @@ export class PluginEventArgs<TypeName extends keyof AdapterResponseValueTypes> {
  * with a TCP server port opened by a plugin.
  */
 export class OpenRCT2PluginAdapter extends EventEmitter {
-  private static readonly pluginResponseRegex = /([a-z\.]+);([0-9]+|e);([^\0]*?)\0/g;
+  private static readonly pluginResponseRegex = /([a-z\.]+);([0-9]+|e);([^\n]*?)\n/g;
 
   private readonly client: Socket;
 
@@ -118,7 +118,6 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
           const args = new PluginEventArgs(eventName, eventData);
           this.emit('data', args);
         } else {
-          console.log(`${eventName}${eventInitiator}`);
           this.emit(`${eventName}${eventInitiator}`, eventData);
         };
       };

@@ -128,11 +128,15 @@ function getPlayerGroupById(id) {
 	return null;
 };
 
-function formatResponsePayload(actionName, source, data) {
-	if (data == null) {
-		return ''.concat(actionName, ';', source, ';\0');
+function removeNewLines(str) {
+	return str.replace('\\n', ' ').replace('\\r', ' ');
+};
+
+function formatResponsePayload(actionName, source, dataStr) {
+	if (dataStr == null) {
+		return ''.concat(actionName, ';', source, ';\\n');
 	};
-	return ''.concat(actionName, ';', source, ';', data, '\0');
+	return ''.concat(actionName, ';', source, ';', removeNewLines(dataStr), ';\\n');
 };
 
 function toPlayerDto(player) {
