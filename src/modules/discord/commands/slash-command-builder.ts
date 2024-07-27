@@ -24,7 +24,7 @@ export function buildSlashCommandOptions(
         );
         break;
       case 'boolean':
-        builder.addAttachmentOption(option =>
+        builder.addBooleanOption(option =>
           option
             .setName(commandOption.name)
             .setDescription(commandOption.description)
