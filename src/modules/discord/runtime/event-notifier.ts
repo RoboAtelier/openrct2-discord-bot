@@ -85,6 +85,7 @@ export class EventNotifier {
   };
 
   private async onServerNetworkChat(args: ServerEventArgs<{ playerName: string, message: string }>) {
+    console.log(args);
     const sanitizedPlayer = args.data.playerName.replace(EventNotifier.formatCodeRegex, '');
     const sanitizedMsg = args.data.message.replace(EventNotifier.formatCodeRegex, '');
     await this.postGameServerChat(args.serverId, `${bold(`${sanitizedPlayer}:`)} ${sanitizedMsg}`);
