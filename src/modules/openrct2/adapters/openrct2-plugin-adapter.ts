@@ -36,10 +36,10 @@ export interface AdapterResponseValueTypes {
 };
 
 /** Represents arguments returned from an emitted plugin event. */
-export class PluginEventArgs<TypeName extends keyof AdapterResponseValueTypes> {
+export class PluginEventArgs<V extends keyof AdapterResponseValueTypes> {
   constructor(
-    public readonly eventName: TypeName,
-    public readonly data?: AdapterResponseValueTypes[TypeName]
+    public readonly eventName: V,
+    public readonly data?: AdapterResponseValueTypes[V]
    ) {};
 };
 
@@ -74,12 +74,12 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
    * @param args Arguments to pass to the plugin call.
    * @returns A result from executing the plugin action.
    */
-  async executeAction<Action extends keyof AdapterRequestArgTypes>(
-    action: Action,
+  async executeAction<A extends keyof AdapterRequestArgTypes>(
+    action: A,
     userId: string,
-    args?: AdapterRequestArgTypes[Action],
+    args?: AdapterRequestArgTypes[A],
     timeoutMs = 10 * 1000
-  ): Promise<AdapterResponseValueTypes[Action]> {
+  ): Promise<AdapterResponseValueTypes[A]> {
     const actionStr = typeof args === 'string' || args == null
       ? `${action};${userId};${args}\0`
       : `${action};${userId};${JSON.stringify(args)}\0`

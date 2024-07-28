@@ -8,17 +8,14 @@ import {
 import { EOL } from 'os';
 import {
   CommandPermissionLevel,
-  CommandResponseBuilder,
+  ResponseBuilder,
   SubcommandsDiscordBotCommand
 } from '@modules/discord/commands';
 import { ScenarioMetadata } from '@modules/openrct2/data/models';
 import { ScenarioRepository } from '@modules/openrct2/data/repositories';
 import { ScenarioFileExtension } from '@modules/openrct2/data/types';
 import { getArraySectionWithDetails } from '@modules/utils/array-utils';
-import { 
-  areStringsEqualCaseInsensitive,
-  isStringNullOrWhiteSpace
-} from '@modules/utils/string-utils';
+import { areStringsEqualCaseInsensitive } from '@modules/utils/string-utils';
 
 const FileTypeOptionChoices = [
   { name: '.scv* (RCT1 & RCT2)', value: 'scv' },
@@ -139,10 +136,10 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
   async execute(interaction: ChatInputCommandInteraction) {
     const subcommandName = this.getInteractionSubcommandName(interaction);
     const scenarios = await this.scenarioRepo.getAvailableScenarios();
-    let commandResponse = new CommandResponseBuilder();
+    const response = new ResponseBuilder();
 
     if (0 === scenarios.length) {
-      commandResponse.appendToError('There are currently no scenarios to show or use.');
+      response.addErrorText('There are currently no scenarios to show or use.');
     } else {
       if (subcommandName === 'edit') {
         const options = this.getInteractionSubcommandOptions(interaction, 'edit');
@@ -152,7 +149,7 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
           ? (options.get('tags')!.value as string).split(/\s+/)
           : undefined;
         const active = options.get('active')?.value as boolean;
-        commandResponse = await this.setScenarioValues(scenarioName, newName, newTags, active);
+        await this.setScenarioValues(response, scenarioName, newName, newTags, active);
       } else {
         const scenarioFileExts: ScenarioFileExtension[] = [];
         const fileType = this.getInteractionOption(interaction, 'file-type');
@@ -172,27 +169,29 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
           const tags = options.get('tags')
             ? (options.get('tags')!.value as string).split(/\s+/)
             : undefined;
-          commandResponse = await this.getScenariosBySearchQuery(scenarioFileExts, pageIndex, nameSearch, tags);
+          await this.getScenariosBySearchQuery(response, scenarioFileExts, pageIndex, nameSearch, tags);
         } else if (subcommandName === 'list') {
-          commandResponse = await this.getScenarioList(scenarioFileExts, pageIndex);
+          await this.getScenarioList(response, scenarioFileExts, pageIndex);
         };
       };
-      if (0 === commandResponse.resolve().length) {
-        commandResponse.appendToError('Unknown or unimplemented command specified.');
+
+      if (!response.hasContent) {
+        interaction.deferred 
+          ? await interaction.editReply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage)
+          : await interaction.reply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage);
       };
 
-      await interaction.reply(commandResponse.resolve());
+      await interaction.reply(response.resolve(interaction));
     };
   };
 
   private async setScenarioValues(
+    response: ResponseBuilder,
     scenarioName: string,
     newName?: string,
     newTags?: string[],
     active?: boolean
   ) {
-    const commandResponse = new CommandResponseBuilder();
-    
     const scenarios = await this.scenarioRepo.getScenariosByFuzzySearch(scenarioName);
     if (1 === scenarios.length) {
       const scenarioToChange = scenarios[0];
@@ -203,12 +202,12 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
       if (newTags || active !== undefined) {
         if (newTags) {
           metadata.tags = newTags;
-          commandResponse.appendToMessage(`Applied data tags for ${italic(scenarioToChange.name)}: ${newTags.map(tag => inlineCode(tag)).join(' ')}`);
+          response.addText(`Applied data tags for ${italic(scenarioToChange.name)}: ${newTags.map(tag => inlineCode(tag)).join(' ')}`);
         };
   
         if (active !== undefined) {
           metadata.active = active;
-          commandResponse.appendToMessage(`Set ${italic(scenarioToChange.name)} to be ${active ? bold('ACTIVE') : bold('INACTIVE')}`)
+          response.addText(`Set ${italic(scenarioToChange.name)} to be ${active ? bold('ACTIVE') : bold('INACTIVE')}`)
         };
 
         updateActions.push(() => this.scenarioRepo.updateScenarioMetadata(metadata));
@@ -219,33 +218,31 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
           ? newName
           : `${newName}${scenarioToChange.fileExtension}`;
         if (areStringsEqualCaseInsensitive(fullNewName, scenarioToChange.name)) {
-          commandResponse.appendToError(`${italic(scenarioToChange.name)} is already named as ${italic(newName)}. No changes were made.`);
+          response.addErrorText(`${italic(scenarioToChange.name)} is already named as ${italic(newName)}. No changes were made.`);
         } else {
           const newNameCheck = await this.scenarioRepo.getScenarioByName(fullNewName);
           if (newNameCheck) {
-            commandResponse.appendToError(`Cannot rename ${italic(scenarioToChange.name)}. There is a different scenario named ${italic(newName)}.`);
+            response.addErrorText(`Cannot rename ${italic(scenarioToChange.name)}. There is a different scenario named ${italic(newName)}.`);
           } else {
-            commandResponse.appendToMessage(`Renamed ${italic(scenarioToChange.name)} to ${italic(fullNewName)}.`);
+            response.addText(`Renamed ${italic(scenarioToChange.name)} to ${italic(fullNewName)}.`);
             updateActions.push(() => this.scenarioRepo.renameScenario(scenarioToChange, newName));
           };
         };
       };
       
-      if (isStringNullOrWhiteSpace(commandResponse.message)) {
-        commandResponse.appendToMessage('No changes were made.');
-      } else if (!commandResponse.hasError) {
+      if (!response.hasText) {
+        response.addText('No changes were made.');
+      } else if (!response.hasError) {
         await performUpdates();
-        commandResponse.appendToMessage('Updates may take a bit of time to fully apply.');
+        response.addText('Updates may take a bit of time to fully apply.');
       };
     } else {
-      commandResponse.appendToError(this.formatNonsingleScenarioError(scenarios.map(scenario => scenario.name), scenarioName));
+      response.addErrorText(this.formatNonsingleScenarioError(scenarios.map(scenario => scenario.name), scenarioName));
     };
-
-    return commandResponse;
   };
 
   // private async gimmeScenarios(user: User, tags?: string[]) {
-  //   const commandResponse = new CommandResponseBuilder();
+  //   const response = new responseBuilder();
 
   //   const metadata = await this.scenarioRepo.getScenarioMetadata();
   //   const matchedMetadata = tags
@@ -256,30 +253,29 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
   //   const selectedMetadata = fisherYatesShuffle(matchedMetadata).slice(0, 10);
 
   //   if (0 === selectedMetadata.length) {
-  //     commandResponse.appendToMessage(this.formatEmptyResultMessage(undefined, tags));
+  //     response.appendToMessage(this.formatEmptyResultMessage(undefined, tags));
   //   } else {
-  //     commandResponse.appendToMessage(`${selectRandomElement(GimmePhrases).replace(/\{user\}/g, bold(user.username))}${EOL}`);
+  //     response.appendToMessage(`${selectRandomElement(GimmePhrases).replace(/\{user\}/g, bold(user.username))}${EOL}`);
   //     if (tags) {
-  //       commandResponse.appendToMessage(`${italic(tags.join(' '))}${EOL}`);
+  //       response.appendToMessage(`${italic(tags.join(' '))}${EOL}`);
   //     };
   //     for (const scenarioData of selectedMetadata) {
-  //       commandResponse.appendToMessage(`▸ ${italic(scenarioData.fileName)}`);
+  //       response.appendToMessage(`▸ ${italic(scenarioData.fileName)}`);
   //     };
   //   };
 
-  //   return commandResponse;
+  //   return response;
   // };
 
   private async getScenariosBySearchQuery(
+    response: ResponseBuilder,
     scenarioFileExts: ScenarioFileExtension[],
     resultIndex: number,
     nameSearch?: string,
     tags?: string[]
   ) {
-    const commandResponse = new CommandResponseBuilder();
-
     if (!(nameSearch || tags)) {
-      return this.getScenarioList(scenarioFileExts, resultIndex);
+      return this.getScenarioList(response, scenarioFileExts, resultIndex);
     } else {
       const metadata = nameSearch
         ? await this.scenarioRepo.getScenarioMetadataByFuzzySearch(nameSearch, ...scenarioFileExts)
@@ -295,32 +291,27 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
 
       if (matchedMetadata.length > 0) {
         const metadataSet = getArraySectionWithDetails(matchedMetadata, resultIndex);
-        commandResponse.appendToMessage(this.formatScenarioSearchMessage(metadataSet, nameSearch, tags));
+        response.addText(this.formatScenarioSearchMessage(metadataSet, nameSearch, tags));
       } else {
-        commandResponse.appendToError(this.formatEmptyResultMessage(nameSearch, tags));
+        response.addErrorText(this.formatEmptyResultMessage(nameSearch, tags));
       };
     };
-
-    return commandResponse;
   };
 
   private async getScenarioList(
+    response: ResponseBuilder,
     scenarioFileExts: ScenarioFileExtension[],
     resultIndex: number
   ) {
-    const commandResponse = new CommandResponseBuilder();
-
     const metadata = 0 === scenarioFileExts.length
       ? await this.scenarioRepo.getScenarioMetadata()
       : await this.scenarioRepo.getScenarioMetadataByFileExtension(...scenarioFileExts);
     if (metadata.length > 0) {
       const metadataSet = getArraySectionWithDetails(metadata, resultIndex);
-      commandResponse.appendToMessage(this.formatScenarioListMessage(metadataSet));
+      response.addText(this.formatScenarioListMessage(metadataSet));
     } else {
-      commandResponse.appendToMessage(this.formatEmptyResultMessage());
+      response.addText(this.formatEmptyResultMessage());
     };
-
-    return commandResponse;
   };
 
   /**

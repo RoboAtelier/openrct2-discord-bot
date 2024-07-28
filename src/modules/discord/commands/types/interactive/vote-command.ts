@@ -22,7 +22,7 @@ import {
 import { EOL } from 'os';
 import { 
   CommandPermissionLevel,
-  CommandResponseBuilder,
+  ResponseBuilder,
   SubcommandsDiscordBotCommand
 } from '@modules/discord/commands';
 import { BotDataRepository } from '@modules/discord/data/repositories';
@@ -267,7 +267,7 @@ export class VoteCommand extends SubcommandsDiscordBotCommand<typeof VoteSubcomm
   async execute(interaction: ChatInputCommandInteraction) {
     const groupName = this.getInteractionSubcommandGroupName(interaction);
     const subcommandName = this.getInteractionSubcommandName(interaction);
-    let commandResponse = new CommandResponseBuilder();
+    const response = new ResponseBuilder();
 
     const guildInfo = await this.botDataRepo.getGuildInfo();
     if (isStringNullOrWhiteSpace(guildInfo.scenarioChannelId)) {
@@ -277,13 +277,14 @@ export class VoteCommand extends SubcommandsDiscordBotCommand<typeof VoteSubcomm
 
     if (groupName === 'scenario') {
       if (subcommandName === 'stop') {
-        commandResponse = await this.stopActiveVote(
+        await this.stopActiveVote(
+          response,
           this.getInteractionOption(interaction, 'id')?.value as number ?? 1,
           interaction.user
         );
       } else if (subcommandName === 'end') {
         const voteId = this.getInteractionOption(interaction, 'id')?.value as number ?? 1;
-        commandResponse = await this.endActiveVote(voteId, interaction.user);
+        await this.endActiveVote(response, voteId, interaction.user);
       } else if (subcommandName === 'start') {
         const options = this.getInteractionSubcommandGroupSubcommandOptions(interaction, 'scenario', 'start');
         const serverId = options.get('server-id')?.value as number ?? 1;
@@ -291,7 +292,7 @@ export class VoteCommand extends SubcommandsDiscordBotCommand<typeof VoteSubcomm
         const voteDuration = options.get('time')?.value as number ?? 2;
           
         if (this.activeVotes.has(serverId)) {
-          commandResponse.appendToError(`A vote is currently active for ${underscore(italic(`Server ${serverId}`))}.`);
+          response.addErrorText(`A vote is currently active for ${underscore(italic(`Server ${serverId}`))}.`);
         } else {
           await interaction.deferReply();
   
@@ -305,7 +306,8 @@ export class VoteCommand extends SubcommandsDiscordBotCommand<typeof VoteSubcomm
               return fisherYatesShuffle(activeMetadata);
             }
           );
-          commandResponse = await this.startScenarioVote(
+          await this.startScenarioVote(
+            response,
             interaction,
             serverId,
             voteSession
@@ -314,21 +316,24 @@ export class VoteCommand extends SubcommandsDiscordBotCommand<typeof VoteSubcomm
       };
     };
 
-    if (0 === commandResponse.resolve().length) {
-      commandResponse.appendToError('Unknown or unimplemented command specified.');
+    if (!response.hasContent) {
+      interaction.deferred 
+        ? await interaction.editReply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage)
+        : await interaction.reply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage);
     };
 
+    const messagePayload = response.resolve(interaction);
     interaction.deferred
-      ? await interaction.editReply(commandResponse.resolve())
-      : await interaction.reply(commandResponse.resolve());
+      ? await interaction.editReply(messagePayload)
+      : await interaction.reply(messagePayload);
   };
 
   private async startScenarioVote(
+    response: ResponseBuilder,
     interaction: ChatInputCommandInteraction,
     serverId: number,
     voteSession: VoteSession<ScenarioMetadata>
   ) {
-    const commandResponse = new CommandResponseBuilder();
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
     const queue = await serverDir.getQueue();
 
@@ -369,59 +374,49 @@ export class VoteCommand extends SubcommandsDiscordBotCommand<typeof VoteSubcomm
           );
         });
 
-        commandResponse.appendToMessage(`Started a new scenario vote for ${underscore(italic(`Server ${serverId}`))}. ${voteMessage.url}`);
+        response.addText(`Started a new scenario vote for ${underscore(italic(`Server ${serverId}`))}. ${voteMessage.url}`);
       } else {
-        commandResponse.appendToError('Failed to start a vote. Could not post the vote.');
+        response.addErrorText('Failed to start a vote. Could not post the vote.');
         this.activeVotes.delete(serverId);
       };
     } else {
-      commandResponse.appendToError(
+      response.addErrorText(
         `There are too many scenarios queued up for ${underscore(italic(`Server ${serverId}`))}.`,
         'Play the scenarios in the queue first or clear some out.'
       );
     };
-
-    return commandResponse;
   };
 
-  private async stopActiveVote(voteId: number, canceller: User) {
-    const commandResponse = new CommandResponseBuilder();
-
+  private async stopActiveVote(response: ResponseBuilder, voteId: number, canceller: User) {
     const voteSession = this.activeVotes.get(voteId);
     const voteName = 0 === voteId ? 'current custom vote' : `scenario vote for ${underscore(italic(`Server ${voteId}`))}`;
     if (voteSession) {
       if (voteSession.stoppable && voteSession.interactionCollector) {
         voteSession.cancelledBy = canceller;
         voteSession.interactionCollector.stop('cancel');
-        commandResponse.appendToMessage(`Stopping the ${voteName}.`);
+        response.addText(`Stopping the ${voteName}.`);
       } else {
-        commandResponse.appendToError(`Cannot stop the ${voteName}.`);
+        response.addErrorText(`Cannot stop the ${voteName}.`);
       };
     } else {
-      commandResponse.appendToError(`There is no ${voteName} active.`);
+      response.addErrorText(`There is no ${voteName} active.`);
     };
-
-    return commandResponse;
   };
 
-  private async endActiveVote(voteId: number, ender: User) {
-    const commandResponse = new CommandResponseBuilder();
-
+  private async endActiveVote(response: ResponseBuilder, voteId: number, ender: User) {
     const voteSession = this.activeVotes.get(voteId);
     const voteName = 0 === voteId ? 'current custom vote' : `scenario vote for ${underscore(italic(`Server ${voteId}`))}`;
     if (voteSession) {
       if (voteSession.stoppable && voteSession.interactionCollector) {
         voteSession.endedBy = ender;
         voteSession.interactionCollector.stop('finish');
-        commandResponse.appendToMessage(`Wrapping up the ${voteName}.`);
+        response.addText(`Wrapping up the ${voteName}.`);
       } else {
-        commandResponse.appendToError(`Cannot end the ${voteName}.`);
+        response.addErrorText(`Cannot end the ${voteName}.`);
       };
     } else {
-      commandResponse.appendToError(`There is no ${voteName} active.`);
+      response.addErrorText(`There is no ${voteName} active.`);
     };
-
-    return commandResponse;
   };
 
   private async scenarioVoteCollectorCollect(

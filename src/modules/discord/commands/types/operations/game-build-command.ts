@@ -10,7 +10,7 @@ import {
 } from 'os';
 import {
   CommandPermissionLevel,
-  CommandResponseBuilder,
+  ResponseBuilder,
   SubcommandsDiscordBotCommand
 } from '@modules/discord/commands';
 import { Logger } from '@modules/logging';
@@ -23,15 +23,6 @@ import {
 import { OpenRCT2BuildDownloader } from '@modules/openrct2/web';
 import { OpenRCT2BuildRepository } from '@modules/openrct2/data/repositories';
 import { wait } from '@modules/utils/runtime-utils';
-
-type GameBuildCommandOptions =
-  | 'version' | 'commit'
-  | 'os' | 'codename' | 'architecture'
-  | 'index'
-type GameBuildCommandSubcommands =
-  | 'check'
-  | 'download'
-  | 'list'
 
 const OperatingSystemChoices = [
   { name: 'Windows', value: 'win32' },
@@ -139,7 +130,7 @@ export class GameBuildCommand extends SubcommandsDiscordBotCommand<
   /** @override */
   async execute(interaction: ChatInputCommandInteraction) {
     const subcommandName = this.getInteractionSubcommandName(interaction);
-    let commandResponse = new CommandResponseBuilder();
+    const response = new ResponseBuilder();
 
     await interaction.deferReply();
 
@@ -150,7 +141,8 @@ export class GameBuildCommand extends SubcommandsDiscordBotCommand<
         baseVersion = `v${baseVersion}`;
       };
 
-      commandResponse = await this.requestOpenRCT2BuildInfo(
+      await this.requestOpenRCT2BuildInfo(
+        response,
         options.get('index')?.value as number ?? 1,
         baseVersion,
         options.get('commit')?.value as string
@@ -176,42 +168,45 @@ export class GameBuildCommand extends SubcommandsDiscordBotCommand<
         distro,
         options.get('codename')?.value as string
       );
-      commandResponse = await this.downloadOpenRCT2Build(
+      await this.downloadOpenRCT2Build(
+        response,
         interaction,
         platformInfo,
         baseVersion,
         options.get('commit')?.value as string
       );
     } else if (subcommandName === 'list') {
-      commandResponse = await this.getGameBuildVersionList();
+      await this.getGameBuildVersionList(response);
+    }
+
+    if (!response.hasContent) {
+      interaction.deferred 
+        ? await interaction.editReply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage)
+        : await interaction.reply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage);
     };
 
-    if (0 === commandResponse.resolve().length) {
-      commandResponse.appendToError('Unknown or unimplemented command specified.');
-    };
-
+    const messagePayload = response.resolve(interaction);
     interaction.deferred 
-      ? await interaction.editReply(commandResponse.resolve())
-      : await interaction.reply(commandResponse.resolve());
+      ? await interaction.editReply(messagePayload)
+      : await interaction.reply(messagePayload);
   };
 
   private async requestOpenRCT2BuildInfo(
+    response: ResponseBuilder,
     buildIndex: number,
     baseVersion?: string,
     commitHeader?: string
   ) {
-    const commandResponse = new CommandResponseBuilder();
-
     try {
       const gameBuild = baseVersion
         ? await this.openRCT2BuildDownloader.checkGameBuild(baseVersion, commitHeader)
         : await this.openRCT2BuildDownloader.checkDevelopGameBuildByIndex(buildIndex);
 
-      commandResponse.appendToMessage(`${italic(gameBuild.version)}`, '');
+      response.addText(`${italic(gameBuild.version)}`, '');
       for (const platformTarget of gameBuild.platformTargets) {
-        commandResponse.appendToMessage(bold(platformTarget.name));
+        response.addText(bold(platformTarget.name));
         for (const type of platformTarget.types) {
-          commandResponse.appendToMessage(type);
+          response.addText(type);
         };
       };
     } catch (err) {
@@ -222,20 +217,17 @@ export class GameBuildCommand extends SubcommandsDiscordBotCommand<
       };
       await this.logger.writeError(errMsg);
       await this.logger.writeError(err as Error);
-      commandResponse.appendToError(errMsg);
+      response.addErrorText(errMsg);
     };
-
-    return commandResponse;
   };
 
   private async downloadOpenRCT2Build(
+    response: ResponseBuilder,
     interaction: ChatInputCommandInteraction,
     platform: OpenRCT2PlatformInfo,
     baseVersion: string,
     commitHeader?: string
   ) {
-    const commandResponse = new CommandResponseBuilder();
-
     try {
       const downloadInfo = await this.openRCT2BuildDownloader.getOpenRCT2BuildDownloadInfo(
         platform,
@@ -261,32 +253,26 @@ export class GameBuildCommand extends SubcommandsDiscordBotCommand<
       await interaction.editReply(`Unpacking ${inlineCode(downloadInfo.fileName)}...`);
       await this.gameBuildRepo.extracOpenRCT2Build(downloadInfo.fileName, downloadInfo.sha256Checksum);
 
-      commandResponse.appendToMessage(`Successfully downloaded and unpacked ${inlineCode(downloadInfo.fileName)}.`);
+      response.addText(`Successfully downloaded and unpacked ${inlineCode(downloadInfo.fileName)}.`);
     } catch (err) {
       const versionHeader = `${baseVersion}${commitHeader ? `-${commitHeader}` : ''}`;
       const errMsg = `Failed to download and install build version ${inlineCode(versionHeader)}.`;
       await this.logger.writeError(errMsg);
       await this.logger.writeError(err as Error);
-      commandResponse.appendToError(errMsg);
+      response.addErrorText(errMsg);
     };
-
-    return commandResponse;
   };
 
-  private async getGameBuildVersionList() {
-    const commandResponse = new CommandResponseBuilder();
-
+  private async getGameBuildVersionList(response: ResponseBuilder) {
     try {
       const gameBuilds = await this.gameBuildRepo.getAvailableOpenRCT2Builds();
-      commandResponse.appendToMessage(this.formatGameBuildVersionListMessage(gameBuilds));
+      response.addText(this.formatGameBuildVersionListMessage(gameBuilds));
     } catch (err) {
       const errMsg = 'Failed to return current list of downloaded game builds.';
       await this.logger.writeError(errMsg);
       await this.logger.writeError(err as Error);
-      commandResponse.appendToError(errMsg);
+      response.addErrorText(errMsg);
     };
-
-    return commandResponse;
   };
 
   private formatGameBuildVersionListMessage(gameBuilds: OpenRCT2Build[]) {

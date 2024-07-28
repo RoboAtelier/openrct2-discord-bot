@@ -7,7 +7,7 @@ import { EOL } from 'os';
 import { Configuration } from '@modules/configuration';
 import {
   CommandPermissionLevel,
-  CommandResponseBuilder,
+  ResponseBuilder,
   SubcommandsDiscordBotCommand
 } from '@modules/discord/commands';
 import { 
@@ -86,44 +86,51 @@ export class MasterServerCommand extends SubcommandsDiscordBotCommand<undefined,
   /** @override */
   async execute(interaction: ChatInputCommandInteraction) {
     const subcommandName = this.getInteractionSubcommandName(interaction);
-    let commandResponse = new CommandResponseBuilder();
+    const response = new ResponseBuilder();
 
     await interaction.deferReply();
 
     if (subcommandName === 'search') {
       const options = this.getInteractionSubcommandOptions(interaction, 'search');
 
-      commandResponse = await this.getPublicServerInfo(
+      await this.getPublicServerInfo(
+        response,
         (options.get('page')?.value as number ?? 1) - 1,
         options.get('ip')?.value as string,
         options.get('name')?.value as string
       );
     } else if (subcommandName === 'list') {
       const pageIndex = (this.getInteractionOption(interaction, 'page')?.value as number ?? 1) - 1;
-      commandResponse = await this.getPublicServerInfo(pageIndex);
+      await this.getPublicServerInfo(response, pageIndex);
     } else if (subcommandName === 'here') {
-      commandResponse = await this.getPublicServerInfo(0, this.hostingIPAddress);
+      await this.getPublicServerInfo(response, 0, this.hostingIPAddress);
     };
 
-    if (0 === commandResponse.resolve().length) {
-      commandResponse.appendToError('Unknown or unimplemented command specified.');
+    if (!response.hasContent) {
+      interaction.deferred 
+        ? await interaction.editReply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage)
+        : await interaction.reply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage);
     };
 
+    const messagePayload = response.resolve(interaction);
     interaction.deferred
-      ? await interaction.editReply(commandResponse.resolve())
-      : await interaction.reply(commandResponse.resolve());
+      ? await interaction.editReply(messagePayload)
+      : await interaction.reply(messagePayload);
   };
 
-  private async getPublicServerInfo(resultIndex: number, ipAddress?: string, serverName?: string) {
-    const commandResponse = new CommandResponseBuilder();
-
+  private async getPublicServerInfo(
+    response: ResponseBuilder,
+    resultIndex: number,
+    ipAddress?: string,
+    serverName?: string
+  ) {
     if (!serverName && !ipAddress) {
       const publicServers = await this.openRCT2MasterServer.requestPublicOpenRCT2ServerList();
       if (publicServers.length > 0) {
         const serverListSection = getArraySectionWithDetails(publicServers, resultIndex);
-        commandResponse.appendToMessage(this.formatBasicServerInfoListMessage(serverListSection));
+        response.addText(this.formatBasicServerInfoListMessage(serverListSection));
       } else {
-        commandResponse.appendToError('Could not find any public servers from the master server.');
+        response.addErrorText('Could not find any public servers from the master server.');
       };
     } else {
       const publicServers = serverName
@@ -137,18 +144,16 @@ export class MasterServerCommand extends SubcommandsDiscordBotCommand<undefined,
         : publicServers;
 
       if (0 === requestedServers.length) {
-        commandResponse.appendToError(this.formatNoMatchesMessage(serverName, ipAddress));
+        response.addErrorText(this.formatNoMatchesMessage(serverName, ipAddress));
       } else {
         if (ipAddress) {
-          commandResponse.appendToMessage(this.formatDetailedServerInfoListMessage(requestedServers))
+          response.addText(this.formatDetailedServerInfoListMessage(requestedServers))
         } else {
           const serverListSection = getArraySectionWithDetails(requestedServers, resultIndex);
-          commandResponse.appendToMessage(this.formatBasicServerInfoListMessage(serverListSection));
+          response.addText(this.formatBasicServerInfoListMessage(serverListSection));
         };
       };
     };
-
-    return commandResponse;
   };
 
   /**

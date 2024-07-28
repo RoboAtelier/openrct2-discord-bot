@@ -5,14 +5,13 @@ import {
   EmbedBuilder,
   inlineCode,
   italic,
-  MessagePayload,
   SlashCommandBuilder,
   underscore
 } from 'discord.js';
 import { 
   addCommandOptionChoices,
   CommandPermissionLevel,
-  CommandResponseBuilder,
+  ResponseBuilder,
   OptionsDiscordBotCommand,
   SlashCommandData,
   SubcommandData,
@@ -24,8 +23,7 @@ const HelpCommandOptions = <const>[
   { 
     name: 'command',
     type: 'string',
-    description: 'The name of the command to get help for.',
-    required: true
+    description: 'The name of the command to get help for.'
   },
   {
     name: 'group',
@@ -104,21 +102,27 @@ export class HelpCommand extends OptionsDiscordBotCommand<typeof HelpCommandOpti
 
   /** @override */
   async execute(interaction: ChatInputCommandInteraction) {
-    const commandOptions = this.getInteractionOptionValues(interaction);
-    const commandName = commandOptions.get('command')?.value as string ?? '';
-    const groupName = commandOptions.get('group')?.value as string ?? '';
-    const subcommandName = commandOptions.get('subcommand')?.value as string ?? '';
-    const commandResponse = this.getCommandHelp(commandName, groupName, subcommandName);
+    const response = new ResponseBuilder();
+    const options = this.getInteractionOptionValues(interaction);
+
+    this.getCommandHelp(
+      response,
+      options.get('command')?.value as string ?? '',
+      options.get('group')?.value as string ?? '',
+      options.get('subcommand')?.value as string ?? ''
+    );
     
-    await interaction.reply(new MessagePayload(interaction, commandResponse));
+    await interaction.reply(response.resolve(interaction));
   };
 
-  private getCommandHelp(commandName: string, groupName: string, subcommandName: string) {
-    const commandResponse = new CommandResponseBuilder();
-
-    let helpEmbed: EmbedBuilder | null = null;
+  private getCommandHelp(
+    response: ResponseBuilder,
+    commandName: string,
+    groupName: string,
+    subcommandName: string
+  ) {
     if (isStringNullOrWhiteSpace(commandName)) {
-      helpEmbed = this.formatCommandListEmbed();
+      response.addEmbeds(this.formatCommandListEmbed());
     } else {
       const slashCommand = this.slashCommands.get(commandName);
       if (slashCommand) {
@@ -131,31 +135,19 @@ export class HelpCommand extends OptionsDiscordBotCommand<typeof HelpCommandOpti
                 const subcommandError = isStringNullOrWhiteSpace(groupName)
                   ? `The ${inlineCode(subcommandName)} subcommand was not found in the ${inlineCode(commandName)} command.`
                   : `The ${inlineCode(subcommandName)} subcommand was not found in the ${inlineCode(groupName)} subcommand group.`;
-                commandResponse.appendToError(subcommandError);
+                response.addErrorText(subcommandError);
               };
             };
           } else {
-            commandResponse.appendToError(`The ${inlineCode(groupName)} subcommand group was not found in the ${inlineCode(commandName)} command.`);
+            response.addErrorText(`The ${inlineCode(groupName)} subcommand group was not found in the ${inlineCode(commandName)} command.`);
           };
         };
 
-        if (!commandResponse.hasError) {
-          helpEmbed = this.formatCommandHelpEmbed(slashCommand, groupName, subcommandName);
+        if (!response.hasError) {
+          response.addEmbeds(this.formatCommandHelpEmbed(slashCommand, groupName, subcommandName));
         };
       } else {
-        commandResponse.appendToError(`The ${inlineCode(commandName)} command does not exist for this bot.`);
-      };
-    };
-
-    if (helpEmbed) {
-      return { 
-        embeds: [helpEmbed],
-        ephemeral: true
-      };
-    } else {
-      return {
-        content: commandResponse.resolve(),
-        ephemeral: true
+        response.addErrorText(`The ${inlineCode(commandName)} command does not exist for this bot.`);
       };
     };
   };
@@ -216,7 +208,7 @@ export class HelpCommand extends OptionsDiscordBotCommand<typeof HelpCommandOpti
               };
               const subcommandFieldSegments: string[] = [italic(subcommand.description)];
               for (const option of subcommand.options) {
-                subcommandFieldSegments.push(`${inlineCode(option.name)} - ${option.description}`);
+                subcommandFieldSegments.push(inlineCode(option.name));
               };
               subcommandField.value = subcommandFieldSegments.join(EOL);
               helpEmbedFields.push(subcommandField);
@@ -231,7 +223,7 @@ export class HelpCommand extends OptionsDiscordBotCommand<typeof HelpCommandOpti
             };
             const subcommandFieldSegments: string[] = [italic(subcommand.description)];
             for (const option of subcommand.options) {
-              subcommandFieldSegments.push(`${inlineCode(option.name)} - ${option.description}`);
+              subcommandFieldSegments.push(inlineCode(option.name));
             };
             subcommandField.value = subcommandFieldSegments.join(EOL);
             helpEmbedFields.push(subcommandField);

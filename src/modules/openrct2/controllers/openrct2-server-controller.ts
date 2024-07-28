@@ -17,7 +17,10 @@ import {
   FlagManager
 } from '@modules/utils';
 import { wait } from '@modules/utils/runtime-utils';
-import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
+import {
+  createDateTimestamp,
+  isStringNullOrWhiteSpace
+} from '@modules/utils/string-utils';
 
 interface ProcessFlag extends Flag {
   'start': undefined;
@@ -77,8 +80,18 @@ export interface OpenRCT2ServerControllerEvent {
     playerName: string;
   };
   'server.scenario.complete': {
-    scenarioFile: ScenarioFile | undefined,
-    scenarioStatus: "completed" | "failed"
+    scenarioName?: string,
+    scenarioStatus: "completed" | "failed",
+    screenshot?: {
+      screenshotFilePath: string,
+      usedPlugin: boolean;
+    },
+    save?: {
+      saveFilePath: string,
+      saveFileName: string,
+      saveFileExtension: string,
+      usedPlugin: boolean;
+    }
   };
   'server.start.defer': {
     scenarioFile: ScenarioFile,
@@ -390,56 +403,71 @@ export class OpenRCT2ServerController extends EventEmitter {
    * @param serverId 
    * @param userId 
    */
-  async createServerScreenshot(serverId: number, userId: string) {
+  async createServerScreenshot(serverId: number, userId: string): Promise<{
+    screenshotFilePath: string,
+    scenarioFile?: ScenarioFile,
+    scenarioName: string,
+    usedPlugin: boolean
+  } | undefined> {
     if (this.processFlags.trySetFlag(serverId, 'screenshot')) {
       const gameServer = this.gameServers.get(serverId);
       const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
   
-      try {
-        const result: {
-          screenshotFilePath: string,
-          scenarioFile?: ScenarioFile,
-          scenarioName: string,
-          usedPlugin: boolean
-        } = { screenshotFilePath: '', scenarioName: '', usedPlugin: false };
-  
+      try {  
         const startupOptions = await serverDir.getStartupOptions();
         if (gameServer && gameServer.pluginAdapter) {
           if (startupOptions.headless) {
-            const save = await this.createCurrentScenarioSave(serverId, userId);
-            if (save) {
-              result.screenshotFilePath = await this.openRCT2ProcessEngine.createScenarioScreenshot(
-                save.saveFile,
-                serverDir.getSubdirectoryPath(OpenRCT2ServerSubdirectoryName.Screenshot),
-                startupOptions.openRCT2ExecutablePath,
-                `s${serverId}_screenshot`
-              );
-              result.scenarioFile = save.saveFile;
-              result.scenarioName = save.scenarioName;
-            } else {
-              throw new Error('Failed to get a scenario save for a screenshot.');
+            try {
+              const save = await this.createCurrentScenarioSave(serverId, userId);
+              if (save) {
+                const result = {
+                  screenshotFilePath: await this.openRCT2ProcessEngine.createScenarioScreenshot(
+                    save.saveFile,
+                    serverDir.getSubdirectoryPath(OpenRCT2ServerSubdirectoryName.Screenshot),
+                    startupOptions.openRCT2ExecutablePath,
+                    `s${serverId}_screenshot`
+                  ),
+                  scenarioFile: save.saveFile,
+                  scenarioName: save.scenarioName,
+                  usedPlugin: save.usedPlugin
+                };
+                await this.logger.writeLog(`Created a screenshot of Server ${serverId} from a generated save file.`);
+                return result;
+              };
+            } catch (err) {
+              await this.logger.writeError(err as Error);
             };
-          } else {
-            const screenshotFileName = await gameServer.pluginAdapter.executeAction('screenshot', userId, undefined, 1 * 60 * 1000);
-            result.screenshotFilePath = await serverDir.getScreenshotByName(screenshotFileName);
-            result.scenarioName = await gameServer.getScenarioName();
           };
-          result.usedPlugin = true;
-        } else {
-          const latestAutosave = await serverDir.getScenarioAutosave();
-          const status = await serverDir.getStatus();
-          const initiatedScenario = await this.scenarioRepo.getScenarioByName(status.initiatedScenarioFileName);
-          result.screenshotFilePath = await this.openRCT2ProcessEngine.createScenarioScreenshot(
+
+          try {
+            const screenshotFileName = await gameServer.pluginAdapter.executeAction('screenshot', userId, undefined, 1 * 60 * 1000);
+            const result = {
+              screenshotFilePath: await serverDir.getScreenshotByName(screenshotFileName),
+              scenarioName: await gameServer.getScenarioName(),
+              usedPlugin: true
+            };
+            await this.logger.writeLog(`Created a screenshot of Server ${serverId} at runtime.`);
+            return result;
+          } catch (err) {
+            await this.logger.writeError(err as Error);
+          };
+        };
+
+        const latestAutosave = await serverDir.getScenarioAutosave();
+        const status = await serverDir.getStatus();
+        const initiatedScenario = await this.scenarioRepo.getScenarioByName(status.initiatedScenarioFileName);
+        const result = {
+          screenshotFilePath: await this.openRCT2ProcessEngine.createScenarioScreenshot(
             latestAutosave,
             serverDir.getSubdirectoryPath(OpenRCT2ServerSubdirectoryName.Screenshot),
             startupOptions.openRCT2ExecutablePath,
             `s${serverId}_screenshot`
-          );
-          result.scenarioFile = latestAutosave;
-          result.scenarioName = initiatedScenario ? initiatedScenario.nameNoExtension : latestAutosave.nameNoExtension;
+          ),
+          scenarioFile: latestAutosave,
+          scenarioName: initiatedScenario ? initiatedScenario.nameNoExtension : latestAutosave.nameNoExtension,
+          usedPlugin: false
         };
-  
-        await this.logger.writeLog(`Created a screenshot of Server ${serverId}.`);
+        await this.logger.writeLog(`Created a screenshot of Server ${serverId} from an autosave.`);
         return result;
       } catch (err) {
         await this.logger.writeError(err as Error);
@@ -457,14 +485,19 @@ export class OpenRCT2ServerController extends EventEmitter {
 
       try {
         if (gameServer && gameServer.pluginAdapter) {
-          const saveFileName = await gameServer.pluginAdapter.executeAction('save', userId, undefined, 2 * 60 * 1000);
-          await this.logger.writeLog(`Created a save file of Server ${serverId}.`);
-          return {
-            saveFile: await serverDir.getScenarioSaveByName(saveFileName.concat('.park')),
-            scenarioName: await gameServer.getScenarioName(),
-            usedPlugin: true
+          try {
+            const saveFileName = await gameServer.pluginAdapter.executeAction('save', userId, undefined, 2 * 60 * 1000);
+            await this.logger.writeLog(`Created a save file of Server ${serverId}.`);
+            return {
+              saveFile: await serverDir.getScenarioSaveByName(saveFileName.concat('.park')),
+              scenarioName: await gameServer.getScenarioName(),
+              usedPlugin: true
+            };
+          } catch (err) {
+            await this.logger.writeError(err as Error);
           };
         };
+
         const latestAutosave = await serverDir.getScenarioAutosave();
         const status = await serverDir.getStatus();
         const initiatedScenario = await this.scenarioRepo.getScenarioByName(status.initiatedScenarioFileName);
@@ -509,8 +542,8 @@ export class OpenRCT2ServerController extends EventEmitter {
       && args.data.scenarioStatus !== 'inProgress'
     ) {
       // only count completions on uninterrupted runs
+      const startupOptions = await serverDir.getStartupOptions();
       if (!/^autosave_\d{4}-\d{2}-\d{2}/.test(status.currentScenarioFileName)) {
-        const startupOptions = await serverDir.getStartupOptions();
         if (startupOptions.keepScore) {
           const metadata = await this.scenarioRepo.getScenarioMetadataByName(args.data.currentScenarioFileName);
           if (metadata) {
@@ -521,15 +554,60 @@ export class OpenRCT2ServerController extends EventEmitter {
       };
 
       const scenarioFile = await this.scenarioRepo.getScenarioByName(status.currentScenarioFileName);
-      const newArgs = new ServerEventArgs(
-        args.serverId,
-        { 
-          scenarioFile: scenarioFile,
-          scenarioStatus: args.data.scenarioStatus
+      const eventData: {
+        scenarioName?: string,
+        scenarioStatus: "completed" | "failed",
+        screenshot?: {
+          screenshotFilePath: string,
+          usedPlugin: boolean
+        },
+        save?: {
+          saveFilePath: string,
+          saveFileName: string,
+          saveFileExtension: string,
+          usedPlugin: boolean
         }
-      );
-      this.emit('server.scenario.complete', newArgs);
-      this.startGameServerFromQueue(args.serverId, true);
+      } = {
+        scenarioName: scenarioFile?.nameNoExtension,
+        scenarioStatus: args.data.scenarioStatus
+      };
+
+      if (startupOptions.autoFinalize) {
+        try {
+          const screenshot = await this.createServerScreenshot(args.serverId, args.serverId.toString());
+          eventData.screenshot = screenshot;
+
+          const save = screenshot && screenshot.scenarioFile
+            ? { saveFile: screenshot.scenarioFile, scenarioName: screenshot.scenarioName, usedPlugin: screenshot.usedPlugin }
+            : await this.createCurrentScenarioSave(args.serverId, args.serverId.toString());
+          if (save) {
+            const finalSaveFileName = /^autosave_\d{4}-\d{2}-\d{2}/.test(save.saveFile.nameNoExtension)
+              ? `final_${createDateTimestamp()}${save.saveFile.fileExtension}`
+              : `${save.scenarioName}_final_${createDateTimestamp()}${save.saveFile.fileExtension}`;
+            const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(args.serverId);
+            await serverDir.addScenarioSaveFile(save.saveFile, finalSaveFileName);
+            eventData.save = {
+              saveFilePath: save.saveFile.path,
+              saveFileName: finalSaveFileName,
+              saveFileExtension: save.saveFile.fileExtension,
+              usedPlugin: save.usedPlugin
+            };
+          } else {
+            eventData.save = { saveFilePath: '', saveFileName: '', saveFileExtension: '', usedPlugin: false };
+          };
+
+          eventData.scenarioName = save?.saveFile.nameNoExtension ?? screenshot?.scenarioName ?? scenarioFile?.nameNoExtension;
+
+          this.emit('server.scenario.complete', new ServerEventArgs(args.serverId, eventData));
+        } catch (err) {
+          await this.logger.writeError(err as Error);
+          eventData.save = { saveFilePath: '', saveFileName: '', saveFileExtension: '', usedPlugin: false };
+          this.emit('server.scenario.complete', new ServerEventArgs(args.serverId, eventData));
+        };
+      } else {
+        this.emit('server.scenario.complete', new ServerEventArgs(args.serverId, eventData));
+        this.startGameServerFromQueue(args.serverId, true);
+      };
     };
   };
 

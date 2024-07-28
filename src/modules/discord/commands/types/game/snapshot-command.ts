@@ -5,12 +5,13 @@ import {
   underscore,
   ChatInputCommandInteraction,
   MessagePayload,
-  RawFile,
-  Snowflake
+  Snowflake,
+  TextBasedChannel
 } from 'discord.js';
 import { 
+  fileByteSizeLimit,
   CommandPermissionLevel,
-  CommandResponseBuilder,
+  ResponseBuilder,
   SubcommandsDiscordBotCommand
 } from '@modules/discord/commands';
 import { BotDataRepository } from '@modules/discord/data/repositories';
@@ -53,8 +54,6 @@ const SnapshotSubcommands = <const>[
 
 /** Represents a command for creating screenshots and save snapshots of OpenRCT2 game server scenarios. */
 export class SnapshotCommand extends SubcommandsDiscordBotCommand<undefined, typeof SnapshotSubcommands[number]> {
-  private static readonly byteSizeLimit = 8 * 1024 * 1024;
-
   private readonly logger: Logger;
   private readonly botDataRepo: BotDataRepository;
   private readonly serverHostRepo: ServerHostRepository;
@@ -83,11 +82,7 @@ export class SnapshotCommand extends SubcommandsDiscordBotCommand<undefined, typ
   /** @override */
   async execute(interaction: ChatInputCommandInteraction) {
     const subcommandName = this.getInteractionSubcommandName(interaction);
-    let commandResponse = new CommandResponseBuilder();
-    let attachments: {
-      screenshot?: RawFile,
-      finalizedSave?: RawFile
-    } = {};
+    const response = new ResponseBuilder();
 
     const guildInfo = await this.botDataRepo.getGuildInfo();
     if (isStringNullOrWhiteSpace(guildInfo.scenarioChannelId)) {
@@ -103,214 +98,181 @@ export class SnapshotCommand extends SubcommandsDiscordBotCommand<undefined, typ
 
     await interaction.deferReply();
     if (subcommandName === 'screenshot') {
-      const screenshotResult = await this.createScreenshot(serverId, interaction.user.id);
-      if (screenshotResult.attachment) {
-        attachments.screenshot = screenshotResult.attachment;
-      };
-      commandResponse = screenshotResult.response;
+      await this.createScreenshot(response, serverId, interaction.user.id);
     } else if (subcommandName === 'finalize') {
-      const saveResult = await this.createFinalizedSave(serverId, interaction.user.id);
-      if (saveResult.attachments) {
-        attachments = saveResult.attachments;
-      };
-      commandResponse = saveResult.response;
+      await this.createFinalizedSave(response, serverId, interaction.user.id);
     };
 
-    if (!commandResponse.resolve().length) {
-      commandResponse.appendToError('Unknown or unimplemented command specified.');
+    if (!response.hasContent) {
+      interaction.deferred 
+        ? await interaction.editReply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage)
+        : await interaction.reply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage);
     };
 
-    if (commandResponse.hasError) {
-      if (interaction.deferred) {
-        await interaction.editReply(commandResponse.resolve());
-      } else {
-        await interaction.reply(commandResponse.resolve());
-      };
-    } else {
-      const attachmentFiles = [];
-      for (const attachment of Object.values(attachments)) {
-        if (attachment) {
-          attachmentFiles.push(attachment);
-        };
-      };
-      if (attachments.finalizedSave) {
-        const snapshotMessage = await this.postServerScenarioSnapshot(interaction, commandResponse, attachmentFiles);
-        if (snapshotMessage) {
+    if (subcommandName === 'finalize') {
+      const snapshotMessage = await this.postServerScenarioSnapshot(response, interaction);
+      if (snapshotMessage) {
+        if (snapshotMessage.channelId != interaction.channelId) {
           await interaction.editReply(snapshotMessage.url);
         } else {
-          await interaction.editReply('Failed to post the snapshot.');
+          await interaction.editReply('Complete.');
         };
       } else {
-        const messagePayload = new MessagePayload(interaction, { content: commandResponse.resolve() });
-        messagePayload.files = attachmentFiles;
-        await interaction.editReply(messagePayload);
+        await interaction.editReply('Failed to post the snapshot. No save file was successfully generated.');
       };
+    } else {
+      const messagePayload = response.resolve(interaction);
+      await interaction.editReply(messagePayload);
     };
   };
 
-  private async createScreenshot(serverId: number, userId: Snowflake): Promise<{
-    attachment?: RawFile;
-    response: CommandResponseBuilder;
-  }> {
-    const commandResponse = new CommandResponseBuilder();
-
+  private async createScreenshot(response: ResponseBuilder, serverId: number, userId: Snowflake) {
     try {
       const screenshot = await this.openRCT2ServerController.createServerScreenshot(serverId, userId);
       if (screenshot) {
-        const screenshotAttachment = await MessagePayload.resolveFile({
+        const screenshotFilePayload = {
           attachment: screenshot.screenshotFilePath,
           name: `${screenshot.scenarioName}.png`,
-        });
-        if ((screenshotAttachment.data as Buffer).length > SnapshotCommand.byteSizeLimit) {
-          commandResponse.appendToMessage('The screenshot file is too large to be posted.');
+        };
+        const screenshotAttachment = await MessagePayload.resolveFile(screenshotFilePayload);
+        if ((screenshotAttachment.data as Buffer).length > fileByteSizeLimit) {
+          response.addText('The screenshot file is too large to be posted.');
         } else {
-          commandResponse.appendToMessage(`${underscore(italic(`Server ${serverId}`))} - ${bold(screenshot.scenarioName)} - Screenshot`);
+          response.addText(`${underscore(italic(`Server ${serverId}`))} - ${
+            /^autosave_\d{4}-\d{2}-\d{2}/.test(screenshot.scenarioName) ? bold('Scenario') : bold(screenshot.scenarioName)
+          } - Screenshot`);
           if (!screenshot.usedPlugin) {
-            commandResponse.appendToMessage(`${bold('NOTE')}: This screenshot may be inaccurate as it is based off of the most recent autosave.`);
+            response.addText(`${bold('NOTE')}: This screenshot may be inaccurate as it is based off of the most recent autosave.`);
           };
-        };
-        return { 
-          attachment: screenshotAttachment,
-          response: commandResponse
+          response.addFiles(screenshotFilePayload);
         };
       };
-    } catch { };
-
-    commandResponse.appendToError(`Failed to capture a screenshot of ${underscore(italic(`Server ${serverId}`))}.`);
-    return { response: commandResponse };
+    } catch {
+      response.addErrorText(`Failed to capture a screenshot of ${underscore(italic(`Server ${serverId}`))}.`);
+    };
   };
 
-  private async createFinalizedSave(serverId: number, userId: Snowflake): Promise<{
-    attachments?: {
-      screenshot?: RawFile,
-      finalizedSave?: RawFile
-    };
-    response: CommandResponseBuilder;
-  }> {
-    const commandResponse = new CommandResponseBuilder();
-    const attachments: {
-      screenshot?: RawFile,
-      finalizedSave?: RawFile
-    } = {};
-
+  private async createFinalizedSave(response: ResponseBuilder, serverId: number, userId: Snowflake) {
     try {
-      let scenarioName = '';
       const screenshot = await this.openRCT2ServerController.createServerScreenshot(serverId, userId);
-      if (screenshot) {
-        scenarioName = screenshot.scenarioName;
-        const screenshotAttachment = await MessagePayload.resolveFile({
-          attachment: screenshot.screenshotFilePath,
-          name: `${screenshot.scenarioName}.png`,
-        });
-        attachments.screenshot = screenshotAttachment;
-      };
-
       const save = screenshot && screenshot.scenarioFile
         ? { saveFile: screenshot.scenarioFile, scenarioName: screenshot.scenarioName, usedPlugin: screenshot.usedPlugin }
         : await this.openRCT2ServerController.createCurrentScenarioSave(serverId, userId);
+
       if (save) {
-        scenarioName = save.scenarioName;
+        const noteSegments = [];
+        response.addText(`${underscore(italic(`Server ${serverId}`))} - ${
+          /^autosave_\d{4}-\d{2}-\d{2}/.test(save.scenarioName) ? bold('Scenario') : bold(save.scenarioName)
+        } - Snapshot`);
+
+        if (screenshot) {
+          const screenshotFilePayload = {
+            attachment: screenshot.screenshotFilePath,
+            name: `${screenshot.scenarioName}.png`,
+          };
+          const screenshotAttachment = await MessagePayload.resolveFile(screenshotFilePayload);
+          if ((screenshotAttachment.data as Buffer).length > fileByteSizeLimit) {
+            response.addText('Could not post screenshot as the file size is too big.');
+          } else {
+            if (!screenshot.usedPlugin) {
+              noteSegments.push('This screenshot may be inaccurate as it is based off of the most recent autosave.');
+            };
+            response.addFiles(screenshotFilePayload);
+          };
+        };
+
         const finalSaveFileName = /^autosave_\d{4}-\d{2}-\d{2}/.test(save.saveFile.nameNoExtension)
           ? `final_${createDateTimestamp()}${save.saveFile.fileExtension}`
           : `${save.scenarioName}_final_${createDateTimestamp()}${save.saveFile.fileExtension}`;
         const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
         await serverDir.addScenarioSaveFile(save.saveFile, finalSaveFileName);
-        const saveAttachment = await MessagePayload.resolveFile({
+        const saveFilePayload = {
           attachment: save.saveFile.path,
           name: `s${serverId}_${finalSaveFileName}`,
-        });
-        attachments.finalizedSave = saveAttachment;
-      };
-
-      if (scenarioName.length > 0) {
-        const noteSegments = [];
-        commandResponse.appendToMessage(`${underscore(italic(`Server ${serverId}`))} - ${bold(scenarioName)} - Snapshot`);
-        if (screenshot && attachments.screenshot) {
-          if ((attachments.screenshot.data as Buffer).length > SnapshotCommand.byteSizeLimit) {
-            commandResponse.appendToMessage('Could not post screenshot as the file size is too big.');
-            attachments.screenshot = undefined;
-          } else {
-            if (!screenshot.usedPlugin) {
-              noteSegments.push('This screenshot may be inaccurate as it is based off of the most recent autosave.');
-            };
-          };
         };
-        if (save && attachments.finalizedSave) {
-          if ((attachments.finalizedSave.data as Buffer).length > SnapshotCommand.byteSizeLimit) {
-            attachments.finalizedSave = undefined;
-            try {
-              const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
-              const latestAutosave = await serverDir.getScenarioAutosave();
-              const saveAttachment = await MessagePayload.resolveFile({
-                attachment: latestAutosave.path,
-                name: `s${serverId}_final_${createDateTimestamp()}${latestAutosave.fileExtension}`,
-              });
-              if ((saveAttachment.data as Buffer).length > SnapshotCommand.byteSizeLimit) {
-                commandResponse.appendToMessage('Could not post the finalized save file as the file size is too big.');
-              } else {
-                attachments.finalizedSave = saveAttachment;
-                noteSegments.push('This save file is from the most recent autosave and could be outdated.');
-                noteSegments.push('The original finalized save file size was too big to post.');
-              };
-            } catch {
-              commandResponse.appendToMessage('Could not post the finalized save file as the file size is too big.');
+        const saveAttachment = await MessagePayload.resolveFile(saveFilePayload);
+
+        if ((saveAttachment.data as Buffer).length > fileByteSizeLimit) {
+          try {
+            const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+            const latestAutosave = await serverDir.getScenarioAutosave();
+            const autosaveFilePayload = {
+              attachment: latestAutosave.path,
+              name: `s${serverId}_final_${createDateTimestamp()}${latestAutosave.fileExtension}`,
             };
-          } else {
-            if (!save.usedPlugin) {
+            const autosaveAttachment = await MessagePayload.resolveFile(autosaveFilePayload);
+            if ((autosaveAttachment.data as Buffer).length > fileByteSizeLimit) {
+              response.addText('Could not post the finalized save file as the file size is too big.');
+            } else {
+              response.addFiles(autosaveFilePayload);
               noteSegments.push('This save file is from the most recent autosave and could be outdated.');
+              noteSegments.push('The original finalized save file size was too big to post.');
             };
+          } catch {
+            response.addText('Could not post the finalized save file as the file size is too big.');
           };
+        } else {
+          if (!save.usedPlugin) {
+            noteSegments.push('This save file is from the most recent autosave and could be outdated.');
+          };
+          response.addFiles(saveFilePayload);
         };
 
         if (noteSegments.length > 0) {
-          commandResponse.appendToMessage(`${bold('NOTE')}: ${noteSegments.join(' ')}`);
-        };
-        return {
-          attachments: attachments,
-          response: commandResponse
+          response.addText(`${bold('NOTE')}: ${noteSegments.join(' ')}`);
         };
       };
-    } catch { };
-
-    commandResponse.appendToError(`Failed to finalize a save file for ${underscore(italic(`Server ${serverId}`))}.`);
-    return { response: commandResponse };
+    } catch {
+      response.addErrorText(`Failed to finalize a save file for ${underscore(italic(`Server ${serverId}`))}.`);
+    };
   };
 
   /**
    * Posts a message with the snapshot files.
    * @async
    * @param interaction
-   * @param messagePayload
    */
   private async postServerScenarioSnapshot(
-    interaction: ChatInputCommandInteraction,
-    response: CommandResponseBuilder,
-    attachmentFiles: RawFile[]
+    response: ResponseBuilder,
+    interaction: ChatInputCommandInteraction
   ) {
     try {
       const guildInfo = await this.botDataRepo.getGuildInfo();
       const channel = await interaction.guild?.channels.fetch(guildInfo.scenarioChannelId);
+
       if (channel && channel.isTextBased()) {
+        const targetPayload = response.resolve(channel);
         let totalSize = 0;
-        for (const attachmentFile of attachmentFiles) {
+        for (const attachmentFile of targetPayload.files ?? []) {
           totalSize += (attachmentFile.data as Buffer).length;
         };
-        if (totalSize > SnapshotCommand.byteSizeLimit) {
-          const messagePayload = new MessagePayload(interaction, { content: response.resolve() });
-          messagePayload.files = attachmentFiles.slice(0, 1);
-          const firstMessage = await channel.send(messagePayload);
-          for (const attachmentFile of attachmentFiles.slice(1)) {
-            await wait(1, 's');
-            await channel.send({ files: [{ attachment: attachmentFile.data as Buffer, name: attachmentFile.name }] });
-          };
+        if (totalSize > fileByteSizeLimit) { // should have 2 files here
+          const secondFile = targetPayload.files?.pop()!;
+          const firstMessage = await channel.send(targetPayload);
+          await wait(1, 's');
+          await channel.send({ files: [{ attachment: secondFile.data as Buffer, name: secondFile.name }] });
           return firstMessage;
-        } else {
-          const messagePayload = new MessagePayload(interaction, { content: response.resolve() });
-          messagePayload.files = attachmentFiles;
-          return await channel.send(messagePayload);
+        } else if (totalSize) {
+          return await channel.send(targetPayload);
+        };
+      } else {
+        response.addTextToStart('Invalid scenario channel id was specified.');
+        const targetPayload = response.resolve(interaction);
+        let totalSize = 0;
+        for (const attachmentFile of targetPayload.files ?? []) {
+          totalSize += (attachmentFile.data as Buffer).length;
+        };
+        if (totalSize > fileByteSizeLimit) {
+          const initialChannel = await interaction.guild?.channels.fetch(interaction.channelId) as TextBasedChannel;
+          const secondFile = targetPayload.files?.pop()!;
+          const firstMessage = await interaction.editReply(targetPayload);
+          await wait(1, 's');
+          await initialChannel.send({ files: [{ attachment: secondFile.data as Buffer, name: secondFile.name }] });
+          return firstMessage;
+        } else if (totalSize) {
+          return await interaction.editReply(targetPayload);
         };
       };
-      throw new Error('Could not post scenario snapshot to a text channel.');
     } catch (err) {
       await this.logger.writeError(err as Error);
     };

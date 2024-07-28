@@ -2,13 +2,14 @@ import path from 'path';
 import {
   bold,
   ChatInputCommandInteraction,
+  inlineCode,
   italic,
   underscore,
 } from 'discord.js';
 import { EOL } from 'os';
 import { 
   CommandPermissionLevel,
-  CommandResponseBuilder,
+  ResponseBuilder,
   SubcommandsDiscordBotCommand
 } from '@modules/discord/commands';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
@@ -25,6 +26,7 @@ import {
 } from '@modules/openrct2/data/repositories';
 import { BotPluginFileName } from '@modules/openrct2/data/types';
 import { fisherYatesShuffle } from '@modules/utils/array-utils';
+import { BotDataRepository } from '@modules/discord/data/repositories';
 import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
 
 type TextAlignment = 'left' | 'centred';
@@ -95,6 +97,25 @@ const ServerSubcommandGroups = <const>[
     name: 'queue',
     subcommands: [
       {
+        name: 'set',
+        description: 'Sets the queue options of an OpenRCT2 server.',
+        permissionLevel: CommandPermissionLevel.Moderator,
+        options: [
+          {
+            name: 'size',
+            type: 'integer',
+            description: 'The new size for the queue.',
+            minValue: 1
+          },
+          {
+            name: 'server-id',
+            type: 'integer',
+            description: 'The id number of the server to start.',
+            minValue: 1
+          }
+        ]
+      },
+      {
         name: 'start',
         description: 'Opens an OpenRCT2 game server on a queued scenario.',
         options: [
@@ -112,15 +133,15 @@ const ServerSubcommandGroups = <const>[
         ]
       },
       {
-        name: 'set',
-        description: 'Sets the queue options of an OpenRCT2 server.',
+        name: 'add',
+        description: 'Adds a scenario to the queue of an OpenRCT2 server.',
         permissionLevel: CommandPermissionLevel.Moderator,
         options: [
           {
-            name: 'size',
-            type: 'integer',
-            description: 'The new size for the queue.',
-            minValue: 1
+            name: 'name',
+            type: 'string',
+            description: 'The name of the scenario file to queue up.',
+            required: true
           },
           {
             name: 'server-id',
@@ -150,6 +171,11 @@ const ServerSubcommandGroups = <const>[
           description: 'The new port number.',
           minValue: Math.pow(2, 10) + 1,
           maxValue: Math.pow(2, 16) - 1
+        },
+        {
+          name: 'auto-finalize',
+          type: 'boolean',
+          description: 'To automatically finalize scenario saves on completion or not.',
         },
         {
           name: 'server-id',
@@ -560,6 +586,19 @@ const ServerSubcommands = <const>[
     ]
   },
   { 
+    name: 'stop',
+    description: 'Stops an OpenRCT2 server.',
+    permissionLevel: CommandPermissionLevel.Moderator,
+    options: [
+      {
+        name: 'server-id',
+        type: 'integer',
+        description: 'The id number of the server to stop.',
+        minValue: 1
+      }
+    ]
+  },
+  { 
     name: 'settings',
     description: 'Shows the current settings of an OpenRCT2 server.',
     permissionLevel: CommandPermissionLevel.Moderator,
@@ -579,6 +618,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
   typeof ServerSubcommandGroups[number],
   typeof ServerSubcommands[number]
 > {
+  private readonly botDataRepo: BotDataRepository;
   private readonly gameBuildRepo: OpenRCT2BuildRepository;
   private readonly pluginRepo: PluginRepository;
   private readonly scenarioRepo: ScenarioRepository;
@@ -586,6 +626,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
   private readonly openRCT2ServerController: OpenRCT2ServerController;
 
   constructor(
+    botDataRepo: BotDataRepository,
     gameBuildRepo: OpenRCT2BuildRepository,
     pluginRepo: PluginRepository,
     scenarioRepo: ScenarioRepository,
@@ -600,6 +641,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       CommandPermissionLevel.Trusted
     );
 
+    this.botDataRepo = botDataRepo;
     this.gameBuildRepo = gameBuildRepo;
     this.pluginRepo = pluginRepo;
     this.scenarioRepo = scenarioRepo;
@@ -611,63 +653,80 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
   async execute(interaction: ChatInputCommandInteraction) {
     const groupName = this.getInteractionSubcommandGroupName(interaction);
     const subcommandName = this.getInteractionSubcommandName(interaction);
-    let commandResponse = new CommandResponseBuilder();
+    const response = new ResponseBuilder();
 
     if (subcommandName === 'new') {
-      //commandResponse = await this.createNewServer();
+      //response = await this.createNewServer();
     } else {
       const serverId = this.getInteractionOption(interaction, 'server-id')?.value as number ?? 1;
 
       // Subcommands
       if (subcommandName === 'settings') {
-        commandResponse = await this.getServerSettings(serverId);
+        await this.getServerSettings(response, serverId);
       } else if (subcommandName === 'restart') {
         await interaction.deferReply();
 
         const options = this.getInteractionSubcommandOptions(interaction, subcommandName);
-        commandResponse = await this.startServerOnAutosave(
+        await this.startServerOnAutosave(
+          response,
           serverId,
           options.get('index')?.value as number ?? 1
         );
-      
+      } else if (subcommandName === 'stop') {
+        await interaction.deferReply();
+
+        await this.stopServer(response, serverId);
+
       // Groups
       } else if (groupName === 'scenario') {
         await interaction.deferReply();
 
         if (subcommandName === 'start') {
-          commandResponse = await this.startServerOnScenario(
+          await this.startServerOnScenario(
+            response, 
             serverId,
             this.getRequiredInteractionOption(interaction, 'name').value as string
           );
         } else if (subcommandName === 'random-start') {
-          commandResponse = await this.startServerOnRandomScenario(serverId);
+          await this.startServerOnRandomScenario(response, serverId);
         } else if (subcommandName === 'autosave-start') {
           const options = this.getInteractionSubcommandGroupSubcommandOptions(interaction, groupName, subcommandName);
-          commandResponse = await this.startServerOnAutosave(
+          await this.startServerOnAutosave(
+            response, 
             serverId,
             options.get('index')?.value as number ?? 1
           );
         };
       } else if (groupName === 'queue') {
-        if (subcommandName === 'start') {
+        if (subcommandName === 'set') {
+          const options = this.getInteractionSubcommandGroupSubcommandOptions(interaction, groupName, subcommandName);
+          await this.setServerQueueOptions(
+            response, 
+            serverId,
+            options.get('size')?.value as number
+          );
+        } else if (subcommandName === 'start') {
           await interaction.deferReply();
 
           const options = this.getInteractionSubcommandGroupSubcommandOptions(interaction, groupName, subcommandName);
-          commandResponse = await this.startServerFromQueue(
+          await this.startServerFromQueue(
+            response,
             serverId,
             options.get('defer')?.value as boolean
           );
-        } else if (subcommandName === 'set') {
+        } else if (subcommandName === 'add') {
           const options = this.getInteractionSubcommandGroupSubcommandOptions(interaction, groupName, subcommandName);
-          commandResponse = await this.setServerQueueOptions(
+          await this.addToServerQueue(
+            response,
             serverId,
-            options.get('size')?.value as number
+            options.get('name')?.value as string
           );
         };
       } else if (groupName === 'startup') {
         if (subcommandName === 'set') {
           const options = this.getInteractionSubcommandGroupSubcommandOptions(interaction, groupName, subcommandName);
-          commandResponse = await this.setServerStartupOptions(
+          await this.setServerStartupOptions(
+            response, 
             serverId,
             options.get('headless')?.value as boolean,
             options.get('port')?.value as number
@@ -676,7 +735,8 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       } else if (groupName === 'build') {
         if (subcommandName === 'set') {
           const options = this.getInteractionSubcommandGroupSubcommandOptions(interaction, groupName, subcommandName);
-          commandResponse = await this.setServerGameBuild(
+          await this.setServerGameBuild(
+            response,
             serverId,
             `v${(options.get('version')!.value as string).replace('v', '')}`,
             options.get('os')!.value as string,
@@ -688,7 +748,8 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       } else if (groupName === 'adapter') {
         if (subcommandName === 'set') {
           const options = this.getInteractionSubcommandGroupSubcommandOptions(interaction, groupName, subcommandName);
-          commandResponse = await this.setServerAdapterOptions(
+          await this.setServerAdapterOptions(
+            response,
             serverId,
             options.get('enable')?.value as boolean,
             options.get('adapter-port')?.value as number
@@ -697,7 +758,8 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       } else if (groupName === 'welcome') {
         if (subcommandName === 'plugin-set') {
           const options = this.getInteractionSubcommandGroupSubcommandOptions(interaction, groupName, subcommandName);
-          commandResponse = await this.setServerWelcomeOptions(
+          await this.setServerWelcomeOptions(
+            response,
             serverId,
             options.get('enable')?.value as boolean
           );
@@ -725,7 +787,8 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
             };
           };
   
-          commandResponse = await this.setServerWelcomeText(
+          await this.setServerWelcomeText(
+            response,
             serverId,
             options.get('window-title')?.value as string,
             bodyLines,
@@ -757,7 +820,8 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
             };
           };
   
-          commandResponse = await this.setServerWelcomeFormat(
+          await this.setServerWelcomeFormat(
+            response,
             serverId,
             options.get('window-title')?.value as TextFormat,
             options.get('body-alignment')?.value as TextAlignment,
@@ -772,64 +836,79 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       };
     };
 
-    if (0 === commandResponse.resolve().length) {
-      commandResponse.appendToError('Unknown or unimplemented command specified.');
+    if (!response.hasContent) {
+      interaction.deferred 
+        ? await interaction.editReply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage)
+        : await interaction.reply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage);
     };
 
+    const messagePayload = response.resolve(interaction);
     interaction.deferred
-      ? await interaction.editReply(commandResponse.resolve())
-      : await interaction.reply(commandResponse.resolve());
+      ? await interaction.editReply(messagePayload)
+      : await interaction.reply(messagePayload);
   };
 
-  private async getServerSettings(serverId: number) {
-    const commandResponse = new CommandResponseBuilder();
-
+  private async getServerSettings(response: ResponseBuilder, serverId: number) {
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
     const startupOptions = await serverDir.getStartupOptions();
     const pluginOptions = await serverDir.getPluginOptions();
     const queue = await serverDir.getQueue();
-    commandResponse.appendToMessage(this.formatServerSettingsMessage(
+    response.addText(this.formatServerSettingsMessage(
       serverId,
       startupOptions,
       pluginOptions,
       queue
     ));
-
-    return commandResponse;
   };
 
   private async setServerStartupOptions(
+    response: ResponseBuilder,
     serverId: number,
     headless?: boolean,
-    portNumber?: number
+    portNumber?: number,
+    autoFinalize?: boolean
   ) {
-    const commandResponse = new CommandResponseBuilder();
-
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
     const startupOptions = await serverDir.getStartupOptions();
 
     if (headless != undefined) {
       startupOptions.headless = headless;
-      commandResponse.appendToMessage(`Updated to ${headless ? bold('run') : bold('not run')} as a headless server.`);
+      response.addText(`Updated to ${headless ? bold('run') : bold('not run')} as a ${bold('headless')} server.`);
     };
 
     if (portNumber != undefined) {
       startupOptions.port = portNumber;
-      commandResponse.appendToMessage(`Updated to use port number ${bold(`${portNumber}`)}.`);
+      response.addText(`Updated to use port number ${bold(`${portNumber}`)}.`);
     };
 
-    if (isStringNullOrWhiteSpace(commandResponse.message)) {
-      commandResponse.appendToMessage('No changes were made.');
-    } else if (!commandResponse.hasError) {
+    if (autoFinalize != undefined) {
+      if (autoFinalize) {
+        const guildInfo = await this.botDataRepo.getGuildInfo();
+        if (isStringNullOrWhiteSpace(guildInfo.scenarioChannelId)) {
+          response.addErrorText(`Assign the ${italic('Scenario Channel')} with the ${
+            inlineCode('/channel')
+          } command first to set the ${inlineCode('auto-finalize')} option to ${inlineCode('True')}.`);
+        } else {
+          startupOptions.autoFinalize = true;
+          response.addText(`Updated to ${bold('finalize')} scenarios on completion.`);
+        };
+      } else {
+        startupOptions.autoFinalize = false;
+        response.addText(`Updated to ${bold('not finalize')} scenarios on completion.`);
+      };
+    };
+
+    if (response.hasText) {
+      response.addText('No changes were made.');
+    } else if (!response.hasError) {
       await serverDir.updateStartupOptions(startupOptions);
-      commandResponse.appendToMessageBeginning(`${underscore(italic(`Server ${serverId}`))}:${EOL}`);
-      commandResponse.appendToMessage(`${EOL}The above changes require a server restart to apply.`);
+      response.addTextToStart(`${underscore(italic(`Server ${serverId}`))}:${EOL}`);
+      response.addText(`${EOL}The above changes require a server restart to apply.`);
     };
-
-    return commandResponse;
   };
 
   private async setServerGameBuild(
+    response: ResponseBuilder,
     serverId: number,
     baseVersion: string,
     operatingSystem: string,
@@ -837,8 +916,6 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     architecture?: string,
     codename?: string
   ) {
-    const commandResponse = new CommandResponseBuilder();
-
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
     const startupOptions = await serverDir.getStartupOptions();
 
@@ -853,48 +930,45 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     };
     const gameBuilds = await this.gameBuildRepo.getOpenRCT2BuildsByFuzzySearch(buildName);
     if (!gameBuilds.length) {
-      commandResponse.appendToError('Specified parameters returned no OpenRCT2 builds.');
+      response.addErrorText('Specified parameters returned no OpenRCT2 builds.');
     } else if (gameBuilds.length > 1) {
-      commandResponse.appendToError('Specified parameters returned multiple OpenRCT2 builds.');
+      response.addErrorText('Specified parameters returned multiple OpenRCT2 builds.');
     } else {
       startupOptions.openRCT2ExecutablePath = gameBuilds[0].pathToExecutable;
-      commandResponse.appendToMessage(`Changed to build ${bold(gameBuilds[0].name)}.`);
+      response.addText(`Changed to build ${bold(gameBuilds[0].name)}.`);
     };
 
-    if (isStringNullOrWhiteSpace(commandResponse.message)) {
-      commandResponse.appendToMessage('No changes were made.');
-    } else if (!commandResponse.hasError) {
+    if (response.hasText) {
+      response.addText('No changes were made.');
+    } else if (!response.hasError) {
       await serverDir.updateStartupOptions(startupOptions);
-      commandResponse.appendToMessageBeginning(`${underscore(italic(`Server ${serverId}`))}:${EOL}`);
-      commandResponse.appendToMessage(`${EOL}The above changes require a server restart to apply.`);
+      response.addTextToStart(`${underscore(italic(`Server ${serverId}`))}:${EOL}`);
+      response.addText(`${EOL}The above changes require a server restart to apply.`);
     };
-
-    return commandResponse;
   };
 
   private async setServerQueueOptions(
+    response: ResponseBuilder,
     serverId: number,
     size?: number
   ) {
-    const commandResponse = new CommandResponseBuilder();
-
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
     const queue = await serverDir.getQueue();
 
     if (size != undefined) {
       queue.size = size;
-      commandResponse.appendToMessage(`Updated the scenario queue to ${size > 0 ? `be of size ${bold(`${size}`)}` : bold('INACTIVE')}.`);
+      response.addText(`Updated the scenario queue to ${size > 0 ? `be of size ${bold(`${size}`)}` : bold('INACTIVE')}.`);
 
       if (size < queue.waitingScenarios.length) {
         const removed = queue.waitingScenarios.splice(size);
         const formattedRemoved = removed.map(scenarioFileName => `• ${italic(scenarioFileName)}`);
-        if (0 === size) {
-          commandResponse.appendToMessage(
+        if (!size) {
+          response.addText(
             `${EOL}Due to being set to inactive, the scenario queue has been cleared out:`,
             ...formattedRemoved
           );
         } else {
-          commandResponse.appendToMessage(
+          response.addText(
             `${EOL}Due to the smaller queue size, some queued scenarios were removed:`,
             ...formattedRemoved
           );
@@ -902,23 +976,46 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       };
     };
 
-    if (isStringNullOrWhiteSpace(commandResponse.message)) {
-      commandResponse.appendToMessage('No changes were made.');
-    } else if (!commandResponse.hasError) {
+    if (response.hasText) {
+      response.addText('No changes were made.');
+    } else if (!response.hasError) {
       await serverDir.updateQueue(queue);
-      commandResponse.appendToMessageBeginning(`${underscore(italic(`Server ${serverId}`))}:${EOL}`);
+      response.addTextToStart(`${underscore(italic(`Server ${serverId}`))}:${EOL}`);
     };
 
-    return commandResponse;
+    return response;
+  };
+
+  private async addToServerQueue(response: ResponseBuilder, serverId: number, scenarioName: string) {
+    const scenarios = await this.scenarioRepo.getScenariosByFuzzySearch(scenarioName);
+    if (1 === scenarios.length) {
+      const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+      const queue = await serverDir.getQueue();
+
+      if (queue.waitingScenarios.length < queue.size) {
+        queue.waitingScenarios.push(scenarios[0].name);
+        await serverDir.updateQueue(queue);
+        response.addText(
+          `Added the ${
+            bold(scenarios[0].nameNoExtension)
+          } scenario to ${underscore(italic(`Server ${serverId}`))}'s scenario queue.`
+        );
+      } else {
+        response.addErrorText(`Cannot add additional scenarios to ${underscore(italic(`Server ${serverId}`))}'s scenario queue`);
+      };
+    } else {
+      response.addErrorText(
+        this.formatNonsingleScenarioError(scenarios.map(scenario => scenario.name), scenarioName)
+      );
+    };
   };
 
   private async setServerAdapterOptions(
+    response: ResponseBuilder,
     serverId: number,
     enable?: boolean,
     adapterPortNumber?: number
   ) {
-    const commandResponse = new CommandResponseBuilder();
-
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
     const pluginOptions = await serverDir.getPluginOptions();
 
@@ -926,15 +1023,15 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       pluginOptions.plugins = pluginOptions.plugins.filter(plugin => plugin === BotPluginFileName.ServerAdapter);
       if (enable) {
         pluginOptions.plugins.push(BotPluginFileName.ServerAdapter);
-        commandResponse.appendToMessage(`Enabled the adapter plugin.`);
+        response.addText(`Enabled the adapter plugin.`);
       } else {
-        commandResponse.appendToMessage(`Disabled the adapter plugin.`);
+        response.addText(`Disabled the adapter plugin.`);
       };
     };
 
     if (adapterPortNumber != undefined) {
       if (adapterPortNumber < Math.pow(2, 10) + 1 || adapterPortNumber > Math.pow(2, 16) - 1) {
-        commandResponse.appendToError(`Invalid port number specified: ${bold(`${adapterPortNumber}`)}`);
+        response.addErrorText(`Invalid port number specified: ${bold(`${adapterPortNumber}`)}`);
       } else {
         const currentPorts = [];
         const serverDirs = await this.serverHostRepo.getAllOpenRCT2ServerRepositories();
@@ -948,28 +1045,24 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
         };
 
         if (currentPorts.includes(adapterPortNumber)) {
-          commandResponse.appendToError(`Port number ${bold(`${adapterPortNumber}`)} is already in use by a different game server or plugin.`);
+          response.addErrorText(`Port number ${bold(`${adapterPortNumber}`)} is already in use by a different game server or plugin.`);
         } else {
           pluginOptions.adapterPluginPort = adapterPortNumber;
-          commandResponse.appendToMessage(`Updated the adapter plugin to use port number ${bold(`${adapterPortNumber}`)}.`);
+          response.addText(`Updated the adapter plugin to use port number ${bold(`${adapterPortNumber}`)}.`);
         };
       };
     };
 
-    if (isStringNullOrWhiteSpace(commandResponse.message)) {
-      commandResponse.appendToMessage('No changes were made.');
-    } else if (!commandResponse.hasError) {
+    if (response.hasText) {
+      response.addText('No changes were made.');
+    } else if (!response.hasError) {
       await serverDir.updatePluginOptions(pluginOptions);
-      commandResponse.appendToMessageBeginning(`${underscore(italic(`Server ${serverId}`))}:${EOL}`);
-      commandResponse.appendToMessage(`${EOL}The above changes require a server restart to apply.`);
+      response.addTextToStart(`${underscore(italic(`Server ${serverId}`))}:${EOL}`);
+      response.addText(`${EOL}The above changes require a server restart to apply.`);
     };
-
-    return commandResponse;
   };
 
-  private async setServerWelcomeOptions(serverId: number, enable?: boolean) {
-    const commandResponse = new CommandResponseBuilder();
-
+  private async setServerWelcomeOptions(response: ResponseBuilder, serverId: number, enable?: boolean) {
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
     const pluginOptions = await serverDir.getPluginOptions();
 
@@ -977,24 +1070,23 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       pluginOptions.plugins = pluginOptions.plugins.filter(plugin => plugin === BotPluginFileName.Welcome);
       if (enable) {
         pluginOptions.plugins.push(BotPluginFileName.ServerAdapter);
-        commandResponse.appendToMessage(`Enabled the welcome plugin.`);
+        response.addText(`Enabled the welcome plugin.`);
       } else {
-        commandResponse.appendToMessage(`Disabled the welcome plugin.`);
+        response.addText(`Disabled the welcome plugin.`);
       };
     };
 
-    if (isStringNullOrWhiteSpace(commandResponse.message)) {
-      commandResponse.appendToMessage('No changes were made.');
-    } else if (!commandResponse.hasError) {
+    if (response.hasText) {
+      response.addText('No changes were made.');
+    } else if (!response.hasError) {
       await serverDir.updatePluginOptions(pluginOptions);
-      commandResponse.appendToMessageBeginning(`${underscore(italic(`Server ${serverId}`))}:${EOL}`);
-      commandResponse.appendToMessage(`${EOL}The above changes require a server restart to apply.`);
+      response.addTextToStart(`${underscore(italic(`Server ${serverId}`))}:${EOL}`);
+      response.addText(`${EOL}The above changes require a server restart to apply.`);
     };
-
-    return commandResponse;
   }
 
   private async setServerWelcomeText(
+    response: ResponseBuilder,
     serverId: number,
     windowTitle?: string,
     bodyLines = new Map<number, string>(),
@@ -1002,14 +1094,12 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     listLines = new Map<number, string>(),
     footerLines = new Map<number, string>(),
   ) {
-    const commandResponse = new CommandResponseBuilder();
-
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
     const pluginOptions = await serverDir.getPluginOptions();
 
     if (windowTitle != undefined) {
       pluginOptions.welcomeMessage.title = windowTitle;
-      commandResponse.appendToMessage(`Updated the welcome window title to ${bold(windowTitle)}.`);
+      response.addText(`Updated the welcome window title to ${bold(windowTitle)}.`);
     };
 
     if (bodyLines.size > 0) {
@@ -1023,12 +1113,12 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       const updatedBodyLines = Array.from(bodyLinesMap.entries());
       updatedBodyLines.sort((a, b) => a[0] - b[0]);
       pluginOptions.welcomeMessage.bodyLines = updatedBodyLines;
-      commandResponse.appendToMessage('Updated the welcome message body.');
+      response.addText('Updated the welcome message body.');
     };
 
     if (listTitle != undefined) {
       pluginOptions.welcomeMessage.listTitle = listTitle;
-      commandResponse.appendToMessage(`Updated the welcome message list title to ${bold(listTitle)}.`);
+      response.addText(`Updated the welcome message list title to ${bold(listTitle)}.`);
     };
 
     if (listLines.size > 0) {
@@ -1042,7 +1132,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       const updatedListLines = Array.from(listLinesMap.entries());
       updatedListLines.sort((a, b) => a[0] - b[0]);
       pluginOptions.welcomeMessage.listLines = updatedListLines;
-      commandResponse.appendToMessage('Updated the welcome message list content.');
+      response.addText('Updated the welcome message list content.');
     };
 
     if (footerLines.size > 0) {
@@ -1056,21 +1146,22 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       const updatedFooterLines = Array.from(footerLinesMap.entries());
       updatedFooterLines.sort((a, b) => a[0] - b[0]);
       pluginOptions.welcomeMessage.footerLines = updatedFooterLines;
-      commandResponse.appendToMessage('Updated the welcome message footer.');
+      response.addText('Updated the welcome message footer.');
     };
 
-    if (isStringNullOrWhiteSpace(commandResponse.message)) {
-      commandResponse.appendToMessage('No changes were made.');
-    } else if (!commandResponse.hasError) {
+    if (!response.hasText) {
+      response.addText('No changes were made.');
+    } else if (!response.hasError) {
       await serverDir.updatePluginOptions(pluginOptions);
-      commandResponse.appendToMessageBeginning(`${underscore(italic(`Server ${serverId}`))}:${EOL}`);
-      commandResponse.appendToMessage(`${EOL}The above changes require a server restart to apply.`);
+      response.addTextToStart(`${underscore(italic(`Server ${serverId}`))}:${EOL}`);
+      response.addText(`${EOL}The above changes require a server restart to apply.`);
     };
 
-    return commandResponse;
+    return response;
   };
 
   private async setServerWelcomeFormat(
+    response: ResponseBuilder,
     serverId: number,
     windowTitleFormat?: TextFormat,
     bodyAlignment?: TextAlignment,
@@ -1081,29 +1172,27 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     listFormats = new Map<number, TextFormat>(),
     footerFormats = new Map<number, TextFormat>(),
   ) {
-    const commandResponse = new CommandResponseBuilder();
-
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
     const pluginOptions = await serverDir.getPluginOptions();
 
     if (windowTitleFormat != undefined) {
       pluginOptions.welcomeMessage.title = '';
-      commandResponse.appendToMessage(`Updated the welcome window title to be blank.`);
+      response.addText(`Updated the welcome window title to be blank.`);
     };
 
     if (bodyAlignment != undefined) {
       pluginOptions.welcomeMessage.bodyAlignment = bodyAlignment;
-      commandResponse.appendToMessage(`Updated the welcome message body alignment to ${bold(bodyAlignment)}.`);
+      response.addText(`Updated the welcome message body alignment to ${bold(bodyAlignment)}.`);
     };
 
     if (listAlignment != undefined) {
       pluginOptions.welcomeMessage.listAlignment = listAlignment;
-      commandResponse.appendToMessage(`Updated the welcome message list alignment to ${bold(listAlignment)}.`);
+      response.addText(`Updated the welcome message list alignment to ${bold(listAlignment)}.`);
     };
 
     if (footerAlignment != undefined) {
       pluginOptions.welcomeMessage.footerAlignment = footerAlignment;
-      commandResponse.appendToMessage(`Updated the welcome message footer alignment to ${bold(footerAlignment)}.`);
+      response.addText(`Updated the welcome message footer alignment to ${bold(footerAlignment)}.`);
     };
 
     if (bodyFormats.size > 0) {
@@ -1117,16 +1206,16 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       const updatedBodyLines = Array.from(bodyLinesMap.entries());
       updatedBodyLines.sort((a, b) => a[0] - b[0]);
       pluginOptions.welcomeMessage.bodyLines = updatedBodyLines;
-      commandResponse.appendToMessage('Updated the welcome message body.');
+      response.addText('Updated the welcome message body.');
     };
 
     if (listTitleFormat != undefined) {
       if (listTitleFormat === '[blank]') {
         pluginOptions.welcomeMessage.listTitle = '';
-        commandResponse.appendToMessage(`Updated the welcome message list title to be blank.`);
+        response.addText(`Updated the welcome message list title to be blank.`);
       } else {
         pluginOptions.welcomeMessage.listTitle = undefined;
-        commandResponse.appendToMessage(`Cleared the welcome message list title.`);
+        response.addText(`Cleared the welcome message list title.`);
       }
     };
 
@@ -1141,7 +1230,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       const updatedListLines = Array.from(listLinesMap.entries());
       updatedListLines.sort((a, b) => a[0] - b[0]);
       pluginOptions.welcomeMessage.listLines = updatedListLines;
-      commandResponse.appendToMessage('Updated the welcome message list content.');
+      response.addText('Updated the welcome message list content.');
     };
 
     if (footerFormats.size > 0) {
@@ -1155,73 +1244,52 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       const updatedFooterLines = Array.from(footerLinesMap.entries());
       updatedFooterLines.sort((a, b) => a[0] - b[0]);
       pluginOptions.welcomeMessage.footerLines = updatedFooterLines;
-      commandResponse.appendToMessage('Updated the welcome message footer.');
+      response.addText('Updated the welcome message footer.');
     };
 
-    if (isStringNullOrWhiteSpace(commandResponse.message)) {
-      commandResponse.appendToMessage('No changes were made.');
-    } else if (!commandResponse.hasError) {
+    if (!response.hasText) {
+      response.addText('No changes were made.');
+    } else if (!response.hasError) {
       await serverDir.updatePluginOptions(pluginOptions);
-      commandResponse.appendToMessageBeginning(`${underscore(italic(`Server ${serverId}`))}:${EOL}`);
-      commandResponse.appendToMessage(`${EOL}The above changes require a server restart to apply.`);
+      response.addTextToStart(`${underscore(italic(`Server ${serverId}`))}:${EOL}`);
+      response.addText(`${EOL}The above changes require a server restart to apply.`);
     };
-
-    return commandResponse;
   };
 
-  private async createNewServer() {
-    const commandResponse = new CommandResponseBuilder();
-
+  private async createNewServer(response: ResponseBuilder) {
     const newDirResult = await this.serverHostRepo.createOpenRCT2ServerDirectory();
-    commandResponse.appendToMessage(`Successfully created ${underscore(italic(`Server ${newDirResult.id}`))} and its starting data!`);
-
-    return commandResponse;
+    response.addText(`Successfully created ${underscore(italic(`Server ${newDirResult.id}`))} and its starting data!`);
   };
 
-  private async startServer(
-    serverId: number,
-    scenarioName?: string,
-    autosaveIndex?: number,
-    defer?: boolean
-  ) {
-
-  };
-
-  private async startServerOnScenario(serverId: number, scenarioName: string) {
-    const commandResponse = new CommandResponseBuilder();
-
+  private async startServerOnScenario(response: ResponseBuilder, serverId: number, scenarioName: string) {
     if (this.openRCT2ServerController.isServerProcessActive(serverId, 'start')) {
-      commandResponse.appendToError(`Can't start ${underscore(italic(`Server ${serverId}`))}. It's already in the middle of starting a scenario.`);
-      return commandResponse;
+      response.addErrorText(`Can't start ${underscore(italic(`Server ${serverId}`))}. It's already in the middle of starting a scenario.`);
+      return response;
     }
 
     const scenarios = await this.scenarioRepo.getScenariosByFuzzySearch(scenarioName);
     if (1 === scenarios.length) {
       try {
         await this.openRCT2ServerController.startGameServerOnScenario(serverId, scenarios[0]);
-        commandResponse.appendToMessage(
+        response.addText(
           `Started ${
             underscore(italic(`Server ${serverId}`))
           } on the ${bold(scenarios[0].nameNoExtension)} scenario.`
         );
       } catch (err) {
-        commandResponse.appendToError((err as Error).message);
+        response.addErrorText((err as Error).message);
       };
     } else {
-      commandResponse.appendToError(
+      response.addErrorText(
         this.formatNonsingleScenarioError(scenarios.map(scenario => scenario.name), scenarioName)
       );
     };
-
-    return commandResponse;
   };
 
-  private async startServerOnAutosave(serverId: number, autosaveIndex: number) {
-    const commandResponse = new CommandResponseBuilder();
-    
+  private async startServerOnAutosave(response: ResponseBuilder, serverId: number, autosaveIndex: number) {
     if (this.openRCT2ServerController.isServerProcessActive(serverId, 'start')) {
-      commandResponse.appendToError(`Can't start ${underscore(italic(`Server ${serverId}`))}. It's already in the middle of starting a scenario.`);
-      return commandResponse;
+      response.addErrorText(`Can't start ${underscore(italic(`Server ${serverId}`))}. It's already in the middle of starting a scenario.`);
+      return response;
     }
 
     if (autosaveIndex < 1) {
@@ -1231,24 +1299,20 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     try {
       if (1 === autosaveIndex) {
         await this.openRCT2ServerController.startGameServerOnAutosave(serverId);
-        commandResponse.appendToMessage(`Started ${underscore(italic(`Server ${serverId}`))} on the latest autosave.`);
+        response.addText(`Started ${underscore(italic(`Server ${serverId}`))} on the latest autosave.`);
       } else {
         await this.openRCT2ServerController.startGameServerOnAutosave(serverId, autosaveIndex - 1);
-        commandResponse.appendToMessage(`Started ${underscore(italic(`Server ${serverId}`))} on autosave ${autosaveIndex}.`);
+        response.addText(`Started ${underscore(italic(`Server ${serverId}`))} on autosave ${autosaveIndex}.`);
       };
     } catch (err) {
-      commandResponse.appendToError((err as Error).message);
+      response.addErrorText((err as Error).message);
     };
-
-    return commandResponse;
   };
 
-  private async startServerFromQueue(serverId: number, defer?: boolean) {
-    const commandResponse = new CommandResponseBuilder();
-
+  private async startServerFromQueue(response: ResponseBuilder, serverId: number, defer?: boolean) {
     if (this.openRCT2ServerController.isServerProcessActive(serverId, 'start')) {
-      commandResponse.appendToError(`Can't start ${underscore(italic(`Server ${serverId}`))}. It's already in the middle of starting a scenario.`);
-      return commandResponse;
+      response.addErrorText(`Can't start ${underscore(italic(`Server ${serverId}`))}. It's already in the middle of starting a scenario.`);
+      return response;
     }
 
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
@@ -1258,35 +1322,31 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       try {
         if (defer) {
           this.openRCT2ServerController.startGameServerFromQueue(serverId, defer);
-          commandResponse.appendToMessage(
+          response.addText(
             `Initiated to start the next scenario in the ${
               underscore(italic(`Server ${serverId}`))
             } scenario queue.`
           );
         } else {
           await this.openRCT2ServerController.startGameServerFromQueue(serverId);
-          commandResponse.appendToMessage(
+          response.addText(
             `Started the next scenario in the ${
               underscore(italic(`Server ${serverId}`))
             } scenario queue.`
           );
         };
       } catch (err) {
-        commandResponse.appendToError((err as Error).message);
+        response.addErrorText((err as Error).message);
       };
     } else {
-      commandResponse.appendToError(`${underscore(italic(`Server ${serverId}`))} scenario queue is currently empty.`);
+      response.addErrorText(`${underscore(italic(`Server ${serverId}`))} scenario queue is currently empty.`);
     };
-
-    return commandResponse;
   };
 
-  private async startServerOnRandomScenario(serverId: number) {
-    const commandResponse = new CommandResponseBuilder();
-
+  private async startServerOnRandomScenario(response: ResponseBuilder, serverId: number) {
     if (this.openRCT2ServerController.isServerProcessActive(serverId, 'start')) {
-      commandResponse.appendToError(`Can't start ${underscore(italic(`Server ${serverId}`))}. It's already in the middle of starting a scenario.`);
-      return commandResponse;
+      response.addErrorText(`Can't start ${underscore(italic(`Server ${serverId}`))}. It's already in the middle of starting a scenario.`);
+      return response;
     }
 
     const scenarios = fisherYatesShuffle(await this.scenarioRepo.getAvailableScenarios());
@@ -1294,28 +1354,22 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     if (scenarios.length > 0) {
       try {
         this.openRCT2ServerController.startGameServerOnScenario(serverId, scenarios[0]);
-        commandResponse.appendToMessage(
+        response.addText(
           `Started ${
             underscore(italic(`Server ${serverId}`))
           } on the ${bold(scenarios[0].nameNoExtension)} scenario.`
         );
       } catch (err) {
-        commandResponse.appendToError((err as Error).message);
+        response.addErrorText((err as Error).message);
       };
     } else {
-      commandResponse.appendToError(`There are currently no available scenarios.`);
+      response.addErrorText(`There are currently no available scenarios.`);
     };
-
-    return commandResponse;
   };
 
-  private async stopServer(serverId: number) {
-    const commandResponse = new CommandResponseBuilder();
-
+  private async stopServer(response: ResponseBuilder, serverId: number) {
     await this.openRCT2ServerController.stopGameServer(serverId);
-    commandResponse.appendToMessage(`Stopped ${underscore(italic(`Server ${serverId}`))}.`);
-
-    return commandResponse;
+    response.addText(`Stopped ${underscore(italic(`Server ${serverId}`))}.`);
   };
 
   private formatServerSettingsMessage(

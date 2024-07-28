@@ -7,7 +7,7 @@ import {
 } from 'discord.js';
 import { 
   CommandPermissionLevel,
-  CommandResponseBuilder,
+  ResponseBuilder,
   SubcommandsDiscordBotCommand
 } from '@modules/discord/commands';
 import { GuildInfo } from '@modules/discord/data/models/bot';
@@ -202,12 +202,12 @@ export class ChannelCommand extends SubcommandsDiscordBotCommand<
   async execute(interaction: ChatInputCommandInteraction) {
     const groupName = this.getInteractionSubcommandGroupName(interaction);
     const subcommandName = this.getInteractionSubcommandName(interaction);
-    let commandResponse = new CommandResponseBuilder();
+    const response = new ResponseBuilder();
 
     if (subcommandName === 'settings') {
-      commandResponse = await this.getChannelList();
+      await this.getChannelList(response);
     } else if (groupName == null && subcommandName === 'clear') {
-      commandResponse = await this.clearAllChannelTypes();
+      await this.clearAllChannelTypes(response);
     } else {
       const channelId = this.getInteractionOption(interaction, 'channel')?.value as string ?? '-1';
       const input: ChannelInput = {};
@@ -238,43 +238,44 @@ export class ChannelCommand extends SubcommandsDiscordBotCommand<
 
       switch (subcommandName) {
         case 'set':
-          this.setChannelType(input);
+          this.setChannelType(response, input);
           break;
         case 'clear':
-          this.clearChannelType(input);
+          this.clearChannelType(response, input);
           break;
         default:
           break;
       };
     };
 
-    if (0 === commandResponse.resolve().length) {
-      commandResponse.appendToError('Unknown or unimplemented command specified.');
+    if (!response.hasContent) {
+      interaction.deferred 
+        ? await interaction.editReply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage)
+        : await interaction.reply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage);
     };
     
-    await interaction.reply(commandResponse.resolve());
+    await interaction.reply(response.resolve(interaction));
   };
 
-  private async setChannelType(input: ChannelInput) {
-    const commandResponse = new CommandResponseBuilder();
+  private async setChannelType(response: ResponseBuilder, input: ChannelInput) {
     const guildInfo = await this.botDataRepo.getGuildInfo();
 
     if (input.botChannelId) {
       if (guildInfo.botChannelIds.includes(input.botChannelId)) {
-        commandResponse.appendToError(`${channelMention(input.botChannelId)} is already set as a ${italic('Bot Channel')}.`);
+        response.addErrorText(`${channelMention(input.botChannelId)} is already set as a ${italic('Bot Channel')}.`);
       } else {
         guildInfo.botChannelIds.push(input.botChannelId);
-        commandResponse.appendToMessage(`Set ${channelMention(input.botChannelId)} as a ${italic('Bot Channel')}.`);
+        response.addText(`Set ${channelMention(input.botChannelId)} as a ${italic('Bot Channel')}.`);
       };
     } else if (input.debugChannelId) {
       guildInfo.debugChannelId = input.debugChannelId;
-      commandResponse.appendToMessage(`Set ${channelMention(input.debugChannelId)} as the ${italic('Debug Channel')}.`);
+      response.addText(`Set ${channelMention(input.debugChannelId)} as the ${italic('Debug Channel')}.`);
     } else if (input.eventChannelId) {
       guildInfo.eventChannelId = input.eventChannelId;
-      commandResponse.appendToMessage(`Set ${channelMention(input.eventChannelId)} as the ${italic('Event Channel')}.`);
+      response.addText(`Set ${channelMention(input.eventChannelId)} as the ${italic('Event Channel')}.`);
     } else if (input.gameServerChannelId && input.serverId) {
       if (guildInfo.gameServerChannels.some(channel => channel.channelId === input.gameServerChannelId)) {
-        commandResponse.appendToError(`${
+        response.addErrorText(`${
           channelMention(input.gameServerChannelId)
         } is already set assigned as a ${italic('Game Server Channel')}.`);
       } else {
@@ -288,75 +289,69 @@ export class ChannelCommand extends SubcommandsDiscordBotCommand<
         } else {
           guildInfo.gameServerChannels[index].channelId = input.gameServerChannelId;
         };
-        commandResponse.appendToMessage(`Set ${
+        response.addText(`Set ${
           channelMention(input.gameServerChannelId)
         } as a ${italic('Game Server Channel')} for ${underscore(italic(`Server ${input.serverId}`))}.`);
       };
     } else if (input.scenarioChannelId) {
       guildInfo.scenarioChannelId = input.scenarioChannelId;
-      commandResponse.appendToMessage(`Set ${channelMention(input.scenarioChannelId)} as the ${italic('Scenario Channel')}.`);
+      response.addText(`Set ${channelMention(input.scenarioChannelId)} as the ${italic('Scenario Channel')}.`);
     } else if (input.votingChannelId) {
       guildInfo.votingChannelId = input.votingChannelId;
-      commandResponse.appendToMessage(`Set ${channelMention(input.votingChannelId)} as the ${italic('Vote Channel')}.`);
+      response.addText(`Set ${channelMention(input.votingChannelId)} as the ${italic('Vote Channel')}.`);
     };
     
-    if (isStringNullOrWhiteSpace(commandResponse.message)) {
-      commandResponse.appendToMessage('No changes were made.');
-    } else if (!commandResponse.hasError) {
+    if (!response.hasText) {
+      response.addText('No changes were made.');
+    } else if (!response.hasError) {
       await this.botDataRepo.updateGuildInfo(guildInfo);
     };
-
-    return commandResponse;
   };
 
-  private async clearChannelType(input: ChannelInput) {
-    const commandResponse = new CommandResponseBuilder();
+  private async clearChannelType(response: ResponseBuilder, input: ChannelInput) {
     const guildInfo = await this.botDataRepo.getGuildInfo();
     
     if (input.botChannelId) {
       if (guildInfo.botChannelIds.includes(input.botChannelId)) {
         guildInfo.botChannelIds.splice(guildInfo.botChannelIds.indexOf(input.botChannelId), 1);
-        commandResponse.appendToError(`Cleared ${channelMention(input.botChannelId)} from being a ${italic('Bot Channel')}.`);
+        response.addErrorText(`Cleared ${channelMention(input.botChannelId)} from being a ${italic('Bot Channel')}.`);
       } else {
-        commandResponse.appendToError(`${channelMention(input.botChannelId)} is not set as a ${italic('Bot Channel')}.`);
+        response.addErrorText(`${channelMention(input.botChannelId)} is not set as a ${italic('Bot Channel')}.`);
       };
     } else if (input.debugChannelId) {
       guildInfo.debugChannelId = '';
-      commandResponse.appendToMessage(`Cleared the ${italic('Debug Channel')}.`);
+      response.addText(`Cleared the ${italic('Debug Channel')}.`);
     } else if (input.eventChannelId) {
       guildInfo.eventChannelId = '';
-      commandResponse.appendToMessage(`Cleared the ${italic('Event Channel')}.`);
+      response.addText(`Cleared the ${italic('Event Channel')}.`);
     } else if (input.gameServerChannelId && input.serverId) {
       const index = guildInfo.gameServerChannels.findIndex(channel => channel.serverId === input.serverId);
       if (index < 0) {
-        commandResponse.appendToError(`${
+        response.addErrorText(`${
           underscore(italic(`Server ${input.serverId}`))
         } does not have a ${italic('Game Server Channel')} set.`);
       } else {
         guildInfo.gameServerChannels[index].channelId = '';
-        commandResponse.appendToError(`Cleared the current ${
+        response.addErrorText(`Cleared the current ${
           underscore(italic(`Server ${input.serverId}`))
         } ${italic('Game Server Channel')}.`);
       };
     } else if (input.scenarioChannelId) {
       guildInfo.scenarioChannelId = '';
-      commandResponse.appendToMessage(`Cleared the ${italic('Scenario Channel')}.`);
+      response.addText(`Cleared the ${italic('Scenario Channel')}.`);
     } else if (input.votingChannelId) {
       guildInfo.votingChannelId = '';
-      commandResponse.appendToMessage(`Cleared the ${italic('Vote Channel')}.`);
+      response.addText(`Cleared the ${italic('Vote Channel')}.`);
     };
 
-    if (isStringNullOrWhiteSpace(commandResponse.message)) {
-      commandResponse.appendToMessage('No changes were made.');
-    } else if (!commandResponse.hasError) {
+    if (!response.hasText) {
+      response.addText('No changes were made.');
+    } else if (!response.hasError) {
       await this.botDataRepo.updateGuildInfo(guildInfo);
     };
-
-    return commandResponse;
   };
 
-  private async clearAllChannelTypes() {
-    const commandResponse = new CommandResponseBuilder();
+  private async clearAllChannelTypes(response: ResponseBuilder) {
     const guildInfo = await this.botDataRepo.getGuildInfo();
     
     guildInfo.botChannelIds = [];
@@ -366,18 +361,13 @@ export class ChannelCommand extends SubcommandsDiscordBotCommand<
     guildInfo.scenarioChannelId = '';
     guildInfo.votingChannelId = '';
 
-    commandResponse.appendToMessage('Cleared all channel assignments for this bot.');
+    response.addText('Cleared all channel assignments for this bot.');
     await this.botDataRepo.updateGuildInfo(guildInfo);
-    return commandResponse;
   };
 
-  private async getChannelList() {
-    const commandResponse = new CommandResponseBuilder();
-
+  private async getChannelList(response: ResponseBuilder) {
     const guildInfo = await this.botDataRepo.getGuildInfo();
-    commandResponse.appendToMessage(this.formatChannelListMessage(guildInfo));
-
-    return commandResponse;
+    response.addText(this.formatChannelListMessage(guildInfo));
   };
 
   /**

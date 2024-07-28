@@ -4,7 +4,7 @@ import {
 } from 'discord.js';
 import { 
   CommandPermissionLevel,
-  CommandResponseBuilder,
+  ResponseBuilder,
   CommandType,
   OptionsDiscordBotCommand
 } from '@modules/discord/commands';
@@ -49,33 +49,30 @@ export class ChatCommand extends OptionsDiscordBotCommand<typeof ChatCommandOpti
 
   /** @override */
   async execute(interaction: ChatInputCommandInteraction) {
-    let commandResponse = new CommandResponseBuilder();
+    const response = new ResponseBuilder();
 
     const guildInfo = await this.botDataRepo.getGuildInfo();
     const gameServerChannel = guildInfo.gameServerChannels.find(channel => channel.channelId === interaction.channelId)!;
 
     await interaction.deferReply();
-    commandResponse = await this.sendGameChatMessage(
+    await this.sendGameChatMessage(
+      response,
       gameServerChannel.serverId,
       interaction.user,
       this.getRequiredInteractionOption(interaction, 'message').value as string
     );
 
-    await interaction.editReply(commandResponse.resolve());
+    await interaction.editReply(response.resolve(interaction));
   };
 
-  private async sendGameChatMessage(serverId: number, user: User, message: string) {
-    const commandResponse = new CommandResponseBuilder();
-
+  private async sendGameChatMessage(response: ResponseBuilder, serverId: number, user: User, message: string) {
     try {
       const fullMessage = `{DISCORD}{PALELAVENDER}${user.username}#${user.discriminator}: {WHITE}${message}`;
       await this.openRCT2ServerController.executePluginAction(serverId, 'chat', user.id, fullMessage);
-      commandResponse.appendToMessage(message);
+      response.addText(message);
     } catch (err) {
       await this.logger.writeError(err as Error);
-      commandResponse.appendToError((err as Error).message);
+      response.addErrorText((err as Error).message);
     };
-
-    return commandResponse;
   };
 };

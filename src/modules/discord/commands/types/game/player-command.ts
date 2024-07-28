@@ -7,7 +7,7 @@ import {
 import { EOL } from 'os';
 import { 
   CommandPermissionLevel,
-  CommandResponseBuilder,
+  ResponseBuilder,
   CommandType,
   SubcommandsDiscordBotCommand
 } from '@modules/discord/commands';
@@ -52,29 +52,25 @@ export class PlayerCommand extends SubcommandsDiscordBotCommand<undefined, typeo
 
   /** @override */
   async execute(interaction: ChatInputCommandInteraction) {
-    let commandResponse = new CommandResponseBuilder();
+    const response = new ResponseBuilder();
 
     const guildInfo = await this.botDataRepo.getGuildInfo();
     const gameServerChannel = guildInfo.gameServerChannels.find(channel => channel.channelId === interaction.channelId)!;
 
     await interaction.deferReply();
-    commandResponse = await this.getServerPlayerList(gameServerChannel.serverId, interaction.user);
+    await this.getServerPlayerList(response, gameServerChannel.serverId, interaction.user);
 
-    await interaction.editReply(commandResponse.resolve());
+    await interaction.editReply(response.resolve(interaction));
   };
 
-  private async getServerPlayerList(serverId: number, user: User) {
-    const commandResponse = new CommandResponseBuilder();
-
+  private async getServerPlayerList(response: ResponseBuilder, serverId: number, user: User) {
     try {
       const serverPlayers = await this.openRCT2ServerController.executePluginAction(serverId, 'player.list', user.id);
-      commandResponse.appendToMessage(this.formatPlayerListMessage(serverPlayers));
+      response.addText(this.formatPlayerListMessage(serverPlayers));
     } catch (err) {
       await this.logger.writeError(err as Error);
-      commandResponse.appendToError((err as Error).message);
+      response.addErrorText((err as Error).message);
     };
-
-    return commandResponse;
   };
 
   private formatPlayerListMessage(

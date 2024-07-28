@@ -6,8 +6,10 @@ import {
   underscore,
   Client,
   Snowflake,
-  TextBasedChannel
+  TextBasedChannel,
+  MessagePayload
 } from 'discord.js';
+import { fileByteSizeLimit, ResponseBuilder } from '@modules/discord/commands';
 import { BotDataRepository } from '@modules/discord/data/repositories';
 import { Logger } from '@modules/logging';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
@@ -15,6 +17,7 @@ import { ServerEventArgs } from '@modules/openrct2/runtime';
 import { ScenarioFile } from '@modules/openrct2/data/models';
 import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
 import { wait } from '@modules/utils/runtime-utils';
+import { ServerHostRepository } from '@modules/openrct2/data/repositories';
 
 export class EventNotifier {
   private static readonly formatCodeRegex = /{[A-Z0-9_]+}/g;
@@ -24,6 +27,7 @@ export class EventNotifier {
   private readonly discordClient: Client<true>;
   private readonly logger: Logger;
   private readonly botDataRepo: BotDataRepository;
+  private readonly openRCT2ServerController: OpenRCT2ServerController;
   private readonly deferTimeouts = new Map<Snowflake, NodeJS.Timeout>();
   private readonly deferredMessages = new Map<Snowflake, string>();
   private readonly messageMutex = new Mutex();
@@ -38,6 +42,7 @@ export class EventNotifier {
     this.discordClient = discordClient;
     this.logger = logger;
     this.botDataRepo = botDataRepo;
+    this.openRCT2ServerController = openRCT2ServerController;
 
     openRCT2ServerController.on('server.start', args => this.onServerStart(args));
     openRCT2ServerController.on('server.restart', args => this.onServerRestart(args));
@@ -115,22 +120,121 @@ export class EventNotifier {
 
   private async onServerScenarioComplete(
     args: ServerEventArgs<{ 
-      scenarioFile: ScenarioFile | undefined,
-      scenarioStatus: 'completed' | 'failed'
+      scenarioName?: string,
+      scenarioStatus: 'completed' | 'failed',
+      screenshot?: {
+        screenshotFilePath: string,
+        usedPlugin: boolean;
+      },
+      save?: {
+        saveFilePath: string,
+        saveFileName: string,
+        saveFileExtension: string,
+        usedPlugin: boolean;
+      }
     }>
   ) {
     const eventMsg = `${underscore(italic(`Server ${args.serverId}`))} has ${args.data.scenarioStatus} ${
-      args.data.scenarioFile ? `the ${bold(args.data.scenarioFile.nameNoExtension)} scenario` : 'its current scenario'
+      args.data.scenarioName ? `the ${bold(args.data.scenarioName)} scenario` : 'its current scenario'
     }.`;
     await this.postEvent(eventMsg);
+
+    if (args.data.save && args.data.save.saveFilePath) {
+      const response = new ResponseBuilder();
+      response.addText(
+        `${underscore(italic(`Server ${args.serverId}`))} - ${bold(args.data.scenarioName ?? 'Scenario')} - Snapshot`
+      );
+
+      let totalSize = 0;
+      if (args.data.screenshot) {
+        const screenshotFilePayload = {
+          attachment: args.data.screenshot.screenshotFilePath,
+          name: `${args.data.scenarioName ?? 'autosave'}.png`,
+        };
+        const screenshotAttachment = await MessagePayload.resolveFile(screenshotFilePayload);
+        if ((screenshotAttachment.data as Buffer).length > fileByteSizeLimit) {
+          await this.logger.writeLog(
+            `Screenshot attachment was too big on auto-finalize for Server ${args.serverId}. ${args.data.screenshot.screenshotFilePath}`
+          );
+        } else {
+          response.addFiles(screenshotFilePayload);
+        };
+        totalSize += (screenshotAttachment.data as Buffer).length;
+      };
+      const saveFilePayload = {
+        attachment: args.data.save.saveFilePath,
+        name: `s${args.serverId}_${args.data.save.saveFileName}${args.data.save.saveFileExtension}`,
+      };
+      const saveAttachment = await MessagePayload.resolveFile(saveFilePayload);
+      if ((saveAttachment.data as Buffer).length > fileByteSizeLimit) {
+        await this.postDebug(`Could not post the finalized save file for ${underscore(italic(`Server ${args.serverId}`))} as the file size is too big.`);
+        await this.logger.writeLog(
+          `Save file attachment was too big on auto-finalize for Server ${args.serverId}. ${args.data.save.saveFilePath}`
+        );
+        return;
+      } else {
+        response.addFiles(saveFilePayload);
+      };
+      totalSize += (saveAttachment.data as Buffer).length;
+
+      try {
+        const guildInfo = await this.botDataRepo.getGuildInfo();
+        const scenarioChannel = await this.resolveTextChannel(guildInfo.scenarioChannelId);
+        const targetPayload = response.resolve(scenarioChannel);
+        let success = false;
+
+        if (totalSize > fileByteSizeLimit) {
+          const secondFile = targetPayload.files?.pop()!;
+          const firstMessage = await this.postMessage(scenarioChannel, targetPayload);
+          ;
+          await wait(1, 's');
+          const secondMessage = await this.postMessage(
+            scenarioChannel!,
+            new MessagePayload(scenarioChannel, { files: [{ attachment: secondFile.data as Buffer, name: secondFile.name }]})
+          );
+          if (firstMessage && secondMessage) {
+            await this.postEvent(`${underscore(italic(`Server ${args.serverId}`))} Snapshot - ${firstMessage.url}`);
+            success = true;
+          };
+        } else {
+          const message = await this.postMessage(scenarioChannel, targetPayload);
+          if (message) {
+            await this.postEvent(`${underscore(italic(`Server ${args.serverId}`))} Snapshot - ${message.url}`);
+            success = true;
+          };
+        };
+
+        if (success) {
+          await this.openRCT2ServerController.startGameServerFromQueue(args.serverId, true);
+        } else {
+          await this.postDebug(`Failed to post a snapshot message for ${underscore(italic(`Server ${args.serverId}`))}.`);
+        };
+      } catch (err) {
+        await this.logger.writeError(err as Error);
+        await this.logger.writeError(`Failed to post auto-finalize results for Server ${args.serverId}. ${args.data.save.saveFilePath}`);
+        await this.postDebug(`Auto-finalization attempt failed for ${underscore(italic(`Server ${args.serverId}`))}.`);
+      };
+    } else {
+      await this.postDebug(`A finalized file was not generated for ${underscore(italic(`Server ${args.serverId}`))}.`);
+    };
   };
 
-  private async postEvent(messageString: string) {
+  private async postEvent(message: string | MessagePayload) {
     const guildInfo = await this.botDataRepo.getGuildInfo();
     if (!isStringNullOrWhiteSpace(guildInfo.eventChannelId)) {
       try {
         const textChannel = await this.resolveTextChannel(guildInfo.eventChannelId);
-        await this.postMessage(textChannel, messageString);
+        return await this.postMessage(textChannel, message);
+      } catch { };
+    };
+  };
+
+  private async postDebug(message: string | MessagePayload) {
+    const guildInfo = await this.botDataRepo.getGuildInfo();
+    if (!isStringNullOrWhiteSpace(guildInfo.debugChannelId)) {
+      try {
+        const textChannel = await this.resolveTextChannel(guildInfo.eventChannelId);
+        return await this.postMessage(textChannel, message);
       } catch { };
     };
   };
@@ -146,11 +250,11 @@ export class EventNotifier {
     };
   };
 
-  private async postMessage(textChannel: TextBasedChannel, messageString: string) {
+  private async postMessage(textChannel: TextBasedChannel, message: string | MessagePayload) {
     try {
       return this.messageMutex.runExclusive(async () => {
-        await this.logger.writeLog(`Channel Id: ${textChannel.id} | Message: ${messageString}`);
-        const msg = await textChannel.send(messageString);
+        await this.logger.writeLog(`Channel Id: ${textChannel.id} | Message: ${message}`);
+        const msg = await textChannel.send(message);
         await wait(EventNotifier.messageIntervalMs);
         return msg;
       });

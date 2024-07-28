@@ -25,7 +25,7 @@ export class CommandFactory {
     openRCT2ServerController: OpenRCT2ServerController,
   ) {
     const commands: Commands.DiscordBotCommand[] = [
-      new Commands.ServerCommand(gameBuildRepo, pluginRepo, scenarioRepo, serverHostRepo, openRCT2ServerController),
+      new Commands.ServerCommand(botDataRepo, gameBuildRepo, pluginRepo, scenarioRepo, serverHostRepo, openRCT2ServerController),
       new Commands.MasterServerCommand(config, openRCT2MasterServer),
       new Commands.VoteCommand(logger, botDataRepo, scenarioRepo, serverHostRepo, openRCT2ServerController),
       new Commands.ScenarioCommand(scenarioRepo),
