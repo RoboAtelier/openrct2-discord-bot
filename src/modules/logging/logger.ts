@@ -36,7 +36,7 @@ export class Logger {
   async writeError(err: Error | string) {
     const logFileName = `${this.getDateString(new Date())}.error`;
     const fullLog = typeof err === 'string'
-      ? `[${createDateTimestamp()}] ${err}`
+      ? `[${createDateTimestamp()}] ${err}${EOL}`
       : `[${createDateTimestamp()}] ${err.message}${err.stack ? ` ${err.stack}` : ''}${EOL}`;
     await this.writeToLogFile(fullLog, logFileName);
   };
