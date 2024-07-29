@@ -1,30 +1,31 @@
 import {
+  bold,
   ChatInputCommandInteraction,
   User
 } from 'discord.js';
+import { EOL } from 'os';
 import { 
   CommandPermissionLevel,
   ResponseBuilder,
   CommandType,
-  OptionsDiscordBotCommand
+  SubcommandsDiscordBotCommand
 } from '@modules/discord/commands';
 import { BotDataRepository } from '@modules/discord/data/repositories';
 import { Logger } from '@modules/logging';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 
-const ChatCommandOptions = <const>[
+const GroupSubcommands = <const>[
   { 
-    name: 'message',
-    type: 'string',
-    description: 'The chat message to send (max length 200).',
-    required: true,
-    minLength: 1,
-    maxLength: 200
+    name: 'list',
+    description: 'Gets the player group list on an OpenRCT2 game server.',
+    options: null
   }
 ];
 
-/** Represents a command for sending chat messages to an OpenRCT2 game server. */
-export class ChatCommand extends OptionsDiscordBotCommand<typeof ChatCommandOptions[number]> {
+/** Represents a command for getting player group information or managing them on an OpenRCT2 game server. */
+export class GroupCommand extends SubcommandsDiscordBotCommand<undefined, typeof GroupSubcommands[number]> {
+  private static readonly formatCodeRegex = /{[A-Z0-9_]+}/g;
+
   private readonly logger: Logger;
   private readonly botDataRepo: BotDataRepository;
   private readonly openRCT2ServerController: OpenRCT2ServerController;
@@ -35,9 +36,10 @@ export class ChatCommand extends OptionsDiscordBotCommand<typeof ChatCommandOpti
     openRCT2ServerController: OpenRCT2ServerController
   ) {
     super(
-      'chat',
-      'Sends a chat message to an OpenRCT2 game server.',
-      ChatCommandOptions,
+      'group',
+      'Gets and manages an OpenRCT2 game server\'s player groups.',
+      undefined,
+      GroupSubcommands,
       CommandPermissionLevel.User,
       CommandType.Game
     );
@@ -55,23 +57,32 @@ export class ChatCommand extends OptionsDiscordBotCommand<typeof ChatCommandOpti
     const gameServerChannel = guildInfo.gameServerChannels.find(channel => channel.channelId === interaction.channelId)!;
 
     await interaction.deferReply();
-    await this.sendGameChatMessage(
-      response,
-      gameServerChannel.serverId,
-      interaction.user,
-      this.getRequiredInteractionOption(interaction, 'message').value as string
-    );
+    await this.getPlayerGroupList(response, gameServerChannel.serverId, interaction.user);
     await interaction.editReply(response.resolve(interaction));
   };
 
-  private async sendGameChatMessage(response: ResponseBuilder, serverId: number, user: User, message: string) {
+  private async getPlayerGroupList(response: ResponseBuilder, serverId: number, user: User) {
     try {
-      const fullMessage = `{DISCORD}{PALELAVENDER}${user.username}#${user.discriminator}: {WHITE}${message}`;
-      await this.openRCT2ServerController.executePluginAction(serverId, 'chat', user.id, fullMessage);
-      response.addText(message);
+      const playerGroups = await this.openRCT2ServerController.executePluginAction(serverId, 'group.list', user.id);
+      response.addText(this.formatGroupListMessage(playerGroups));
     } catch (err) {
       await this.logger.writeError(err as Error);
       response.addErrorText((err as Error).message);
     };
+  };
+
+  private formatGroupListMessage(
+    playerGroups: {
+      id: number,
+      name: string
+    }[]
+  ) {
+    const groupListMsgSegments = ['Groups:'];
+
+    for (const group of playerGroups) {
+      groupListMsgSegments.push(`▸ ${bold(group.name.replace(GroupCommand.formatCodeRegex, ''))} (GID ${group.id})`);
+    };
+
+    return groupListMsgSegments.join(EOL);
   };
 };

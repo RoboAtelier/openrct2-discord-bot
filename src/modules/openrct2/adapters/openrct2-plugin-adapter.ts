@@ -13,6 +13,12 @@ export declare interface OpenRCT2PluginAdapter {
 
 export interface AdapterRequestArgTypes {
   'chat': string;
+  'group.list': undefined;
+  'pause.toggle': undefined;
+  'player.group.set': {
+    playerId: number,
+    groupId: number
+  }; 
   'player.list': undefined;
   'save': undefined;
   'scenario': undefined;
@@ -21,7 +27,18 @@ export interface AdapterRequestArgTypes {
 
 export interface AdapterResponseValueTypes {
   'chat': void;
+  'group.list': {
+    id: number,
+    name: string
+  }[];
+  'pause.toggle': void;
+  'player.group.set': {
+    id: number,
+    name: string,
+    group: string,
+  };
   'player.list': {
+    id: number,
     name: string,
     group: string,
   }[];
@@ -30,7 +47,8 @@ export interface AdapterResponseValueTypes {
     name: string
     details: string
     filename: string
-    status: 'inProgress' | 'completed' | 'failed'
+    status: 'inProgress' | 'completed' | 'failed',
+    ticks: number
   };
   'screenshot': string;
 };
@@ -40,7 +58,7 @@ export class PluginEventArgs<V extends keyof AdapterResponseValueTypes> {
   constructor(
     public readonly eventName: V,
     public readonly data?: AdapterResponseValueTypes[V]
-   ) {};
+  ) {};
 };
 
 /**
@@ -67,7 +85,6 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
 
   /**
    * Sends an action request to the game server instance.
-   * There is a maximum timeout of 15 seconds for executing an action.
    * @async
    * @param action The action name to execute.
    * @param userId The id of the user that called the action.
@@ -81,8 +98,8 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
     timeoutMs = 10 * 1000
   ): Promise<AdapterResponseValueTypes[A]> {
     const actionStr = typeof args === 'string' || args == null
-      ? `${action};${userId};${args}\0`
-      : `${action};${userId};${JSON.stringify(args)}\0`
+      ? `${action};${userId};${args}`
+      : `${action};${userId};${JSON.stringify(args)}`
     
     this.client.write(actionStr);
     const result = await new Promise<any>((resolve, reject) => {

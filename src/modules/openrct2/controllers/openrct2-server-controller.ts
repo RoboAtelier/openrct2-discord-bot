@@ -131,6 +131,17 @@ export class OpenRCT2ServerController extends EventEmitter {
     };
   };
 
+  getGameServerStatus(serverId: number) {
+    const gameServer = this.gameServers.get(serverId);
+    if (gameServer) {
+      return {
+        scenarioName: gameServer.scenarioName,
+        scenarioStatus: gameServer.scenarioStatus,
+        isPaused: gameServer.isPaused
+      };
+    };
+  };
+
   /**
    * 
    * @param serverId 
@@ -336,10 +347,9 @@ export class OpenRCT2ServerController extends EventEmitter {
     if (gameServer) {
       const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
       const status = await serverDir.getStatus();
-      const actual = await gameServer.getActualScenarioFileName();
 
-      if (actual === gameServer.initiatedScenarioFile.name) {
-        const metadata = await this.scenarioRepo.getScenarioMetadataByName(actual);
+      if (gameServer.currentScenarioFileName === gameServer.initiatedScenarioFile.name) {
+        const metadata = await this.scenarioRepo.getScenarioMetadataByName(gameServer.currentScenarioFileName);
         await this.logger.writeLog(`Server ${serverId} got a ${completionFlag} on its current scenario.`);
         if (metadata) {
           if ('win' === completionFlag) {
@@ -360,7 +370,7 @@ export class OpenRCT2ServerController extends EventEmitter {
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
     const queue = await serverDir.getQueue();
 
-    if (queue.size > 0 && queue.waitingScenarios.length < queue.size) {
+    if (queue.waitingScenarios.length < queue.size) {
       queue.waitingScenarios.push(scenarioFile.name);
       await serverDir.updateQueue(queue);
       await this.logger.writeLog(`Server ${serverId} queued up ${scenarioFile.name}.`);
@@ -443,7 +453,7 @@ export class OpenRCT2ServerController extends EventEmitter {
             const screenshotFileName = await gameServer.pluginAdapter.executeAction('screenshot', userId, undefined, 1 * 60 * 1000);
             const result = {
               screenshotFilePath: await serverDir.getScreenshotByName(screenshotFileName),
-              scenarioName: await gameServer.getScenarioName(),
+              scenarioName: gameServer.scenarioName,
               usedPlugin: true
             };
             await this.logger.writeLog(`Created a screenshot of Server ${serverId} at runtime.`);
@@ -490,7 +500,7 @@ export class OpenRCT2ServerController extends EventEmitter {
             await this.logger.writeLog(`Created a save file of Server ${serverId}.`);
             return {
               saveFile: await serverDir.getScenarioSaveByName(saveFileName.concat('.park')),
-              scenarioName: await gameServer.getScenarioName(),
+              scenarioName: gameServer.scenarioName,
               usedPlugin: true
             };
           } catch (err) {
@@ -574,12 +584,12 @@ export class OpenRCT2ServerController extends EventEmitter {
 
       if (startupOptions.autoFinalize) {
         try {
-          const screenshot = await this.createServerScreenshot(args.serverId, args.serverId.toString());
+          const screenshot = await this.createServerScreenshot(args.serverId, `${args.serverId}`);
           eventData.screenshot = screenshot;
 
           const save = screenshot && screenshot.scenarioFile
             ? { saveFile: screenshot.scenarioFile, scenarioName: screenshot.scenarioName, usedPlugin: screenshot.usedPlugin }
-            : await this.createCurrentScenarioSave(args.serverId, args.serverId.toString());
+            : await this.createCurrentScenarioSave(args.serverId, `${args.serverId}`);
           if (save) {
             const finalSaveFileName = /^autosave_\d{4}-\d{2}-\d{2}/.test(save.saveFile.nameNoExtension)
               ? `final_${createDateTimestamp()}${save.saveFile.fileExtension}`

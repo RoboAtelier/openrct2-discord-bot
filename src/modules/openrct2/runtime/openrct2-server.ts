@@ -67,9 +67,11 @@ export class ServerEventArgs<T> {
 export class OpenRCT2Server extends EventEmitter {
   private static readonly pollingTimeMs = 1 * 1000 * 60 * 2;
 
-  private scenarioName: string;
-  private currentScenarioFileName: string;
-  private scenarioStatus: 'inProgress' | 'completed' | 'failed' | null = null;
+  private _scenarioName: string;
+  private _currentScenarioFileName: string;
+  private _scenarioStatus?: 'inProgress' | 'completed' | 'failed';
+  private paused?: boolean;
+  private lastTicks?: number;
 
   /** Gets the id of this OpenRCT2 game server. */
   readonly id: number;
@@ -84,21 +86,22 @@ export class OpenRCT2Server extends EventEmitter {
    * Gets or sets the relay plugin adapter client to remotely execute
    * actions in the game server instance.
    */
-  pluginAdapter: OpenRCT2PluginAdapter | null;
+  pluginAdapter?: OpenRCT2PluginAdapter;
 
   constructor(
     id: number,
     gameInstance: ChildProcess,
     initiatedScenarioFile: ScenarioFile,
-    pluginAdapter: OpenRCT2PluginAdapter | null = null
+    pluginAdapter?: OpenRCT2PluginAdapter
   ) {
     super();
     this.id = id;
     this.gameInstance = gameInstance;
     this.pluginAdapter = pluginAdapter;
     this.initiatedScenarioFile = initiatedScenarioFile;
-    this.scenarioName = initiatedScenarioFile.nameNoExtension;
-    this.currentScenarioFileName = initiatedScenarioFile.name;
+    this._scenarioName = initiatedScenarioFile.nameNoExtension;
+    this._currentScenarioFileName = initiatedScenarioFile.name;
+    this.lastTicks = 0;
     
     gameInstance.once('close', (code, signal) => this.onClose(code, signal));
     gameInstance.on('error', err => this.onError(err));
@@ -108,16 +111,20 @@ export class OpenRCT2Server extends EventEmitter {
     };
   };
 
-  async getScenarioName() {
-    return this.scenarioName;
+  get scenarioName() {
+    return this._scenarioName;
   };
 
-  async getActualScenarioFileName() {
-    return this.currentScenarioFileName;
+  get scenarioStatus() {
+    return this._scenarioStatus;
   };
 
-  async isCurrentScenarioCompleted() {
-    return this.scenarioStatus;
+  get currentScenarioFileName() {
+    return this._currentScenarioFileName;
+  };
+
+  get isPaused() {
+    return this.paused;
   };
 
   /** Stops and closes the game server instance. */
@@ -137,15 +144,15 @@ export class OpenRCT2Server extends EventEmitter {
       await wait(OpenRCT2Server.pollingTimeMs);
       try {
         const baseScenarioData = await this.pluginAdapter!.executeAction('scenario', `${this.id}`);
-        this.scenarioName = baseScenarioData.name;
+        this._scenarioName = baseScenarioData.name;
 
         if (
-          this.currentScenarioFileName !== baseScenarioData.filename
-          || this.scenarioStatus === null
-          || this.scenarioStatus !== baseScenarioData.status
+          this._currentScenarioFileName !== baseScenarioData.filename
+          || this._scenarioStatus === null
+          || this._scenarioStatus !== baseScenarioData.status
         ) {
-          this.currentScenarioFileName = baseScenarioData.filename;
-          this.scenarioStatus = baseScenarioData.status;
+          this._currentScenarioFileName = baseScenarioData.filename;
+          this._scenarioStatus = baseScenarioData.status;
 
           const args = new ServerEventArgs(
             this.id,
@@ -156,6 +163,13 @@ export class OpenRCT2Server extends EventEmitter {
           );
           this.emit('scenario.update', args);
         };
+
+        if (this.lastTicks === baseScenarioData.ticks) {
+          this.paused = true;
+        } else {
+          this.paused = false;
+        };
+        this.lastTicks = baseScenarioData.ticks;
       } catch { };
     };
   };

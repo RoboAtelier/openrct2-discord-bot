@@ -15,20 +15,6 @@ function main() {
 				if (actionQuery === 'chat') {
 					network.sendMessage(args[2]);
 					conn.write(formatResponsePayload(actionQuery, userId));
-				} else if (actionQuery === 'player.list') {
-					var playerObjects = [];
-					for (var i = 0; i < network.players.length; ++i) {
-						var player = network.players[i];
-						playerObjects.push({
-							name: player.name,
-							group: getPlayerGroupById(player.group).name
-						});
-					};
-					conn.write(formatResponsePayload(
-						actionQuery,
-						userId,
-						JSON.stringify(playerObjects)
-					));
 				} else if (actionQuery === 'group.list') {
 					var groupObjects = [];
 					for (var i = 0; i < network.groups.length; ++i) {
@@ -43,6 +29,37 @@ function main() {
 						userId,
 						JSON.stringify(groupObjects)
 					));
+				} else if (actionQuery === 'pause.toggle') {
+					context.executeAction('pausetoggle', {});
+					conn.write(formatResponsePayload(actionQuery, userId));
+				} else if (actionQuery === 'player.group.set') {
+					var request = JSON.parse(args[2]);
+					var player = network.getPlayer(request.playerId);
+					player.group = request.groupId;
+					conn.write(formatResponsePayload(
+						actionQuery,
+						userId,
+						JSON.stringify({
+							id: player.id,
+							name: player.name,
+							group: network.getGroup(player.group).name
+						})
+					));
+				} else if (actionQuery === 'player.list') {
+					var playerObjects = [];
+					for (var i = 0; i < network.players.length; ++i) {
+						var player = network.players[i];
+						playerObjects.push({
+							id: player.id,
+							name: player.name,
+							group: network.getGroup(player.group).name
+						});
+					};
+					conn.write(formatResponsePayload(
+						actionQuery,
+						userId,
+						JSON.stringify(playerObjects)
+					));
 				} else if (actionQuery === 'save') { // using legacy method, to change later
 					var saveFileName = 's'.concat(serverId, '_save');
 					console.executeLegacy('save_park '.concat(saveFileName));
@@ -55,7 +72,8 @@ function main() {
 							name: scenario.name,
 							details: scenario.details,
 							filename: scenario.filename,
-							status: scenario.status
+							status: scenario.status,
+							ticks: date.ticksElapsed
 						})
 					));
 				} else if (actionQuery === 'screenshot') {
@@ -95,7 +113,7 @@ function onNetworkChat(eventArgs, conn) {
 			'network.chat',
 			'e',
 			JSON.stringify({
-				playerName: getPlayerById(eventArgs.player).name,
+				playerName: network.getPlayer(eventArgs.player).name,
 				message: eventArgs.message
 			})
 		));
@@ -103,29 +121,11 @@ function onNetworkChat(eventArgs, conn) {
 };
 
 function onNetworkJoin(eventArgs, conn) {
-	conn.write(formatResponsePayload('network.join', 'e', getPlayerById(eventArgs.player).name));
+	conn.write(formatResponsePayload('network.join', 'e', network.getPlayer(eventArgs.player).name));
 };
 
 function onNetworkLeave(eventArgs, conn) {
-	conn.write(formatResponsePayload('network.leave', 'e', getPlayerById(eventArgs.player).name));
-};
-
-function getPlayerById(id) {
-	for (var i = 0; i < network.players.length; ++i) {
-		if (network.players[i].id === id) {
-			return network.players[i];
-		};
-	};
-	return null;
-};
-
-function getPlayerGroupById(id) {
-	for (var i = 0; i < network.groups.length; ++i) {
-		if (network.groups[i].id === id) {
-			return network.groups[i];
-		};
-	};
-	return null;
+	conn.write(formatResponsePayload('network.leave', 'e', network.getPlayer(eventArgs.player).name));
 };
 
 function removeNewLines(str) {
@@ -141,9 +141,9 @@ function formatResponsePayload(actionName, source, dataStr) {
 
 function toPlayerDto(player) {
 	return {
-		currentId: id,
+		id: player.id,
 		name: player.name,
-		group: getPlayerGroupById(player.group).name,
+		group: network.getGroup(player.group).name,
 		ipAddress: player.ipAddress,
 		publicKeyHash: player.publicKeyHash
 	};

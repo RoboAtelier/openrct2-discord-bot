@@ -118,7 +118,7 @@ export class OpenRCT2ProcessEngine {
       });
     });
 
-    let pluginAdapter = null;
+    let pluginAdapter;
     if (pluginOptions.plugins.includes(BotPluginFileName.ServerAdapter)) {
       const client = new Socket();
       client.connect(pluginOptions.adapterPluginPort, 'localhost');
