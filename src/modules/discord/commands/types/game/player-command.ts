@@ -139,7 +139,7 @@ export class PlayerCommand extends SubcommandsDiscordBotCommand<typeof PlayerSub
       );
       response.addText(`Successfully assigned player group ${bold(updatedPlayer.group)} to ${
         bold(updatedPlayer.name.replace(PlayerCommand.formatCodeRegex, ''))
-      } (PID ${updatedPlayer.id})}.`);
+      } (PID ${updatedPlayer.id}).`);
     } catch (err) {
       await this.logger.writeError(err as Error);
       response.addErrorText((err as Error).message);

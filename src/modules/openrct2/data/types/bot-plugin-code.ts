@@ -42,7 +42,7 @@ function main() {
 						JSON.stringify({
 							id: player.id,
 							name: player.name,
-							group: getGroupById(player.group).name
+							group: getGroupById(request.groupId).name
 						})
 					));
 				} else if (actionQuery === 'player.list') {
