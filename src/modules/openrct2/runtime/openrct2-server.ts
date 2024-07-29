@@ -1,6 +1,7 @@
 import { ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { 
+  AdapterRequestArgTypes,
   AdapterResponseValueTypes,
   OpenRCT2PluginAdapter,
   PluginEventArgs
@@ -71,7 +72,7 @@ export class OpenRCT2Server extends EventEmitter {
   private _currentScenarioFileName: string;
   private _scenarioStatus?: 'inProgress' | 'completed' | 'failed';
   private paused?: boolean;
-  private lastTicks?: number;
+  private lastTicks: number;
 
   /** Gets the id of this OpenRCT2 game server. */
   readonly id: number;
@@ -136,6 +137,30 @@ export class OpenRCT2Server extends EventEmitter {
     this.removeAllListeners();
   };
 
+  async executePluginAction<A extends keyof AdapterRequestArgTypes>(
+    action: A,
+    userId: string,
+    args?: AdapterRequestArgTypes[A],
+    timeoutMs: number = 10000
+  ) {
+    if (this.pluginAdapter) {
+      const result = await this.pluginAdapter.executeAction(action, userId, args, timeoutMs);
+      if (action === 'pause.toggle') {
+        if (this.paused) {
+          this.paused = false;
+        } else if (this.paused === false) {
+          this.paused = true;
+        } else {
+          const snapshot1 = await this.pluginAdapter.executeAction('scenario', `${this.id}`);
+          const snapshot2 = await this.pluginAdapter.executeAction('scenario', `${this.id}`);
+          this.paused = snapshot1.ticks === snapshot2.ticks;
+        };
+      };
+      return result;
+    };
+    throw new Error(`Could not run plugin action. Server ${this.id} does not have the adapter plugin active.`);
+  };
+
   /**
    * 
    */
@@ -164,11 +189,7 @@ export class OpenRCT2Server extends EventEmitter {
           this.emit('scenario.update', args);
         };
 
-        if (this.lastTicks === baseScenarioData.ticks) {
-          this.paused = true;
-        } else {
-          this.paused = false;
-        };
+        this.paused = this.lastTicks === baseScenarioData.ticks;
         this.lastTicks = baseScenarioData.ticks;
       } catch { };
     };

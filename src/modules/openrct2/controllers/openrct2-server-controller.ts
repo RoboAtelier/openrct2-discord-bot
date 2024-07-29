@@ -399,11 +399,7 @@ export class OpenRCT2ServerController extends EventEmitter {
   ) {
     const gameServer = this.gameServers.get(serverId);
     if (gameServer) {
-      if (gameServer.pluginAdapter) {
-        const result = await gameServer.pluginAdapter.executeAction(action, userId, args, timeoutMs);
-        return result;
-      };
-      throw new Error(`Could not run plugin action. Server ${serverId} does not have the adapter plugin active.`);
+      return await gameServer.executePluginAction(action, userId, args, timeoutMs);
     };
     throw new Error(`Could not run plugin action. Server ${serverId} is not active.`);
   };
