@@ -42,7 +42,7 @@ function main() {
 						JSON.stringify({
 							id: player.id,
 							name: player.name,
-							group: network.getGroup(player.group).name
+							group: getGroupById(player.group).name
 						})
 					));
 				} else if (actionQuery === 'player.list') {
@@ -52,7 +52,7 @@ function main() {
 						playerObjects.push({
 							id: player.id,
 							name: player.name,
-							group: network.getGroup(player.group).name
+							group: getGroupById(player.group).name
 						});
 					};
 					conn.write(formatResponsePayload(
@@ -139,11 +139,20 @@ function formatResponsePayload(actionName, source, dataStr) {
 	return ''.concat(actionName, ';', source, ';', removeNewLines(dataStr), ';\\n');
 };
 
+function getGroupById(groupId) {
+	for (var i = 0; i < network.groups.length; ++i) {
+		var group = network.groups[i];
+		if (group.id === groupId) {
+			return group;
+		};
+	};
+};
+
 function toPlayerDto(player) {
 	return {
 		id: player.id,
 		name: player.name,
-		group: network.getGroup(player.group).name,
+		group: getGroupById(player.group).name,
 		ipAddress: player.ipAddress,
 		publicKeyHash: player.publicKeyHash
 	};
