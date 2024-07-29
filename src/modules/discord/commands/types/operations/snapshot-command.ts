@@ -242,11 +242,10 @@ export class SnapshotCommand extends SubcommandsDiscordBotCommand<undefined, typ
 
       let totalSize = 0;
       if (channel && channel.isTextBased()) {
-        const targetPayload = response.resolve(channel);
+        const targetPayload = await response.resolve(channel).resolveFiles();
         for (const attachmentFile of targetPayload.files ?? []) {
           totalSize += (attachmentFile.data as Buffer).length;
         };
-        console.log(totalSize);
         if (totalSize > fileByteSizeLimit) { // should have 2 files here
           const secondFile = targetPayload.files?.pop()!;
           const firstMessage = await channel.send(targetPayload);
@@ -258,7 +257,7 @@ export class SnapshotCommand extends SubcommandsDiscordBotCommand<undefined, typ
         };
       } else {
         response.addTextToStart('Invalid scenario channel id was specified.');
-        const targetPayload = response.resolve(interaction);
+        const targetPayload = await response.resolve(interaction).resolveFiles();
         for (const attachmentFile of targetPayload.files ?? []) {
           totalSize += (attachmentFile.data as Buffer).length;
         };

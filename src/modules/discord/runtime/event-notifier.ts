@@ -180,7 +180,7 @@ export class EventNotifier {
       try {
         const guildInfo = await this.botDataRepo.getGuildInfo();
         const scenarioChannel = await this.resolveTextChannel(guildInfo.scenarioChannelId);
-        const targetPayload = response.resolve(scenarioChannel);
+        const targetPayload = await response.resolve(scenarioChannel).resolveFiles();
         let success = false;
 
         if (totalSize > fileByteSizeLimit) {
