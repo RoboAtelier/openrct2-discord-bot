@@ -729,7 +729,8 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
             response, 
             serverId,
             options.get('headless')?.value as boolean,
-            options.get('port')?.value as number
+            options.get('port')?.value as number,
+            options.get('auto-finalize')?.value as boolean
           );
         };
       } else if (groupName === 'build') {
