@@ -1,3 +1,4 @@
 export * from './chat-command';
+export * from './group-command';
+export * from './pause-command';
 export * from './player-command';
-export * from './snapshot-command';

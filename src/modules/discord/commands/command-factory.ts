@@ -25,15 +25,17 @@ export class CommandFactory {
     openRCT2ServerController: OpenRCT2ServerController,
   ) {
     const commands: Commands.DiscordBotCommand[] = [
-      new Commands.ServerCommand(botDataRepo, gameBuildRepo, pluginRepo, scenarioRepo, serverHostRepo, openRCT2ServerController),
-      new Commands.MasterServerCommand(config, openRCT2MasterServer),
-      new Commands.VoteCommand(logger, botDataRepo, scenarioRepo, serverHostRepo, openRCT2ServerController),
-      new Commands.ScenarioCommand(scenarioRepo),
-      new Commands.SnapshotCommand(logger, botDataRepo, serverHostRepo, openRCT2ServerController),
       new Commands.ChannelCommand(botDataRepo),
+      new Commands.GameBuildCommand(logger, gameBuildRepo, openRCT2BuildDownloader),
+      new Commands.MasterServerCommand(config, openRCT2MasterServer),
+      new Commands.ScenarioCommand(scenarioRepo),
+      new Commands.ServerCommand(botDataRepo, gameBuildRepo, pluginRepo, scenarioRepo, serverHostRepo, openRCT2ServerController),
+      new Commands.SnapshotCommand(logger, botDataRepo, serverHostRepo, openRCT2ServerController),
+      new Commands.VoteCommand(logger, botDataRepo, scenarioRepo, serverHostRepo, openRCT2ServerController),
       new Commands.ChatCommand(logger, botDataRepo, openRCT2ServerController),
+      new Commands.GroupCommand(logger, botDataRepo, openRCT2ServerController),
+      new Commands.PauseCommand(logger, botDataRepo, openRCT2ServerController),
       new Commands.PlayerCommand(logger, botDataRepo, openRCT2ServerController),
-      new Commands.GameBuildCommand(logger, gameBuildRepo, openRCT2BuildDownloader)
     ];
     commands.push(new Commands.HelpCommand(commands.map(command => command.data)));
     for (const command of commands) {
