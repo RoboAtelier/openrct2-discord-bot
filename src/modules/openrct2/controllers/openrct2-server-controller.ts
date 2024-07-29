@@ -602,7 +602,7 @@ export class OpenRCT2ServerController extends EventEmitter {
             eventData.save = { saveFilePath: '', saveFileName: '', saveFileExtension: '', usedPlugin: false };
           };
 
-          eventData.scenarioName = save?.saveFile.nameNoExtension ?? screenshot?.scenarioName ?? scenarioFile?.nameNoExtension;
+          eventData.scenarioName = save?.scenarioName ?? screenshot?.scenarioName ?? scenarioFile?.nameNoExtension;
 
           this.emit('server.scenario.complete', new ServerEventArgs(args.serverId, eventData));
         } catch (err) {
