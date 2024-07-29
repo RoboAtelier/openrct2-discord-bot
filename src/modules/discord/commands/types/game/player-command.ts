@@ -29,14 +29,14 @@ const PlayerSubcommandGroups = <const>[
             type: 'integer',
             description: 'The id number of the player in the server.',
             required: true,
-            minLength: 1
+            minValue: 1
           },
           { 
             name: 'group-id',
             type: 'integer',
             description: 'The id number of the player group to assign in the server.',
             required: true,
-            minLength: 0
+            minValue: 0
           }
         ]
       }
