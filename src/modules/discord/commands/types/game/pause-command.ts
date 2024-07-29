@@ -26,7 +26,7 @@ export class PauseCommand extends OptionsDiscordBotCommand<typeof PauseCommandOp
     openRCT2ServerController: OpenRCT2ServerController
   ) {
     super(
-      'group',
+      'pause',
       'Toggles pausing on an OpenRCT2 game server.',
       PauseCommandOptions,
       CommandPermissionLevel.Trusted,
