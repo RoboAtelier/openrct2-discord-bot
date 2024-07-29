@@ -240,17 +240,19 @@ export class SnapshotCommand extends SubcommandsDiscordBotCommand<undefined, typ
       const guildInfo = await this.botDataRepo.getGuildInfo();
       const channel = await interaction.guild?.channels.fetch(guildInfo.scenarioChannelId);
 
+      let totalSize = 0;
       if (channel && channel.isTextBased()) {
         const targetPayload = response.resolve(channel);
-        console.log('valid');
-        console.log(targetPayload);
-        let totalSize = 0;
         for (const attachmentFile of targetPayload.files ?? []) {
           totalSize += (attachmentFile.data as Buffer).length;
         };
+        console.log('valid');
+        console.log(targetPayload);
         if (totalSize > fileByteSizeLimit) { // should have 2 files here
           const secondFile = targetPayload.files?.pop()!;
+          console.log('step1');
           const firstMessage = await channel.send(targetPayload);
+          console.log('step2');
           await wait(1, 's');
           await channel.send({ files: [{ attachment: secondFile.data as Buffer, name: secondFile.name }] });
           return firstMessage;
@@ -260,16 +262,17 @@ export class SnapshotCommand extends SubcommandsDiscordBotCommand<undefined, typ
       } else {
         response.addTextToStart('Invalid scenario channel id was specified.');
         const targetPayload = response.resolve(interaction);
-        console.log('invalid');
-        console.log(targetPayload);
-        let totalSize = 0;
         for (const attachmentFile of targetPayload.files ?? []) {
           totalSize += (attachmentFile.data as Buffer).length;
         };
+        console.log('invalid');
+        console.log(targetPayload);
         if (totalSize > fileByteSizeLimit) {
           const initialChannel = await interaction.guild?.channels.fetch(interaction.channelId) as TextBasedChannel;
           const secondFile = targetPayload.files?.pop()!;
+          console.log('step1');
           const firstMessage = await interaction.editReply(targetPayload);
+          console.log('step2');
           await wait(1, 's');
           await initialChannel.send({ files: [{ attachment: secondFile.data as Buffer, name: secondFile.name }] });
           return firstMessage;
