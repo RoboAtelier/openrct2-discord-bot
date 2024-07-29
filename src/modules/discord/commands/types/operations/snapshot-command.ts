@@ -249,14 +249,16 @@ export class SnapshotCommand extends SubcommandsDiscordBotCommand<undefined, typ
         console.log('valid');
         console.log(targetPayload);
         if (totalSize > fileByteSizeLimit) { // should have 2 files here
-          const secondFile = targetPayload.files?.pop()!;
           console.log('step1');
-          const firstMessage = await channel.send(targetPayload);
+          const secondFile = targetPayload.files?.pop()!;
           console.log('step2');
+          const firstMessage = await channel.send(targetPayload);
+          console.log('step3');
           await wait(1, 's');
           await channel.send({ files: [{ attachment: secondFile.data as Buffer, name: secondFile.name }] });
           return firstMessage;
         } else if (totalSize) {
+          console.log('step0');
           return await channel.send(targetPayload);
         };
       } else {
