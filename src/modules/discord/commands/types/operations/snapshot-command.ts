@@ -239,11 +239,11 @@ export class SnapshotCommand extends SubcommandsDiscordBotCommand<undefined, typ
     try {
       const guildInfo = await this.botDataRepo.getGuildInfo();
       const channel = await interaction.guild?.channels.fetch(guildInfo.scenarioChannelId);
-      console.log('test');
-      console.log(response);
 
       if (channel && channel.isTextBased()) {
         const targetPayload = response.resolve(channel);
+        console.log('valid');
+        console.log(targetPayload);
         let totalSize = 0;
         for (const attachmentFile of targetPayload.files ?? []) {
           totalSize += (attachmentFile.data as Buffer).length;
@@ -260,6 +260,8 @@ export class SnapshotCommand extends SubcommandsDiscordBotCommand<undefined, typ
       } else {
         response.addTextToStart('Invalid scenario channel id was specified.');
         const targetPayload = response.resolve(interaction);
+        console.log('invalid');
+        console.log(targetPayload);
         let totalSize = 0;
         for (const attachmentFile of targetPayload.files ?? []) {
           totalSize += (attachmentFile.data as Buffer).length;
@@ -276,6 +278,7 @@ export class SnapshotCommand extends SubcommandsDiscordBotCommand<undefined, typ
         };
       };
     } catch (err) {
+      console.log(err);
       await this.logger.writeError(err as Error);
     };
   };
