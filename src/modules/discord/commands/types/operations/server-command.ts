@@ -885,9 +885,11 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       if (autoFinalize) {
         const guildInfo = await this.botDataRepo.getGuildInfo();
         if (isStringNullOrWhiteSpace(guildInfo.scenarioChannelId)) {
-          response.addErrorText(`Assign the ${italic('Scenario Channel')} with the ${
-            inlineCode('/channel')
-          } command first to set the ${inlineCode('auto-finalize')} option to ${inlineCode('True')}.`);
+          response.addErrorText(
+            `Assign the ${italic('Scenario Channel')} with the ${
+              inlineCode('/channel')
+            } command first to set the ${inlineCode('auto-finalize')} option to ${inlineCode('True')}.`
+          );
         } else {
           startupOptions.autoFinalize = true;
           response.addText(`Updated to ${bold('finalize')} scenarios on completion.`);
@@ -898,7 +900,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       };
     };
 
-    if (response.hasText) {
+    if (!response.hasText) {
       response.addText('No changes were made.');
     } else if (!response.hasError) {
       await serverDir.updateStartupOptions(startupOptions);
@@ -938,7 +940,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       response.addText(`Changed to build ${bold(gameBuilds[0].name)}.`);
     };
 
-    if (response.hasText) {
+    if (!response.hasText) {
       response.addText('No changes were made.');
     } else if (!response.hasError) {
       await serverDir.updateStartupOptions(startupOptions);
@@ -976,7 +978,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       };
     };
 
-    if (response.hasText) {
+    if (!response.hasText) {
       response.addText('No changes were made.');
     } else if (!response.hasError) {
       await serverDir.updateQueue(queue);
@@ -1052,7 +1054,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       };
     };
 
-    if (response.hasText) {
+    if (!response.hasText) {
       response.addText('No changes were made.');
     } else if (!response.hasError) {
       await serverDir.updatePluginOptions(pluginOptions);
@@ -1075,7 +1077,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       };
     };
 
-    if (response.hasText) {
+    if (!response.hasText) {
       response.addText('No changes were made.');
     } else if (!response.hasError) {
       await serverDir.updatePluginOptions(pluginOptions);
@@ -1381,8 +1383,9 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
 
     msgSegments.push('');
     msgSegments.push(`${underscore('Startup Options:')}`);
-    msgSegments.push(`Port Number: ${startupOptions.port}`);
     msgSegments.push(`Start Mode: ${startupOptions.headless ? italic('Headless') : italic('Windowed')}`);
+    msgSegments.push(`Port Number: ${startupOptions.port}`);
+    msgSegments.push(`Auto-finalize: ${startupOptions.autoFinalize ? bold('ON') : bold('OFF')}`);
     msgSegments.push(`Build: ${path.basename(path.dirname(startupOptions.openRCT2ExecutablePath))}`);
     msgSegments.push('');
     msgSegments.push(`${underscore('Plugin Options:')}`);
