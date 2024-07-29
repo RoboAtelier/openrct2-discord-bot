@@ -238,10 +238,10 @@ export class ChannelCommand extends SubcommandsDiscordBotCommand<
 
       switch (subcommandName) {
         case 'set':
-          this.setChannelType(response, input);
+          await this.setChannelType(response, input);
           break;
         case 'clear':
-          this.clearChannelType(response, input);
+          await this.clearChannelType(response, input);
           break;
         default:
           break;
