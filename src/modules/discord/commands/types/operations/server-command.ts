@@ -116,7 +116,7 @@ const ServerSubcommandGroups = <const>[
         ]
       },
       { 
-        name: '',
+        name: 'get',
         description: 'Shows the queue settings of an OpenRCT2 server.',
         options: [
           {
@@ -717,7 +717,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
             serverId,
             options.get('size')?.value as number
           );
-        } else if (subcommandName === 'settings') {
+        } else if (subcommandName === 'get') {
           await this.getServerQueueSettings(response, serverId);
         } else if (subcommandName === 'start') {
           await interaction.deferReply();
