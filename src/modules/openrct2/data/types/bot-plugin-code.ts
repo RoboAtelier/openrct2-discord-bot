@@ -34,7 +34,7 @@ function main() {
 					conn.write(formatResponsePayload(actionQuery, userId));
 				} else if (actionQuery === 'player.group.set') {
 					var request = JSON.parse(args[2]);
-					var player = network.getPlayer(request.playerId);
+					var player = getPlayerById(request.playerId);
 					player.group = request.groupId;
 					conn.write(formatResponsePayload(
 						actionQuery,
@@ -113,7 +113,7 @@ function onNetworkChat(eventArgs, conn) {
 			'network.chat',
 			'e',
 			JSON.stringify({
-				playerName: network.getPlayer(eventArgs.player).name,
+				playerName: getPlayerById(eventArgs.player).name,
 				message: eventArgs.message
 			})
 		));
@@ -121,11 +121,11 @@ function onNetworkChat(eventArgs, conn) {
 };
 
 function onNetworkJoin(eventArgs, conn) {
-	conn.write(formatResponsePayload('network.join', 'e', network.getPlayer(eventArgs.player).name));
+	conn.write(formatResponsePayload('network.join', 'e', getPlayerById(eventArgs.player).name));
 };
 
 function onNetworkLeave(eventArgs, conn) {
-	conn.write(formatResponsePayload('network.leave', 'e', network.getPlayer(eventArgs.player).name));
+	conn.write(formatResponsePayload('network.leave', 'e', getPlayerById(eventArgs.player).name));
 };
 
 function removeNewLines(str) {
@@ -137,6 +137,15 @@ function formatResponsePayload(actionName, source, dataStr) {
 		return ''.concat(actionName, ';', source, ';;\\n');
 	};
 	return ''.concat(actionName, ';', source, ';', removeNewLines(dataStr), ';\\n');
+};
+
+function getPlayerById(playerId) {
+	for (var i = 0; i < network.players.length; ++i) {
+		var player = network.players[i];
+		if (player.id === playerId) {
+			return player;
+		};
+	};
 };
 
 function getGroupById(groupId) {
