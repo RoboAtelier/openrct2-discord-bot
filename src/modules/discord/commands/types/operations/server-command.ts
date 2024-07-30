@@ -1014,7 +1014,6 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
 
   private async addToServerQueue(response: ResponseBuilder, serverId: number, scenarioName: string) {
     const scenarios = await this.scenarioRepo.getScenariosByFuzzySearch(scenarioName);
-    console.log(scenarioName);
     if (1 === scenarios.length) {
       const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
       const queue = await serverDir.getQueue();
@@ -1030,8 +1029,9 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
         response.addErrorText(`Cannot add additional scenarios to ${underscore(italic(`Server ${serverId}`))}'s scenario queue.`);
       };
     } else {
-      const scenarioNames = scenarios.map(scenario => scenario.name);
-      response.addErrorText(this.formatNonsingleScenarioError(scenarioNames, scenarioName));
+      response.addErrorText(
+        this.formatNonsingleScenarioError(scenarios.map(scenario => scenario.name), scenarioName)
+      );
     };
   };
 
@@ -1455,6 +1455,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
   private formatNonsingleScenarioError(scenarioNames: string[], nameSearch: string) {
     const errorMsgSegments = [];
 
+    console.log(scenarioNames);
     if (scenarioNames.length > 1) {
       errorMsgSegments.push(`Multiple scenarios match ${italic(nameSearch)}:${EOL}`);
       for (const name of scenarioNames) {
