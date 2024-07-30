@@ -17,7 +17,6 @@ import { ServerEventArgs } from '@modules/openrct2/runtime';
 import { ScenarioFile } from '@modules/openrct2/data/models';
 import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
 import { wait } from '@modules/utils/runtime-utils';
-import { ServerHostRepository } from '@modules/openrct2/data/repositories';
 
 export class EventNotifier {
   private static readonly formatCodeRegex = /{[A-Z0-9_]+}/g;
@@ -192,13 +191,13 @@ export class EventNotifier {
             new MessagePayload(scenarioChannel, { files: [{ attachment: secondFile.data as Buffer, name: secondFile.name }]})
           );
           if (firstMessage && secondMessage) {
-            await this.postEvent(`${underscore(italic(`Server ${args.serverId}`))} Snapshot - ${firstMessage.url}`);
+            await this.postEvent(`Snapshot - ${firstMessage.url}`);
             success = true;
           };
         } else {
           const message = await this.postMessage(scenarioChannel, targetPayload);
           if (message) {
-            await this.postEvent(`${underscore(italic(`Server ${args.serverId}`))} Snapshot - ${message.url}`);
+            await this.postEvent(`Snapshot - ${message.url}`);
             success = true;
           };
         };
