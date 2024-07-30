@@ -115,6 +115,18 @@ const ServerSubcommandGroups = <const>[
           }
         ]
       },
+      { 
+        name: 'settings',
+        description: 'Shows the queue settings of an OpenRCT2 server.',
+        options: [
+          {
+            name: 'server-id',
+            type: 'integer',
+            description: 'The id number of the server to check.',
+            minValue: 1
+          }
+        ]
+      },
       {
         name: 'start',
         description: 'Opens an OpenRCT2 game server on a queued scenario.',
@@ -598,21 +610,9 @@ const ServerSubcommands = <const>[
       }
     ]
   },
-  {
-    name: 'queue',
-    description: 'Shows the current queue of an OpenRCT2 server.',
-    options: [
-      {
-        name: 'server-id',
-        type: 'integer',
-        description: 'The id number of the server to stop.',
-        minValue: 1
-      }
-    ]
-  },
   { 
     name: 'settings',
-    description: 'Shows the current settings of an OpenRCT2 server.',
+    description: 'Shows a summary of settings of an OpenRCT2 server.',
     permissionLevel: CommandPermissionLevel.Moderator,
     options: [
       {
@@ -673,7 +673,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       const serverId = this.getInteractionOption(interaction, 'server-id')?.value as number ?? 1;
 
       // Subcommands
-      if (subcommandName === 'settings') {
+      if (groupName == undefined && subcommandName === 'settings') {
         await this.getServerSettings(response, serverId);
       } else if (subcommandName === 'restart') {
         await interaction.deferReply();
@@ -688,8 +688,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
         await interaction.deferReply();
 
         await this.stopServer(response, serverId);
-      } else if (subcommandName === 'queue') {
-        await this.getServerQueueSettings(response, serverId);
+
       // Groups
       } else if (groupName === 'scenario') {
         await interaction.deferReply();
@@ -718,6 +717,8 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
             serverId,
             options.get('size')?.value as number
           );
+        } else if (subcommandName === 'settings') {
+          await this.getServerQueueSettings(response, serverId);
         } else if (subcommandName === 'start') {
           await interaction.deferReply();
 
