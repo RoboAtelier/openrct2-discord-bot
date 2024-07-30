@@ -1006,21 +1006,21 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       await serverDir.updateQueue(queue);
       response.addTextToStart(`${underscore(italic(`Server ${serverId}`))}:${EOL}`);
     };
-
-    return response;
   };
 
   private async addToServerQueue(response: ResponseBuilder, serverId: number, scenarioName: string) {
-    const scenarios = await this.scenarioRepo.getScenariosByFuzzySearch(scenarioName);
-    if (1 === scenarios.length) {
+    const exactScenario = await this.scenarioRepo.getScenarioByName(scenarioName);
+    const matchingScenarios = exactScenario ? [] : await this.scenarioRepo.getScenariosByFuzzySearch(scenarioName);
+    if (exactScenario || matchingScenarios.length === 1) {
+      const targetScenario = exactScenario ?? matchingScenarios[0];
       const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
       const queue = await serverDir.getQueue();
 
       if (queue.waitingScenarios.length < queue.limit) {
-        await this.openRCT2ServerController.addToServerScenarioQueue(serverId, scenarios[0]);
+        await this.openRCT2ServerController.addToServerScenarioQueue(serverId, targetScenario);
         response.addText(
           `Added the ${
-            bold(scenarios[0].nameNoExtension)
+            bold(targetScenario.nameNoExtension)
           } scenario to ${underscore(italic(`Server ${serverId}`))}'s scenario queue.`
         );
       } else {
@@ -1028,7 +1028,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       };
     } else {
       response.addErrorText(
-        this.formatNonsingleScenarioError(scenarios.map(scenario => scenario.name), scenarioName)
+        this.formatNonsingleScenarioError(matchingScenarios.map(scenario => scenario.name), scenarioName)
       );
     };
   };
@@ -1179,8 +1179,6 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       response.addTextToStart(`${underscore(italic(`Server ${serverId}`))}:${EOL}`);
       response.addText(`${EOL}The above changes require a server restart to apply.`);
     };
-
-    return response;
   };
 
   private async setServerWelcomeFormat(
@@ -1287,24 +1285,26 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
   private async startServerOnScenario(response: ResponseBuilder, serverId: number, scenarioName: string) {
     if (this.openRCT2ServerController.isServerProcessActive(serverId, 'start')) {
       response.addErrorText(`Can't start ${underscore(italic(`Server ${serverId}`))}. It's already in the middle of starting a scenario.`);
-      return response;
-    }
+      return;
+    };
 
-    const scenarios = await this.scenarioRepo.getScenariosByFuzzySearch(scenarioName);
-    if (1 === scenarios.length) {
+    const exactScenario = await this.scenarioRepo.getScenarioByName(scenarioName);
+    const matchingScenarios = exactScenario ? [] : await this.scenarioRepo.getScenariosByFuzzySearch(scenarioName);
+    if (exactScenario || matchingScenarios.length === 1) {
       try {
-        await this.openRCT2ServerController.startGameServerOnScenario(serverId, scenarios[0]);
+        const targetScenario = exactScenario ?? matchingScenarios[0];
+        await this.openRCT2ServerController.startGameServerOnScenario(serverId, targetScenario);
         response.addText(
           `Started ${
             underscore(italic(`Server ${serverId}`))
-          } on the ${bold(scenarios[0].nameNoExtension)} scenario.`
+          } on the ${bold(targetScenario.nameNoExtension)} scenario.`
         );
       } catch (err) {
         response.addErrorText((err as Error).message);
       };
     } else {
       response.addErrorText(
-        this.formatNonsingleScenarioError(scenarios.map(scenario => scenario.name), scenarioName)
+        this.formatNonsingleScenarioError(matchingScenarios.map(scenario => scenario.name), scenarioName)
       );
     };
   };
@@ -1312,7 +1312,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
   private async startServerOnAutosave(response: ResponseBuilder, serverId: number, autosaveIndex: number) {
     if (this.openRCT2ServerController.isServerProcessActive(serverId, 'start')) {
       response.addErrorText(`Can't start ${underscore(italic(`Server ${serverId}`))}. It's already in the middle of starting a scenario.`);
-      return response;
+      return;
     }
 
     if (autosaveIndex < 1) {
@@ -1335,7 +1335,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
   private async startServerFromQueue(response: ResponseBuilder, serverId: number, defer?: boolean) {
     if (this.openRCT2ServerController.isServerProcessActive(serverId, 'start')) {
       response.addErrorText(`Can't start ${underscore(italic(`Server ${serverId}`))}. It's already in the middle of starting a scenario.`);
-      return response;
+      return;
     }
 
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
@@ -1369,7 +1369,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
   private async startServerOnRandomScenario(response: ResponseBuilder, serverId: number) {
     if (this.openRCT2ServerController.isServerProcessActive(serverId, 'start')) {
       response.addErrorText(`Can't start ${underscore(italic(`Server ${serverId}`))}. It's already in the middle of starting a scenario.`);
-      return response;
+      return;
     }
 
     const scenarios = fisherYatesShuffle(await this.scenarioRepo.getAvailableScenarios());

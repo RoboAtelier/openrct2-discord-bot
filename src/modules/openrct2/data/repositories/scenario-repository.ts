@@ -76,7 +76,7 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
   async getScenarioByName(name: string) {
     const scenarioFiles = await this.getAvailableScenarios();
     const requestedScenarioFile = scenarioFiles.find(scenarioFile => {
-      return scenarioFile.name === name;
+      return areStringsEqualCaseInsensitive(scenarioFile.name, name);
     });
     return requestedScenarioFile;
   };
@@ -136,7 +136,7 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
     await this.dataDir.removeFileExclusive(scenarioFile.name);
     const metadata = await this.getScenarioMetadata();
     const metadataIndex = metadata.findIndex(scenario => {
-      return scenario.fileName === scenarioFile.name;
+      return areStringsEqualCaseInsensitive(scenario.fileName, scenarioFile.name);
     });
     if (metadataIndex > -1) {
       metadata.splice(metadataIndex, 1);
@@ -162,11 +162,11 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
     await this.dataDir.renameOrMoveFileExclusive(scenarioFile.name, fullNewName);
     const metadata = await this.getScenarioMetadata();
     const metadataIndex = metadata.findIndex(scenario => {
-      return scenario.fileName === scenarioFile.name;
+      return areStringsEqualCaseInsensitive(scenario.fileName, scenarioFile.name);
     });
     if (metadataIndex > -1) {
       const existingNewIndex = metadata.findIndex(scenario => {
-        return scenario.fileName === fullNewName;
+        return areStringsEqualCaseInsensitive(scenario.fileName, fullNewName);
       });
       const currentInfo = metadata[metadataIndex];
       const updatedInfo = new ScenarioMetadata(
@@ -210,7 +210,7 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
   async getScenarioMetadataByName(name: string) {
     const metadata = await this.getScenarioMetadata();
     const requestedMetadata = metadata.find(scenarioData => {
-      return scenarioData.fileName === name;
+      return areStringsEqualCaseInsensitive(scenarioData.fileName, name);
     });
     return requestedMetadata;
   };
@@ -226,7 +226,7 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
     const metadata = await this.getScenarioMetadata();
     return requestedScenarioFiles.map(file => {
       const currentInfo = metadata.find(scenarioData => {
-        return scenarioData.fileName === file.name;
+        return areStringsEqualCaseInsensitive(scenarioData.fileName, file.name);
       });
       if (!currentInfo) {
         throw new Error(`Unexpected file returned that is not in the managed directory. ${file.path}`);
@@ -245,7 +245,7 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
   async getScenarioMetadataForFile(scenarioFile: ScenarioFile) {
     const metadata = await this.getScenarioMetadata();
     const requestedMetadata = metadata.find(scenarioData => {
-      return scenarioData.fileName === scenarioFile.name;
+      return areStringsEqualCaseInsensitive(scenarioData.fileName, scenarioFile.name);
     });
     if (!requestedMetadata) {
       throw new Error('Could not find specified scenario file in the managed directory.');
@@ -266,7 +266,7 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
     const metadata = await this.getScenarioMetadata();
     const requestedMetadata = requestedScenarioFiles.map(file => {
       const currentInfo = metadata.find(scenarioData => {
-        return scenarioData.fileName === file.name;
+        return areStringsEqualCaseInsensitive(scenarioData.fileName, file.name);
       });
       if (!currentInfo) {
         throw new Error(`Unexpected file returned that is not in the managed directory. ${file.path}`);
@@ -284,7 +284,7 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
   async updateScenarioMetadata(scenarioInfo: ScenarioMetadata) {
     const metadata = await this.getScenarioMetadata();
     const metadataIndex = metadata.findIndex(scenarioData => {
-      return scenarioData.fileName === scenarioInfo.fileName;
+      return areStringsEqualCaseInsensitive(scenarioData.fileName, scenarioInfo.fileName);
     });
     metadata[metadataIndex] = scenarioInfo;
     await this.updateCacheAndSource(
@@ -336,7 +336,7 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
     const metadata = await this.metadataFile.readExclusive();
     const scenarioFiles = await this.getAvailableScenarios();
     const updatedMetadata = scenarioFiles.map(scenarioFile => {
-      const metadataIndex = metadata.findIndex(scenarioData => scenarioData.fileName === scenarioFile.name);
+      const metadataIndex = metadata.findIndex(scenarioData => areStringsEqualCaseInsensitive(scenarioData.fileName, scenarioFile.name));
       return metadataIndex < 0 
         ? new ScenarioMetadata(scenarioFile.name)
         : metadata.splice(metadataIndex, 1)[0];
