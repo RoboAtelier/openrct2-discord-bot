@@ -337,7 +337,7 @@ export class VoteCommand extends SubcommandsDiscordBotCommand<typeof VoteSubcomm
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
     const queue = await serverDir.getQueue();
 
-    if (queue.size < 1 || queue.waitingScenarios.length < queue.size) {
+    if (queue.limit < 1 || queue.waitingScenarios.length < queue.limit) {
       this.activeVotes.set(serverId, voteSession);
 
       await voteSession.setupNewVoteRound();
@@ -478,10 +478,10 @@ export class VoteCommand extends SubcommandsDiscordBotCommand<typeof VoteSubcomm
             );
             
             const scenarioFile = (await this.scenarioRepo.getScenarioByName(winningCandidate.fileName))!;
-            if (queue.size < 1) {
+            if (queue.limit < 1) {
               this.openRCT2ServerController.startGameServerOnScenarioDeferred(serverId, scenarioFile);
               resultMessageBody += `${EOL}${scenarioFile.nameNoExtension} will start on ${underscore(italic(`Server ${serverId}`))} shortly.`;
-            } else if (queue.waitingScenarios.length < queue.size) {
+            } else if (queue.waitingScenarios.length < queue.limit) {
               this.openRCT2ServerController.addToServerScenarioQueue(serverId, scenarioFile);
               resultMessageBody += `${EOL}${scenarioFile.nameNoExtension} has been added to the ${underscore(italic(`Server ${serverId}`))} scenario queue.`;
             } else {

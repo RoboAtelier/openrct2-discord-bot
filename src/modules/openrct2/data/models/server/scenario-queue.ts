@@ -7,15 +7,15 @@ export class ScenarioQueue extends SerializableObject<ScenarioQueue> {
   waitingScenarios: string[];
 
   /** Gets or sets how large the scenario queue can be. */
-  size: number;
+  limit: number;
 
   constructor(
     waitingScenarios: string[] = [],
-    size = 3
+    limit = 3
   ) {
     super();
     this.waitingScenarios = waitingScenarios;
-    this.size = size;
+    this.limit = limit;
   };
 
   fromDataString(dataStr: string) {

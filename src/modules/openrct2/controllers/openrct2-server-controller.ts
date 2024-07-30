@@ -369,7 +369,7 @@ export class OpenRCT2ServerController extends EventEmitter {
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
     const queue = await serverDir.getQueue();
 
-    if (queue.waitingScenarios.length < queue.size) {
+    if (queue.waitingScenarios.length < queue.limit) {
       queue.waitingScenarios.push(scenarioFile.name);
       await serverDir.updateQueue(queue);
       await this.logger.writeLog(`Server ${serverId} queued up ${scenarioFile.name}.`);

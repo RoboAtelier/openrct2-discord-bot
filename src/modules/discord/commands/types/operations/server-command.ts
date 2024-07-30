@@ -598,6 +598,18 @@ const ServerSubcommands = <const>[
       }
     ]
   },
+  {
+    name: 'queue',
+    description: 'Shows the current queue of an OpenRCT2 server.',
+    options: [
+      {
+        name: 'server-id',
+        type: 'integer',
+        description: 'The id number of the server to stop.',
+        minValue: 1
+      }
+    ]
+  },
   { 
     name: 'settings',
     description: 'Shows the current settings of an OpenRCT2 server.',
@@ -676,7 +688,8 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
         await interaction.deferReply();
 
         await this.stopServer(response, serverId);
-
+      } else if (subcommandName === 'queue') {
+        await this.getServerQueueSettings(response, serverId);
       // Groups
       } else if (groupName === 'scenario') {
         await interaction.deferReply();
@@ -715,6 +728,8 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
             options.get('defer')?.value as boolean
           );
         } else if (subcommandName === 'add') {
+          await interaction.deferReply();
+
           const options = this.getInteractionSubcommandGroupSubcommandOptions(interaction, groupName, subcommandName);
           await this.addToServerQueue(
             response,
@@ -950,6 +965,13 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     };
   };
 
+  private async getServerQueueSettings(response: ResponseBuilder, serverId: number) {
+    const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+    const queue = await serverDir.getQueue();
+
+    response.addText(this.formatServerQueueMessage(serverId, queue));
+  };
+
   private async setServerQueueOptions(
     response: ResponseBuilder,
     serverId: number,
@@ -959,7 +981,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     const queue = await serverDir.getQueue();
 
     if (size != undefined) {
-      queue.size = size;
+      queue.limit = size;
       response.addText(`Updated the scenario queue to ${size > 0 ? `be of size ${bold(`${size}`)}` : bold('INACTIVE')}.`);
 
       if (size < queue.waitingScenarios.length) {
@@ -995,7 +1017,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
       const queue = await serverDir.getQueue();
 
-      if (queue.waitingScenarios.length < queue.size) {
+      if (queue.waitingScenarios.length < queue.limit) {
         await this.openRCT2ServerController.addToServerScenarioQueue(serverId, scenarios[0]);
         response.addText(
           `Added the ${
@@ -1383,13 +1405,13 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     const msgSegments = [`Current settings for ${italic(underscore(`Server ${serverId}`))}:`];
 
     msgSegments.push('');
-    msgSegments.push(`${underscore('Startup Options:')}`);
+    msgSegments.push(`${underscore('Startup Settings:')}`);
     msgSegments.push(`Start Mode: ${startupOptions.headless ? italic('Headless') : italic('Windowed')}`);
     msgSegments.push(`Port Number: ${startupOptions.port}`);
     msgSegments.push(`Auto-finalize: ${startupOptions.autoFinalize ? bold('ON') : bold('OFF')}`);
     msgSegments.push(`Build: ${path.basename(path.dirname(startupOptions.openRCT2ExecutablePath))}`);
     msgSegments.push('');
-    msgSegments.push(`${underscore('Plugin Options:')}`);
+    msgSegments.push(`${underscore('Plugin Settings:')}`);
     if (pluginOptions.plugins.length) {
       const pluginNameList = pluginOptions.plugins.map(pluginName => `• ${italic(pluginName)}`);
       msgSegments.push('Enabled Plugins:');
@@ -1400,8 +1422,24 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     msgSegments.push(`Adapter Port: ${pluginOptions.adapterPluginPort}`);
     msgSegments.push(`Welcome Message: ${pluginOptions.welcomeMessage.bodyLines.length ? bold('SET') : bold('NOT SET')}`);
     msgSegments.push('');
-    msgSegments.push(`${underscore('Queue Options:')}`);
-    msgSegments.push(`Scenario Queue Size: ${queue.size}`);
+    msgSegments.push(`${underscore('Queue Settings:')}`);
+    msgSegments.push(`Limit: ${queue.limit}`);
+
+    return msgSegments.join(EOL);
+  };
+
+  private formatServerQueueMessage(serverId: number, queue: ScenarioQueue) {
+    const msgSegments = [`${italic(underscore(`Server ${serverId}`))} Queue:`];
+
+    msgSegments.push('');
+    msgSegments.push(`Limit: ${queue.limit}`);
+    if (queue.waitingScenarios.length) {
+      const scenarioNameList = queue.waitingScenarios.map(scenarioName => `• ${italic(scenarioName)}`);
+      msgSegments.push('Scenarios:');
+      msgSegments.push(...scenarioNameList);
+    } else {
+      msgSegments.push(`Scenarios: ${italic('None')}`);
+    };
 
     return msgSegments.join(EOL);
   };
