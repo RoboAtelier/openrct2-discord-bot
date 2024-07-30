@@ -1014,21 +1014,26 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
 
   private async addToServerQueue(response: ResponseBuilder, serverId: number, scenarioName: string) {
     const scenarios = await this.scenarioRepo.getScenariosByFuzzySearch(scenarioName);
+    console.log(scenarioName);
     if (1 === scenarios.length) {
       const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
       const queue = await serverDir.getQueue();
 
+      console.log('check 1');
       if (queue.waitingScenarios.length < queue.limit) {
         await this.openRCT2ServerController.addToServerScenarioQueue(serverId, scenarios[0]);
+        console.log('check 2');
         response.addText(
           `Added the ${
             bold(scenarios[0].nameNoExtension)
           } scenario to ${underscore(italic(`Server ${serverId}`))}'s scenario queue.`
         );
       } else {
+        console.log('check 3');
         response.addErrorText(`Cannot add additional scenarios to ${underscore(italic(`Server ${serverId}`))}'s scenario queue.`);
       };
     } else {
+      console.log('check 4');
       response.addErrorText(
         this.formatNonsingleScenarioError(scenarios.map(scenario => scenario.name), scenarioName)
       );
