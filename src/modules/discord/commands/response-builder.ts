@@ -54,7 +54,7 @@ export class ResponseBuilder {
     if (this.hasError) {
       return new MessagePayload(
         target,
-        { content: this.errorSegments.length ? this.contentSegments.join(EOL) : undefined }
+        { content: this.errorSegments.length ? this.errorSegments.join(EOL) : undefined }
       );
     };
     return new MessagePayload(

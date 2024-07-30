@@ -1455,7 +1455,6 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
   private formatNonsingleScenarioError(scenarioNames: string[], nameSearch: string) {
     const errorMsgSegments = [];
 
-    console.log(scenarioNames);
     if (scenarioNames.length > 1) {
       errorMsgSegments.push(`Multiple scenarios match ${italic(nameSearch)}:${EOL}`);
       for (const name of scenarioNames) {
