@@ -237,7 +237,8 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
         response.addText('Updates may take a bit of time to fully apply.');
       };
     } else {
-      response.addErrorText(this.formatNonsingleScenarioError(scenarios.map(scenario => scenario.name), scenarioName));
+      const scenarioNames = scenarios.map(scenario => scenario.name);
+      response.addErrorText(this.formatNonsingleScenarioError(scenarioNames, scenarioName));
     };
   };
 
