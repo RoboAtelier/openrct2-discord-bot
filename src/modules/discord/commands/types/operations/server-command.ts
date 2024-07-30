@@ -116,7 +116,7 @@ const ServerSubcommandGroups = <const>[
         ]
       },
       { 
-        name: 'settings',
+        name: '',
         description: 'Shows the queue settings of an OpenRCT2 server.',
         options: [
           {
