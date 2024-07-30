@@ -89,7 +89,6 @@ export interface OpenRCT2ServerControllerEvent {
     save?: {
       saveFilePath: string,
       saveFileName: string,
-      saveFileExtension: string,
       usedPlugin: boolean;
     }
   };
@@ -570,7 +569,6 @@ export class OpenRCT2ServerController extends EventEmitter {
         save?: {
           saveFilePath: string,
           saveFileName: string,
-          saveFileExtension: string,
           usedPlugin: boolean
         }
       } = {
@@ -595,11 +593,10 @@ export class OpenRCT2ServerController extends EventEmitter {
             eventData.save = {
               saveFilePath: save.saveFile.path,
               saveFileName: finalSaveFileName,
-              saveFileExtension: save.saveFile.fileExtension,
               usedPlugin: save.usedPlugin
             };
           } else {
-            eventData.save = { saveFilePath: '', saveFileName: '', saveFileExtension: '', usedPlugin: false };
+            eventData.save = { saveFilePath: '', saveFileName: '', usedPlugin: false };
           };
 
           eventData.scenarioName = save?.scenarioName ?? screenshot?.scenarioName ?? scenarioFile?.nameNoExtension;
@@ -607,7 +604,7 @@ export class OpenRCT2ServerController extends EventEmitter {
           this.emit('server.scenario.complete', new ServerEventArgs(args.serverId, eventData));
         } catch (err) {
           await this.logger.writeError(err as Error);
-          eventData.save = { saveFilePath: '', saveFileName: '', saveFileExtension: '', usedPlugin: false };
+          eventData.save = { saveFilePath: '', saveFileName: '', usedPlugin: false };
           this.emit('server.scenario.complete', new ServerEventArgs(args.serverId, eventData));
         };
       } else {

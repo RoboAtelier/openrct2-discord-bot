@@ -129,7 +129,6 @@ export class EventNotifier {
       save?: {
         saveFilePath: string,
         saveFileName: string,
-        saveFileExtension: string,
         usedPlugin: boolean;
       }
     }>
@@ -163,7 +162,7 @@ export class EventNotifier {
       };
       const saveFilePayload = {
         attachment: args.data.save.saveFilePath,
-        name: `s${args.serverId}_${args.data.save.saveFileName}${args.data.save.saveFileExtension}`,
+        name: `s${args.serverId}_${args.data.save.saveFileName}`,
       };
       const saveAttachment = await MessagePayload.resolveFile(saveFilePayload);
       if ((saveAttachment.data as Buffer).length > fileByteSizeLimit) {
