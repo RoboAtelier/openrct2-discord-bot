@@ -853,6 +853,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       };
     };
 
+    console.log(response);
     if (!response.hasContent) {
       interaction.deferred 
         ? await interaction.editReply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage)
