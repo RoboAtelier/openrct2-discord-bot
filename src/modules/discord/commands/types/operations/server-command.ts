@@ -1457,7 +1457,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
 
     if (scenarioNames.length > 1) {
       errorMsgSegments.push(`Multiple scenarios match ${italic(nameSearch)}:${EOL}`);
-      for (const name of scenarioNames) {
+      for (const name of scenarioNames.slice(0, 10)) {
         errorMsgSegments.push(`▸ ${italic(name)}`);
       };
       errorMsgSegments.push(`${EOL}Enter a more specific name.`);
