@@ -154,7 +154,7 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
   private static readonly startupFileName = 'startup-config.json';
   private static readonly statusFileName = 'status.json';
 
-  private readonly fileMap: Map<string, ConcurrentObjectFile<any>>;
+  private readonly fileMap = new Map<string, ConcurrentObjectFile<any>>();
   private readonly configFile: ConcurrentObjectFile<OpenRCT2GameConfiguration>;
   private readonly queueFile: ConcurrentObjectFile<ScenarioQueue>;
   private readonly pluginFile: ConcurrentObjectFile<PluginOptions>;
@@ -169,7 +169,6 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
 
   constructor(dirPath: string) {
     super(dirPath);
-    this.fileMap = new Map<string, ConcurrentObjectFile<any>>;
 
     this.configFile = new ConcurrentObjectFile(
       path.join(this.path, OpenRCT2ServerDirectory.gameConfigFileName),
