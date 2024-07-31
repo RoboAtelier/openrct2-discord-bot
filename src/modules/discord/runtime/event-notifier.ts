@@ -140,7 +140,9 @@ export class EventNotifier {
     if (args.data.save && args.data.save.saveFilePath) {
       const response = new ResponseBuilder();
       response.addText(
-        `${underscore(italic(`Server ${args.serverId}`))} - ${bold(args.data.scenarioName ?? 'Scenario')} - Snapshot`
+        `${underscore(italic(`Server ${args.serverId}`))} - ${
+          bold(args.data.scenarioName ?? 'Scenario')
+        } ${args.data.scenarioStatus.charAt(0).toUpperCase()}${args.data.scenarioStatus.slice(1)} - Snapshot`
       );
 
       let totalSize = 0;

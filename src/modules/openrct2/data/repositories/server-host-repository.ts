@@ -154,6 +154,7 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
   private static readonly startupFileName = 'startup-config.json';
   private static readonly statusFileName = 'status.json';
 
+  private readonly fileMap: Map<string, ConcurrentObjectFile<any>>;
   private readonly configFile: ConcurrentObjectFile<OpenRCT2GameConfiguration>;
   private readonly queueFile: ConcurrentObjectFile<ScenarioQueue>;
   private readonly pluginFile: ConcurrentObjectFile<PluginOptions>;
@@ -168,26 +169,38 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
 
   constructor(dirPath: string) {
     super(dirPath);
+    this.fileMap = new Map<string, ConcurrentObjectFile<any>>;
+
     this.configFile = new ConcurrentObjectFile(
       path.join(this.path, OpenRCT2ServerDirectory.gameConfigFileName),
       new OpenRCT2GameConfiguration()
     );
+    this.fileMap.set(OpenRCT2ServerDirectory.gameConfigFileName, this.configFile);
+
     this.queueFile = new ConcurrentObjectFile(
       path.join(this.path, OpenRCT2ServerDirectory.queueFileName),
       new ScenarioQueue()
     );
+    this.fileMap.set(OpenRCT2ServerDirectory.queueFileName, this.queueFile);
+
     this.pluginFile = new ConcurrentObjectFile(
       path.join(this.path, OpenRCT2ServerDirectory.pluginFileName),
       new PluginOptions()
     )
+    this.fileMap.set(OpenRCT2ServerDirectory.pluginFileName, this.pluginFile);
+
     this.startupFile = new ConcurrentObjectFile(
       path.join(this.path, OpenRCT2ServerDirectory.startupFileName),
       new StartupOptions()
     );
+    this.fileMap.set(OpenRCT2ServerDirectory.startupFileName, this.startupFile);
+
     this.statusFile = new ConcurrentObjectFile(
       path.join(this.path, OpenRCT2ServerDirectory.statusFileName),
       new ServerStatus()
     );
+    this.fileMap.set(OpenRCT2ServerDirectory.statusFileName, this.statusFile);
+
     this.autosaveSubdir = new ConcurrentDirectory(
       path.join(this.path, OpenRCT2ServerSubdirectoryName.Autosave)
     );
@@ -232,6 +245,38 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
     return path.join(this.path, subdirName);
   };
 
+  /**
+   * Locks a file to allow actions from a single process.
+   * @param fileName The name of the file to lock.
+   * @param lifetimeMs The length of time in milliseconds to keep the lock for.
+   * @returns A transaction key to execute actions on the file while locked.
+   */
+  async lockFile(fileName: typeof OpenRCT2ServerDirectory.queueFileName, lifetimeMs = 30000) {
+    const file = this.fileMap.get(fileName);
+    if (file) {
+      return file.lock(lifetimeMs);
+    } else {
+      throw new Error('Invalid file specified.');
+    };
+  };
+
+  /**
+   * Unlocks a file to allow operations from all processes.
+   * @param fileName The name of the file to unlock.
+   * @param transactionKey The permission value initially assigned from locking an object.
+   */
+  async unlockFile(fileName: typeof OpenRCT2ServerDirectory.queueFileName, transactionKey: number) {
+    const file = this.fileMap.get(fileName);
+    if (file) {
+      const unlocked = file.unlock(transactionKey);
+      if (!unlocked) {
+        throw new Error('Invalid key specified to unlock a file.');
+      };
+    } else {
+      throw new Error('Invalid file specified.');
+    };
+  };
+
   /** 
    * Gets the game configuration settings of the OpenRCT2 game server.
    * @async
@@ -253,19 +298,21 @@ class OpenRCT2ServerDirectory extends ConcurrentDirectory {
   /** 
    * Gets the current queue and queue settings for the OpenRCT2 game server.
    * @async
+   * @param transactionKey A permission value to run an action on a locked object.
    * @returns A queue data object.
    */
-  async getQueue() {
-    return this.queueFile.readExclusive();
+  async getQueue(transactionKey?: number) {
+    return this.queueFile.readExclusive(transactionKey);
   };
 
   /** 
    * Updates the current queue or queue settings for the OpenRCT2 game server.
    * @async
    * @param config The updated queue data object.
+   * @param transactionKey A permission value to run an action on a locked object.
    */
-  async updateQueue(queue: ScenarioQueue) {
-    return this.queueFile.writeExclusive(queue);
+  async updateQueue(queue: ScenarioQueue, transactionKey?: number) {
+    return this.queueFile.writeExclusive(queue, transactionKey);
   };
 
   /** 

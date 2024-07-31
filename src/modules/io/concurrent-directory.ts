@@ -98,20 +98,22 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
   };
 
   /**
-   * Adds a file into the managed directory or subdirectory.
+   * Adds a file into the managed directory or subdirectory with concurrency locking.
    * If the file already exists, it is replaced.
    * @async
    * @param filePath The path to the file to add.
    * @param newFileName If specified, renames the added file.
    * @param subdirNameOrRelPath If specified, places the new file into the relative path to a subdirectory.
+   * @param transactionKey A permission value to run an action on a locked object.
    */
   async addFileExclusive(
     filePath: string,
     newFileName = '',
-    subdirNameOrRelPath = ''
+    subdirNameOrRelPath = '',
+    transactionKey?: number
   ) {
     this.validateActive();
-    return this.ioMutex.runExclusive(async () => {
+    const adder = async () => {
       const fullDirPath = path.join(this.objPath, subdirNameOrRelPath);
       this.validateManagedDirectoryPath(fullDirPath);
       await mkdir(fullDirPath, { recursive: true });
@@ -122,59 +124,75 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
         fileName = newFileName;
       };
       return copyFile(filePath, path.join(fullDirPath, fileName));
-    });
+    };
+    if (this.ioMutex.isLocked() && this.transactionKey === transactionKey) {
+      return adder();
+    };
+    return this.ioMutex.runExclusive(adder);
   };
 
   /**
-   * Creates a new subdirectory into the managed directory.
+   * Creates a new subdirectory into the managed directory with concurrency locking.
    * @async
    * @param newSubdirNameOrRelPath The name or relative path to the subdirectory to create.
    * @param options An object optionally specifying the file mode and whether subdirectories are created recursively.
    * If a string for the file mode is passed, it is parsed as an octal integer.
    * If a file mode is not specified, defaults to `0o777`.
    * If no options are specified, subdirectories are created recursively by default.
+   * @param transactionKey A permission value to run an action on a locked object.
    */
   async createSubdirectoryExclusive(
     newSubdirNameOrRelPath: string,
     options: {
       mode?: string | number,
       recursive?: boolean
-    } = { recursive: true }
+    } = { recursive: true },
+    transactionKey?: number
   ) {
     this.validateActive();
-    return this.ioMutex.runExclusive(async () => {
+    const create = async () => {
       const fullDirPath = path.join(this.objPath, newSubdirNameOrRelPath);
       this.validateManagedDirectoryPath(fullDirPath);
       
       return mkdir(fullDirPath, options);
-    });
+    };
+    if (this.ioMutex.isLocked() && this.transactionKey === transactionKey) {
+      return create();
+    };
+    return this.ioMutex.runExclusive(create);
   };
 
   /**
-   * Gets all directory entries in the managed directory or subdirectory with locking.
+   * Gets all directory entries in the managed directory or subdirectory with concurrency locking.
    * @async
    * @param subdirNameOrRelPath If specified, gets directory entries in the relative path to the subdirectory.
+   * @param transactionKey A permission value to run an action on a locked object.
    * @returns An array of directory entries.
    */
-  async getDirentsExclusive(subdirNameOrRelPath = '') {
+  async getDirentsExclusive(subdirNameOrRelPath = '', transactionKey?: number) {
     this.validateActive();
-    return this.ioMutex.runExclusive(async () => {
+    const getter = async () => {
       const fullDirPath = path.join(this.objPath, subdirNameOrRelPath);
       this.validateManagedDirectoryPath(fullDirPath);
 
       return readdir(fullDirPath, { withFileTypes: true });
-    });
+    };
+    if (this.ioMutex.isLocked() && this.transactionKey === transactionKey) {
+      return getter();
+    };
+    return this.ioMutex.runExclusive(getter);
   };
 
   /**
-   * Gets all directories in the managed directory or subdirectory with locking.
+   * Gets all directories in the managed directory or subdirectory with concurrency locking.
    * @async
    * @param subdirNameOrRelPath If specified, gets directories in the relative path to the subdirectory.
+   * @param transactionKey A permission value to run an action on a locked object.
    * @returns An array of directory entries that are only directories.
    */
-  async getDirectoriesExclusive(subdirNameOrRelPath = '') {
+  async getDirectoriesExclusive(subdirNameOrRelPath = '', transactionKey?: number) {
     this.validateActive();
-    return this.ioMutex.runExclusive(async () => {
+    const getter = async () => {
       const fullDirPath = path.join(this.objPath, subdirNameOrRelPath);
       this.validateManagedDirectoryPath(fullDirPath);
 
@@ -182,18 +200,23 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
       return dirents.filter(dirent => {
         return dirent.isDirectory();
       });
-    });
+    };
+    if (this.ioMutex.isLocked() && this.transactionKey === transactionKey) {
+      return getter();
+    };
+    return this.ioMutex.runExclusive(getter);
   };
 
   /**
-   * Gets all files in the managed directory or subdirectory with locking.
+   * Gets all files in the managed directory or subdirectory with concurrency locking.
    * @async
    * @param subdirNameOrRelPath If specified, gets files in the relative path to the subdirectory.
+   * @param transactionKey A permission value to run an action on a locked object.
    * @returns An array of directory entries that are only files.
    */
-  async getFilesExclusive(subdirNameOrRelPath = '') {
+  async getFilesExclusive(subdirNameOrRelPath = '', transactionKey?: number) {
     this.validateActive();
-    return this.ioMutex.runExclusive(async () => {
+    const getter = async () => {
       const fullDirPath = path.join(this.objPath, subdirNameOrRelPath);
       this.validateManagedDirectoryPath(fullDirPath);
 
@@ -201,15 +224,20 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
       return dirents.filter(dirent => {
         return dirent.isFile();
       });
-    });
+    };
+    if (this.ioMutex.isLocked() && this.transactionKey === transactionKey) {
+      return getter();
+    };
+    return this.ioMutex.runExclusive(getter);
   };
 
   /**
-   * Reads the entire contents of a file as a string with locking.
+   * Reads the entire contents of a file as a string with concurrency locking.
    * @async
    * @param fileNameOrRelPath The name or relative path to the file to read.
    * @param options Either the encoding for the result, or an object that contains the encoding and an optional flag.
    * If a flag is not provided, it defaults to `'r'`.
+   * @param transactionKey A permission value to run an action on a locked object.
    * @returns File contents as a string of the specified encoding.
    */
   async readFileAsStringExclusive(
@@ -219,23 +247,29 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
           encoding: BufferEncoding;
           flag?: number | string;
         } & Abortable)
-      | BufferEncoding
+      | BufferEncoding,
+    transactionKey?: number
   ) {
     this.validateActive();
-    return this.ioMutex.runExclusive(async () => { 
+    const reader = async () => { 
       const fullFilePath = path.join(this.objPath, fileNameOrRelPath);
       this.validateManagedDirectoryPath(path.dirname(fullFilePath));
 
       return readFile(fullFilePath, options);
-    });
+    };
+    if (this.ioMutex.isLocked() && this.transactionKey === transactionKey) {
+      return reader();
+    };
+    return this.ioMutex.runExclusive(reader);
   };
 
   /**
-   * Reads the entire contents of a file as a buffer with locking.
+   * Reads the entire contents of a file as a buffer with concurrency locking.
    * @async
    * @param fileNameOrRelPath The name or relative path to the file to read.
    * @param options An object that contains an optional flag.
    * If a flag is not provided or no option is specified, it defaults to `'r'`.
+   * @param transactionKey A permission value to run an action on a locked object.
    * @returns File contents as a buffer.
    */
     async readFileAsBufferExclusive(
@@ -243,29 +277,35 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
       options?: 
         ({
           flag?: number | string;
-        } & Abortable)
+        } & Abortable),
+      transactionKey?: number
     ) {
       this.validateActive();
-      return this.ioMutex.runExclusive(async () => { 
+      const reader = async () => { 
         const fullFilePath = path.join(this.objPath, fileNameOrRelPath);
         this.validateManagedDirectoryPath(path.dirname(fullFilePath));
   
         return readFile(fullFilePath, options);
-      });
+      };
+      if (this.ioMutex.isLocked() && this.transactionKey === transactionKey) {
+        return reader();
+      };
+      return this.ioMutex.runExclusive(reader);
     };
 
   /**
-   * Renames the managed directory with locking.
+   * Renames the managed directory with concurrency locking.
    * @async
    * @param newDirName The new name for the directory.
+   * @param transactionKey A permission value to run an action on a locked object.
    */
-  async renameExclusive(newDirName: string) {
+  async renameExclusive(newDirName: string, transactionKey?: number) {
     this.validateActive();
     if (path.basename(this.objPath) !== path.resolve(newDirName)) {
       return;
     };
-    
-    return this.ioMutex.runExclusive(async () => {
+
+    const renamer = async () => {
       this.validateManagedDirectoryPath(newDirName);
       const renamedObjPath = path.join(path.dirname(this.objPath), newDirName);
       this.validateManagedDirectoryPath(renamedObjPath);
@@ -293,22 +333,28 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
         );
       };
       this.objPath = renamedObjPath;
-    });
+    };
+    if (this.ioMutex.isLocked() && this.transactionKey === transactionKey) {
+      return renamer();
+    };
+    return this.ioMutex.runExclusive(renamer);
   };
 
   /**
-   * Renames or moves a file or path to a file with locking.
+   * Renames or moves a file or path to a file with concurrency locking.
    * If the new file name already exists, the file is overwritten.
    * @async
    * @param fileNameOrRelPath The name or relative path to the file to rename.
    * @param newFileNameOrRelPath The new name or relative path to the file.
+   * @param transactionKey A permission value to run an action on a locked object.
    */
   async renameOrMoveFileExclusive(
     fileNameOrRelPath: string,
-    newFileNameOrRelPath: string
+    newFileNameOrRelPath: string,
+    transactionKey?: number
   ) {
     this.validateActive();
-    return this.ioMutex.runExclusive(async () => {
+    const renamer = async () => {
       const fullFilePath = path.join(this.objPath, fileNameOrRelPath);
       const newFullFilePath = path.join(this.objPath, newFileNameOrRelPath);
 
@@ -322,22 +368,28 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
       
       await mkdir(path.dirname(newFullFilePath), { recursive: true });
       return rename(fullFilePath, newFullFilePath);
-    });
+    };
+    if (this.ioMutex.isLocked() && this.transactionKey === transactionKey) {
+      return renamer();
+    };
+    return this.ioMutex.runExclusive(renamer);
   };
 
   /**
-   * Renames or moves a subdirectory or path to a subdirectory with locking.
+   * Renames or moves a subdirectory or path to a subdirectory with concurrency locking.
    * If the new subdirectory name already exists, the operation will fail.
    * @async
    * @param subdirNameOrRelPath The name or relative path to the subdirectory to rename.
    * @param newSubdirNameOrRelPath The new name or relative path to the subdirectory.
+   * @param transactionKey A permission value to run an action on a locked object.
    */
   async renameOrMoveSubdirectoryExclusive(
     subdirNameOrRelPath: string,
-    newSubdirNameOrRelPath: string
+    newSubdirNameOrRelPath: string,
+    transactionKey?: number
   ) {
     this.validateActive();
-    return this.ioMutex.runExclusive(async () => {
+    const remover = async () => {
       const fullDirPath = path.join(this.objPath, subdirNameOrRelPath);
       const newFullDirPath = path.join(this.objPath, newSubdirNameOrRelPath);
 
@@ -360,31 +412,41 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
         this.validateManagedDirectoryPath(dirPath);
       };
       return rename(fullDirPath, newFullDirPath);
-    });
+    };
+    if (this.ioMutex.isLocked() && this.transactionKey === transactionKey) {
+      return remover();
+    };
+    return this.ioMutex.runExclusive(remover);
   };
 
   /**
-   * Removes a file with locking.
+   * Removes a file with concurrency locking.
    * @param fileNameOrRelPath The name or relative path to the file to remove.
+   * @param transactionKey A permission value to run an action on a locked object.
    */
-  async removeFileExclusive(fileNameOrRelPath: string) {
+  async removeFileExclusive(fileNameOrRelPath: string, transactionKey?: number) {
     this.validateActive();
-    return this.ioMutex.runExclusive(async () => {
+    const remover = async () => {
       const fullFilePath = path.join(this.objPath, fileNameOrRelPath);
       this.validateManagedFilePath(fullFilePath);
       if (existsSync(fullFilePath)) {
         return unlink(fullFilePath);
       };
-    });
+    };
+    if (this.ioMutex.isLocked() && this.transactionKey === transactionKey) {
+      return remover();
+    };
+    return this.ioMutex.runExclusive(remover);
   };
 
   /**
-   * Removes a subdirectory and its contents with locking.
+   * Removes a subdirectory and its contents with concurrency locking.
    * @param subdirNameOrRelPath The name or relative path to the subdirectory to remove.
+   * @param transactionKey A permission value to run an action on a locked object.
    */
-  async removeSubdirectoryExclusive(subdirNameOrRelPath: string) {
+  async removeSubdirectoryExclusive(subdirNameOrRelPath: string, transactionKey?: number) {
     this.validateActive();
-    return this.ioMutex.runExclusive(async () => {
+    const remover = async () => {
       const fullDirPath = path.join(this.objPath, subdirNameOrRelPath);
       this.validateManagedDirectoryPath(fullDirPath); 
       if (path.resolve(fullDirPath) === this.objPath) {
@@ -399,17 +461,22 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
         };
         return rm(fullDirPath, { recursive: true, force: true });
       };
-    });
+    };
+    if (this.ioMutex.isLocked() && this.transactionKey === transactionKey) {
+      return remover();
+    };
+    return this.ioMutex.runExclusive(remover);
   };
 
   /**
-   * Writes data to a file or creates a new file with locking.
+   * Writes data to a file or creates a new file with concurrency locking.
    * @async
    * @param fileNameOrRelPath The name or relative path to the file to write data to.
    * @param data The data to write. If something other than a Buffer or Uint8Array is provided,
    * the value is coerced to a string.
    * @param options An encoding name or an object that contains the encoding and an optional flag.
    * If an encoding is not provided or no option is specified, it defaults to `'utf8'`.
+   * @param transactionKey A permission value to run an action on a locked object.
    */
   async writeFileExclusive(
     fileNameOrRelPath: string,
@@ -424,24 +491,30 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
           encoding: BufferEncoding;
           flag?: string | undefined;
         } & Abortable)
-      | BufferEncoding = 'utf8'
+      | BufferEncoding = 'utf8',
+    transactionKey?: number
   ) {
     this.validateActive();
-    return this.ioMutex.runExclusive(async () => { 
+    const writer = async () => { 
       const fullFilePath = path.join(this.objPath, fileNameOrRelPath);
       this.validateManagedFilePath(fullFilePath);
       
       return writeFile(fullFilePath, data, options);
-    });
+    };
+    if (this.ioMutex.isLocked() && this.transactionKey === transactionKey) {
+      return writer();
+    };
+    return this.ioMutex.runExclusive(writer);
   };
 
   /**
-   * Appends data to a file or creates a new file with locking.
+   * Appends data to a file or creates a new file with concurrency locking.
    * @async
    * @param fileNameOrRelPath The name or relative path to the file to append data to.
    * @param data The data to append to the file.
    * @param options A buffer encoding or an object that contains the encoding and an optional flag.
    * If an encoding is not provided or no option is specified, it defaults to `'utf8'`.
+   * @param transactionKey A permission value to run an action on a locked object.
    */
   async appendFileExclusive(
     fileNameOrRelPath: string,
@@ -453,15 +526,20 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
           encoding: BufferEncoding;
           flag?: string | undefined;
         } & Abortable)
-      | BufferEncoding = 'utf8'
+      | BufferEncoding = 'utf8',
+    transactionKey?: number
   ) {
     this.validateActive();
-    return this.ioMutex.runExclusive(async () => { 
+    const writer = async () => { 
       const fullFilePath = path.join(this.objPath, fileNameOrRelPath);
       this.validateManagedFilePath(fullFilePath);
       
       return appendFile(fullFilePath, data, options);
-    });
+    };
+    if (this.ioMutex.isLocked() && this.transactionKey === transactionKey) {
+      return writer();
+    };
+    return this.ioMutex.runExclusive(writer);
   };
 
   /**

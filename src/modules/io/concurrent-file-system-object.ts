@@ -1,5 +1,8 @@
 import path from 'path';
-import { Mutex } from 'async-mutex';
+import {
+  Mutex,
+  MutexInterface
+} from 'async-mutex';
 import { 
   isStringNullOrWhiteSpace,
   isStringValidForFileName,
@@ -13,20 +16,23 @@ import {
  */
 export abstract class ConcurrentFileSystemObject {
   
-  /** 
-   * A collection of managed file system objects
-   * to track current mutex instances.
-   */
+  /** A collection of managed file system objects to track current mutex instances. */
   protected static readonly fsObjMutexes = new Map<string, { mutex: Mutex, instances: number }>();
-  
+
+  /** Gets the mutex instance that handles locks on I/O processes. */
+  protected readonly ioMutex: Mutex;
+
+  /** Gets an arbitrary value to permit I/O processes on locked processes.*/
+  protected transactionKey?: number;
+
+  /** Gets the timeout function on an acquired lock. */
+  protected lockTimeout?: NodeJS.Timeout;
+
   /** Specifies if this instance is being managed. */
   protected objActive = false;
 
-  /** The full path to the managed file system object. */
+  /** Gets the full path to the managed file system object. */
   protected objPath: string;
-
-  /** The mutex instance that handles locks on concurrent I/O processes. */
-  protected ioMutex: Mutex;
 
   constructor(objPath: string) {
     const resolvedObjPath = path.resolve(objPath);
@@ -68,14 +74,42 @@ export abstract class ConcurrentFileSystemObject {
       };
     };
     this.objPath = '';
+    this.ioMutex.cancel();
+  };
+
+  /**
+   * Acquires a lock on the file system object. 
+   * @param lifetimeMs The length of time in milliseconds to keep the lock for.
+   * @async 
+   * @returns A permission value to run an action on the locked object.
+   */
+  async lock(lifetimeMs = 30000) {
+    await this.ioMutex.acquire();
+    this.lockTimeout = setTimeout(this.ioMutex.release, lifetimeMs);
+    const lockKey = Date.now();
+    this.transactionKey = lockKey;
+    return lockKey;
+  };
+
+  /**
+   * Releases the lock on the file system object.
+   * @param transactionKey The permission value initially assigned from locking an object.
+   */
+  unlock(transactionKey: number) {
+    if (this.transactionKey === transactionKey) {
+      this.ioMutex.release();
+      clearTimeout(this.lockTimeout);
+      this.lockTimeout = undefined;
+      this.transactionKey = undefined;
+      return true;
+    };
+    return false;
   };
 
   /** Checks if this instance is currently managing a file system object. */
   protected validateActive() {
     if (!this.objActive) {
-      throw Error(
-        'This concurrent file system object instance is not active.'
-        + ' A new instance must be created.');
+      throw Error('This concurrent file system object instance is not active. A new instance must be created.');
     };
   };
 

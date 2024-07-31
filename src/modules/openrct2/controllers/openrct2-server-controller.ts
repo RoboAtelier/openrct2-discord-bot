@@ -186,6 +186,7 @@ export class OpenRCT2ServerController extends EventEmitter {
         this.captureServerEvents(gameServer);
         this.emit('server.start', new ServerEventArgs(serverId, scenarioFile));
         await this.logger.writeLog(`Server ${serverId} was launched on ${scenarioFile.name}.`);
+        return true;
       } catch (err) {
         await this.logger.writeError(err as Error);
         throw err;
@@ -193,6 +194,7 @@ export class OpenRCT2ServerController extends EventEmitter {
         this.processFlags.deleteFlag(serverId, 'start');
       };
     };
+    return false;
   };
 
   /**
@@ -232,6 +234,7 @@ export class OpenRCT2ServerController extends EventEmitter {
         this.captureServerEvents(gameServer);
         this.emit('server.restart', new ServerEventArgs(serverId, { autosaveIndex: autosaveIndex }));
         await this.logger.writeLog(`Server ${serverId} was launched on autosave ${latestAutosave.name}.`);
+        return true;
       } catch (err) {
         await this.logger.writeError(err as Error);
         throw err;
@@ -239,6 +242,7 @@ export class OpenRCT2ServerController extends EventEmitter {
         this.processFlags.deleteFlag(serverId, 'start');
       };
     };
+    return false;
   };
 
   /**
@@ -252,6 +256,7 @@ export class OpenRCT2ServerController extends EventEmitter {
       const startupOptions = await serverDir.getStartupOptions();
       const now = Date.now();
       const startTime = now + (startupOptions.delayDuration * 60000);
+      let success = false;
       let remainingMinutes = startupOptions.delayDuration;
       let nextNoticeTime = now;
 
@@ -280,19 +285,21 @@ export class OpenRCT2ServerController extends EventEmitter {
         if (this.processFlags.hasFlag(serverId, 'start.defer')) {
           this.processFlags.deleteFlag(serverId, 'start.defer');
           try {
-            await this.startGameServerOnScenario(serverId, scenarioFile);
+            success = await this.startGameServerOnScenario(serverId, scenarioFile);
           } catch { };
         };
         resolve();
       });
 
       this.processFlags.deleteFlag(serverId, 'start.defer');
+      return success;
     };
+    return false;
   };
 
   async startGameServerFromQueue(serverId: number, defer = false) {
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
-    const queue = await serverDir.getQueue();
+    let queue = await serverDir.getQueue();
 
     if (queue.waitingScenarios.length > 0) {
       const scenariosInQueue = await Promise.all(queue.waitingScenarios.map(inQueue => {
@@ -300,19 +307,24 @@ export class OpenRCT2ServerController extends EventEmitter {
       }));
       const validScenarios = scenariosInQueue.filter(inQueue => inQueue) as ScenarioFile[];
       queue.waitingScenarios = validScenarios.map(scenarioFile => scenarioFile.name);
-      await serverDir.updateQueue(queue);
 
-      const scenarioToRun = validScenarios.splice(0, 1)[0];
+      const scenarioToRun = validScenarios[0];
       await this.logger.writeLog(`Server ${serverId} is starting a queued scenario ${scenarioToRun.name}.`);
-      if (defer) {
-        await this.startGameServerOnScenarioDeferred(serverId, scenarioToRun);
-      } else {
-        await this.startGameServerOnScenario(serverId, scenarioToRun);
-      };
 
-      queue.waitingScenarios = validScenarios.map(scenarioFile => scenarioFile.name);
-      await serverDir.updateQueue(queue);
+      const success = defer
+        ? await this.startGameServerOnScenarioDeferred(serverId, scenarioToRun)
+        : await this.startGameServerOnScenario(serverId, scenarioToRun);
+
+      if (success) {
+        const queueKey = await serverDir.lockFile('queue.json');
+        queue = await serverDir.getQueue(queueKey);
+        queue.waitingScenarios = queue.waitingScenarios.filter(inQueue => inQueue !== scenarioToRun.name);
+        await serverDir.updateQueue(queue, queueKey);
+        serverDir.unlockFile('queue.json', queueKey);
+      };
+      return success;
     };
+    return false;
   };
 
   /**
@@ -367,17 +379,20 @@ export class OpenRCT2ServerController extends EventEmitter {
 
   async addToServerScenarioQueue(serverId: number, scenarioFile: ScenarioFile) {
     const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
-    const queue = await serverDir.getQueue();
+    const queueKey = await serverDir.lockFile('queue.json');
+    const queue = await serverDir.getQueue(queueKey);
 
     if (queue.waitingScenarios.length < queue.limit) {
       queue.waitingScenarios.push(scenarioFile.name);
-      await serverDir.updateQueue(queue);
+      await serverDir.updateQueue(queue, queueKey);
       await this.logger.writeLog(`Server ${serverId} queued up ${scenarioFile.name}.`);
       const status = await serverDir.getStatus();
       if (status.isCurrentScenarioCompleted) {
         this.startGameServerFromQueue(serverId, true);
       };
     };
+
+    serverDir.unlockFile('queue.json', queueKey);
   };
 
   /**

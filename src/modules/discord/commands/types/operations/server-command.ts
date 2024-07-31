@@ -729,6 +729,8 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
             options.get('defer')?.value as boolean
           );
         } else if (subcommandName === 'add') {
+          await interaction.deferReply();
+
           const options = this.getInteractionSubcommandGroupSubcommandOptions(interaction, groupName, subcommandName);
           await this.addToServerQueue(
             response,

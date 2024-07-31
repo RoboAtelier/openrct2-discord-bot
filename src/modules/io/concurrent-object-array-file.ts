@@ -42,12 +42,17 @@ export class ConcurrentObjectArrayFile<T extends SerializableToArray<T>> extends
   };
 
   /**
-   * Reads the object data array of the file with locking.
+   * Reads the object data array of the file with concurrency locking.
    * @async
+   * @param transactionKey A permission value to run an action on a locked object.
    * @returns File contents as the object array.
    */
-  async readExclusive() {
+  async readExclusive(transactionKey?: number) {
     this.validateActive();
+    if (this.ioMutex.isLocked() && this.transactionKey === transactionKey) {
+      const dataStr = await readFile(this.objPath, 'utf8');
+      return this.typeObj.fromDataArrayString(dataStr);
+    };
     return this.ioMutex.runExclusive(async () => { 
       const dataStr = await readFile(this.objPath, 'utf8');
       return this.typeObj.fromDataArrayString(dataStr);
@@ -55,12 +60,17 @@ export class ConcurrentObjectArrayFile<T extends SerializableToArray<T>> extends
   };
 
   /**
-   * Writes a managed object array into the file.
+   * Writes a managed object array into the file with concurrency locking.
    * @async
    * @param obj The object array to serialize and write into the file.
+   * @param transactionKey A permission value to run an action on a locked object.
    */
-  async writeExclusive(obj: T[]) {
+  async writeExclusive(obj: T[], transactionKey?: number) {
     this.validateActive();
+    if (this.ioMutex.isLocked() && this.transactionKey === transactionKey) {
+      const dataStr = this.typeObj.toDataArrayString(obj);
+      return writeFile(this.objPath, dataStr);
+    };
     return this.ioMutex.runExclusive(async () => {
       const dataStr = this.typeObj.toDataArrayString(obj);
       return writeFile(this.objPath, dataStr);

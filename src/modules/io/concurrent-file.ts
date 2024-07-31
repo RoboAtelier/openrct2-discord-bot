@@ -45,11 +45,12 @@ export class ConcurrentFile extends ConcurrentFileSystemObject {
   };
 
   /**
-   * Reads the entire contents of the file with locking.
+   * Reads the entire contents of the file with concurrency locking.
    * @async
    * @param options Either the encoding for the result, or an object that contains the encoding and an optional flag.
    * If a flag is not provided, it defaults to `'r'`. If no option is specified,
    * the default encoding used is `'utf8'` with the default flag `'r'`.
+   * @param transactionKey A permission value to run an action on a locked object.
    * @returns File contents as a string.
    */
   async readExclusive(
@@ -58,19 +59,24 @@ export class ConcurrentFile extends ConcurrentFileSystemObject {
           encoding: BufferEncoding;
           flag?: string | undefined;
         } & Abortable)
-      | BufferEncoding = 'utf8'
+      | BufferEncoding = 'utf8',
+    transactionKey?: number
   ) {
     this.validateActive();
+    if (this.ioMutex.isLocked() && this.transactionKey === transactionKey) {
+      return readFile(this.objPath, options);
+    };
     return this.ioMutex.runExclusive(async () => { 
       return readFile(this.objPath, options);
     });
   };
 
   /**
-   * Writes data to the file with locking.
+   * Writes data to the file with concurrency locking.
    * @async
    * @param data The data to write. If something other than a Buffer or Uint8Array is provided,
    * the value is coerced to a string.
+   * @param transactionKey A permission value to run an action on a locked object.
    */
   async writeExclusive(
     data: 
@@ -85,9 +91,13 @@ export class ConcurrentFile extends ConcurrentFileSystemObject {
             flag?: OpenMode | undefined;
         } & Abortable)
       | BufferEncoding
-      | null
+      | null,
+    transactionKey?: number
   ) {
     this.validateActive();
+    if (this.ioMutex.isLocked() && this.transactionKey === transactionKey) {
+      return readFile(this.objPath, options);
+    };
     return this.ioMutex.runExclusive(async () => {
       return writeFile(this.objPath, data, options);
     });
