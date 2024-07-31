@@ -169,7 +169,7 @@ export class OpenRCT2Server extends EventEmitter {
       await wait(OpenRCT2Server.pollingTimeMs);
       try {
         const baseScenarioData = await this.pluginAdapter!.executeAction('scenario', `${this.id}`);
-        this._scenarioName = baseScenarioData.name;
+        this._scenarioName = baseScenarioData.name ? baseScenarioData.name : 'Unnamed';
 
         if (
           this._currentScenarioFileName !== baseScenarioData.filename
