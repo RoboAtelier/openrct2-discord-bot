@@ -214,8 +214,8 @@ export class EventNotifier {
         await this.logger.writeError(`Failed to post auto-finalize results for Server ${args.serverId}. ${args.data.save.saveFilePath}`);
         await this.postDebug(`Auto-finalization attempt failed for ${underscore(italic(`Server ${args.serverId}`))}.`);
       };
-    } else {
-      await this.postDebug(`A finalized file was not generated for ${underscore(italic(`Server ${args.serverId}`))}.`);
+    } else if (args.data.save) {
+      await this.postDebug(`A finalized save file was not generated for ${underscore(italic(`Server ${args.serverId}`))}.`);
     };
   };
 
@@ -233,7 +233,7 @@ export class EventNotifier {
     const guildInfo = await this.botDataRepo.getGuildInfo();
     if (!isStringNullOrWhiteSpace(guildInfo.debugChannelId)) {
       try {
-        const textChannel = await this.resolveTextChannel(guildInfo.eventChannelId);
+        const textChannel = await this.resolveTextChannel(guildInfo.debugChannelId);
         return await this.postMessage(textChannel, message);
       } catch { };
     };
