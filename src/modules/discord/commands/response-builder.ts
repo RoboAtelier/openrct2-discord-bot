@@ -37,7 +37,8 @@ export class ResponseBuilder {
   get hasContent() {
     return this.contentSegments.length
       || this.embeds.length
-      || this.files.length;
+      || this.files.length
+      || this.errorSegments.length;
   };
 
   /** Specifies if an error message is present. */
