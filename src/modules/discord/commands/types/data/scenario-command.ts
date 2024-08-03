@@ -192,9 +192,10 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
     newTags?: string[],
     active?: boolean
   ) {
-    const scenarios = await this.scenarioRepo.getScenariosByFuzzySearch(scenarioName);
-    if (1 === scenarios.length) {
-      const scenarioToChange = scenarios[0];
+    const exactScenario = await this.scenarioRepo.getScenarioByName(scenarioName);
+    const matchingScenarios = exactScenario ? [] : await this.scenarioRepo.getScenariosByFuzzySearch(scenarioName);
+    if (exactScenario || matchingScenarios.length === 1) {
+      const scenarioToChange = exactScenario ?? matchingScenarios[0];
       const metadata = await this.scenarioRepo.getScenarioMetadataForFile(scenarioToChange);
       const updateActions: (() => Promise<void>)[] = [];
       const performUpdates = async () => { for (const action of updateActions) { await action(); }; };
@@ -237,7 +238,7 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
         response.addText('Updates may take a bit of time to fully apply.');
       };
     } else {
-      response.addErrorText(this.formatNonsingleScenarioError(scenarios.map(scenario => scenario.name), scenarioName));
+      response.addErrorText(this.formatNonsingleScenarioError(matchingScenarios.map(scenario => scenario.name), scenarioName));
     };
   };
 
@@ -277,17 +278,20 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
     if (!(nameSearch || tags)) {
       return this.getScenarioList(response, scenarioFileExts, resultIndex);
     } else {
-      const metadata = nameSearch
+      const exactMetadata = nameSearch ? await this.scenarioRepo.getScenarioMetadataByName(nameSearch) : undefined;
+      const initialMetadata = exactMetadata
+        ? [exactMetadata]
+        : nameSearch 
         ? await this.scenarioRepo.getScenarioMetadataByFuzzySearch(nameSearch, ...scenarioFileExts)
-        : 0 === scenarioFileExts.length
+        : scenarioFileExts.length
         ? await this.scenarioRepo.getScenarioMetadata()
         : await this.scenarioRepo.getScenarioMetadataByFileExtension(...scenarioFileExts)
 
       const matchedMetadata = tags
-        ? metadata.filter(scenarioData => {
+        ? initialMetadata.filter(scenarioData => {
             return tags.every(tag => scenarioData.tags.includes(tag));
           })
-        : metadata;
+        : initialMetadata;
 
       if (matchedMetadata.length > 0) {
         const metadataSet = getArraySectionWithDetails(matchedMetadata, resultIndex);
