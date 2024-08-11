@@ -1,20 +1,21 @@
 {
   "name": "openrct2-discord-bot",
-  "version": "0.0.1",
+  "version": "0.1.2",
   "description": "OpenRCT2 Discord Bot",
   "author": "",
   "dependencies": {
+    "@octokit/rest": "^21.0.1",
     "async-mutex": "^0.5",
-    "cheerio": "^1.0.0-rc.12",
     "discord.js": "^14.9.0",
-    "fuse.js": "^6.5.3",
+    "fuse.js": "^6.6.2",
     "module-alias": "^2.2.2",
     "tar": "^6.1.13",
     "zip-lib": "^0.7.3"
   },
   "main": "dist/src/app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc && tsc -p tsconfig.plugins.json",
+    "build-plugins": "tsc -p tsconfig.plugins.json"
   },
   "license": "ISC",
   "type": "commonjs",
