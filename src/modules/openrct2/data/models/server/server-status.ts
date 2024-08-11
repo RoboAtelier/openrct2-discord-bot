@@ -2,35 +2,23 @@ import { SerializableObject } from '@modules/io';
 
 /** Represents a status snapshot of a OpenRCT2 game server's runtime. */
 export class ServerStatus extends SerializableObject<ServerStatus> {
-
-  /** Gets or sets the scenario file name that the game server started on. */
-  initiatedScenarioFileName: string;
-
-  /** Gets or sets the current running scenario file name. */
-  currentScenarioFileName: string;
-
-  /** Gets or sets the previous scenario file name ran by the game server. */
-  previousScenarioFileName: string;
-
-  /** Gets or sets the value specifying if the current scenario is completed. */
-  isCurrentScenarioCompleted: boolean | null;
-
-  /** Gets or sets the most recent startup timestamp of the current scenario. */
-  lastStartupTime: Date;
-
   constructor(
-    initiatedScenarioFileName = '',
-    currentScenarioFileName = '',
-    previousScenarioFileName = '',
-    isCurrentScenarioCompleted = null,
-    lastStartupTime = new Date(0)
+    /** Gets or sets the scenario file name that the game server started on. */
+    public initiatedScenarioFileName = '',
+
+    /** Gets or sets the current running scenario file name. */
+    public currentScenarioFileName = '',
+
+    /** Gets or sets the previous scenario file name ran by the game server. */
+    public previousScenarioFileName = '',
+
+    /** Gets or sets the value specifying if the current scenario is completed. */
+    public isCurrentScenarioCompleted: boolean | null = null,
+
+    /** Gets or sets the most recent startup timestamp of the current scenario. */
+    public lastStartupTime = new Date(0)
   ) {
     super();
-    this.initiatedScenarioFileName = initiatedScenarioFileName;
-    this.currentScenarioFileName = currentScenarioFileName;
-    this.previousScenarioFileName = previousScenarioFileName;
-    this.isCurrentScenarioCompleted = isCurrentScenarioCompleted;
-    this.lastStartupTime = lastStartupTime;
   };
 
   fromDataString(dataStr: string) {

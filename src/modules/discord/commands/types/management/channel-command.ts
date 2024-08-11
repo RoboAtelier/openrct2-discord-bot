@@ -252,6 +252,7 @@ export class ChannelCommand extends SubcommandsDiscordBotCommand<
       interaction.deferred 
         ? await interaction.editReply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage)
         : await interaction.reply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage);
+      return;
     };
     
     await interaction.reply(response.resolve(interaction));

@@ -2,7 +2,7 @@ import path from 'path';
 import { lstatSync } from 'fs';
 
 /** Represents information on a decompiled OpenRCT2 build. */
-export class OpenRCT2Build {
+export class BuildDirectory {
 
   /** Gets the directory path to the build. */
   readonly path: string;

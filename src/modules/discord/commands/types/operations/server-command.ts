@@ -19,12 +19,11 @@ import {
   PluginOptions
 } from '@modules/openrct2/data/models';
 import { 
-  OpenRCT2BuildRepository,
+  BuildRepository,
   PluginRepository,
   ScenarioRepository,
-  ServerHostRepository
+  ServerRepository
 } from '@modules/openrct2/data/repositories';
-import { BotPluginFileName } from '@modules/openrct2/data/types';
 import { fisherYatesShuffle } from '@modules/utils/array-utils';
 import { BotDataRepository } from '@modules/discord/data/repositories';
 import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
@@ -32,6 +31,11 @@ import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
 type TextAlignment = 'left' | 'centred';
 type TextFormat = '[clear]' | '[blank]';
 
+const OperatingSystemChoices = [
+  { name: 'Windows', value: 'win32' },
+  { name: 'MacOS', value: 'darwin' },
+  { name: 'Ubuntu/Debian', value: 'linux/ubuntu' }
+];
 const TextAlignmentChoices = [
   { name: 'Left', value: 'left' },
   { name: 'Centered', value: 'centred' }
@@ -44,6 +48,7 @@ const TextFormatChoices = [
 const ServerSubcommandGroups = <const>[
   {
     name: 'scenario',
+    permissionLevel: CommandPermissionLevel.Trusted,
     subcommands: [
       {
         name: 'start',
@@ -95,6 +100,7 @@ const ServerSubcommandGroups = <const>[
   },
   {
     name: 'queue',
+    permissionLevel: CommandPermissionLevel.Trusted,
     subcommands: [
       {
         name: 'set',
@@ -118,6 +124,7 @@ const ServerSubcommandGroups = <const>[
       { 
         name: 'get',
         description: 'Shows the queue settings of an OpenRCT2 server.',
+        permissionLevel: CommandPermissionLevel.User,
         options: [
           {
             name: 'server-id',
@@ -147,7 +154,6 @@ const ServerSubcommandGroups = <const>[
       {
         name: 'add',
         description: 'Adds a scenario to the queue of an OpenRCT2 server.',
-        permissionLevel: CommandPermissionLevel.Moderator,
         options: [
           {
             name: 'name',
@@ -167,7 +173,6 @@ const ServerSubcommandGroups = <const>[
   },
   {
     name: 'startup',
-    permissionLevel: CommandPermissionLevel.Moderator,
     subcommands: [{
       name: 'set',
       description: 'Sets startup options of an OpenRCT2 server.',
@@ -200,7 +205,6 @@ const ServerSubcommandGroups = <const>[
   },
   {
     name: 'build',
-    permissionLevel: CommandPermissionLevel.Moderator,
     subcommands: [{
       name: 'set',
       description: 'Sets the target game version of an OpenRCT2 server.',
@@ -216,7 +220,8 @@ const ServerSubcommandGroups = <const>[
           name: 'os',
           type: 'string',
           description: 'The operating system name.',
-          required: true
+          required: true,
+          choices: OperatingSystemChoices
         },
         {
           name: 'commit',
@@ -246,7 +251,6 @@ const ServerSubcommandGroups = <const>[
   },
   {
     name: 'adapter',
-    permissionLevel: CommandPermissionLevel.Moderator,
     subcommands: [{
       name: 'set',
       description: 'Sets server adapter plugin properties of an OpenRCT2 server.',
@@ -274,7 +278,6 @@ const ServerSubcommandGroups = <const>[
   },
   {
     name: 'welcome',
-    permissionLevel: CommandPermissionLevel.Moderator,
     subcommands: [
       {
         name: 'plugin-set',
@@ -582,6 +585,7 @@ const ServerSubcommands = <const>[
   {
     name: 'restart',
     description: 'Restarts an OpenRCT2 game server.',
+    permissionLevel: CommandPermissionLevel.Trusted,
     options: [
       {
         name: 'index',
@@ -600,7 +604,6 @@ const ServerSubcommands = <const>[
   { 
     name: 'stop',
     description: 'Stops an OpenRCT2 server.',
-    permissionLevel: CommandPermissionLevel.Moderator,
     options: [
       {
         name: 'server-id',
@@ -613,7 +616,6 @@ const ServerSubcommands = <const>[
   { 
     name: 'settings',
     description: 'Shows a summary of settings of an OpenRCT2 server.',
-    permissionLevel: CommandPermissionLevel.Moderator,
     options: [
       {
         name: 'server-id',
@@ -631,18 +633,16 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
   typeof ServerSubcommands[number]
 > {
   private readonly botDataRepo: BotDataRepository;
-  private readonly gameBuildRepo: OpenRCT2BuildRepository;
-  private readonly pluginRepo: PluginRepository;
+  private readonly buildRepo: BuildRepository;
   private readonly scenarioRepo: ScenarioRepository;
-  private readonly serverHostRepo: ServerHostRepository;
+  private readonly serverRepo: ServerRepository;
   private readonly openRCT2ServerController: OpenRCT2ServerController;
 
   constructor(
     botDataRepo: BotDataRepository,
-    gameBuildRepo: OpenRCT2BuildRepository,
-    pluginRepo: PluginRepository,
+    buildRepo: BuildRepository,
     scenarioRepo: ScenarioRepository,
-    serverHostRepo: ServerHostRepository,
+    serverRepo: ServerRepository,
     openRCT2ServerController: OpenRCT2ServerController
   ) {
     super(
@@ -650,14 +650,13 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       'Manages OpenRCT2 game servers.',
       ServerSubcommandGroups,
       ServerSubcommands,
-      CommandPermissionLevel.Trusted
+      CommandPermissionLevel.Moderator,
     );
 
     this.botDataRepo = botDataRepo;
-    this.gameBuildRepo = gameBuildRepo;
-    this.pluginRepo = pluginRepo;
+    this.buildRepo = buildRepo;
     this.scenarioRepo = scenarioRepo;
-    this.serverHostRepo = serverHostRepo;
+    this.serverRepo = serverRepo;
     this.openRCT2ServerController = openRCT2ServerController;
   };
 
@@ -857,6 +856,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       interaction.deferred 
         ? await interaction.editReply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage)
         : await interaction.reply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage);
+      return;
     };
 
     const messagePayload = response.resolve(interaction);
@@ -866,7 +866,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
   };
 
   private async getServerSettings(response: ResponseBuilder, serverId: number) {
-    const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+    const serverDir = await this.serverRepo.getServerDirectoryById(serverId);
     const startupOptions = await serverDir.getStartupOptions();
     const pluginOptions = await serverDir.getPluginOptions();
     const queue = await serverDir.getQueue();
@@ -885,7 +885,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     portNumber?: number,
     autoFinalize?: boolean
   ) {
-    const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+    const serverDir = await this.serverRepo.getServerDirectoryById(serverId);
     const startupOptions = await serverDir.getStartupOptions();
 
     if (headless != undefined) {
@@ -935,7 +935,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     architecture?: string,
     codename?: string
   ) {
-    const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+    const serverDir = await this.serverRepo.getServerDirectoryById(serverId);
     const startupOptions = await serverDir.getStartupOptions();
 
     let buildName = commit
@@ -947,7 +947,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     if (architecture) {
       buildName += `_${architecture}`;
     };
-    const gameBuilds = await this.gameBuildRepo.getOpenRCT2BuildsByFuzzySearch(buildName);
+    const gameBuilds = await this.buildRepo.getBuildsByFuzzySearch(buildName);
     if (!gameBuilds.length) {
       response.addErrorText('Specified parameters returned no OpenRCT2 builds.');
     } else if (gameBuilds.length > 1) {
@@ -967,7 +967,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
   };
 
   private async getServerQueueSettings(response: ResponseBuilder, serverId: number) {
-    const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+    const serverDir = await this.serverRepo.getServerDirectoryById(serverId);
     const queue = await serverDir.getQueue();
 
     response.addText(this.formatServerQueueMessage(serverId, queue));
@@ -978,15 +978,15 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     serverId: number,
     size?: number
   ) {
-    const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+    const serverDir = await this.serverRepo.getServerDirectoryById(serverId);
     const queue = await serverDir.getQueue();
 
     if (size != undefined) {
       queue.limit = size;
       response.addText(`Updated the scenario queue to ${size > 0 ? `be of size ${bold(`${size}`)}` : bold('INACTIVE')}.`);
 
-      if (size < queue.waitingScenarios.length) {
-        const removed = queue.waitingScenarios.splice(size);
+      if (size < queue.scenarios.length) {
+        const removed = queue.scenarios.splice(size);
         const formattedRemoved = removed.map(scenarioFileName => `• ${italic(scenarioFileName)}`);
         if (!size) {
           response.addText(
@@ -1011,14 +1011,13 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
   };
 
   private async addToServerQueue(response: ResponseBuilder, serverId: number, scenarioName: string) {
-    const exactScenario = await this.scenarioRepo.getScenarioByName(scenarioName);
-    const matchingScenarios = exactScenario ? [] : await this.scenarioRepo.getScenariosByFuzzySearch(scenarioName);
-    if (exactScenario || matchingScenarios.length === 1) {
-      const targetScenario = exactScenario ?? matchingScenarios[0];
-      const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+    const scenarios = await this.scenarioRepo.getScenariosByFuzzySearch(scenarioName);
+    if (scenarios.length === 1) {
+      const targetScenario = scenarios[0];
+      const serverDir = await this.serverRepo.getServerDirectoryById(serverId);
       const queue = await serverDir.getQueue();
 
-      if (queue.waitingScenarios.length < queue.limit) {
+      if (queue.scenarios.length < queue.limit) {
         await this.openRCT2ServerController.addToServerScenarioQueue(serverId, targetScenario);
         response.addText(
           `Added the ${
@@ -1030,7 +1029,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       };
     } else {
       response.addErrorText(
-        this.formatNonsingleScenarioError(matchingScenarios.map(scenario => scenario.name), scenarioName)
+        this.formatNonsingleScenarioError(scenarios.map(scenario => scenario.name), scenarioName)
       );
     };
   };
@@ -1041,13 +1040,13 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     enable?: boolean,
     adapterPortNumber?: number
   ) {
-    const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+    const serverDir = await this.serverRepo.getServerDirectoryById(serverId);
     const pluginOptions = await serverDir.getPluginOptions();
 
     if (enable != undefined) {
-      pluginOptions.plugins = pluginOptions.plugins.filter(plugin => plugin === BotPluginFileName.ServerAdapter);
+      pluginOptions.plugins = pluginOptions.plugins.filter(plugin => plugin === OpenRCT2Module.PluginFileName.ServerAdapter);
       if (enable) {
-        pluginOptions.plugins.push(BotPluginFileName.ServerAdapter);
+        pluginOptions.plugins.push(OpenRCT2Module.PluginFileName.ServerAdapter);
         response.addText(`Enabled the adapter plugin.`);
       } else {
         response.addText(`Disabled the adapter plugin.`);
@@ -1059,7 +1058,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
         response.addErrorText(`Invalid port number specified: ${bold(`${adapterPortNumber}`)}`);
       } else {
         const currentPorts = [];
-        const serverDirs = await this.serverHostRepo.getAllOpenRCT2ServerRepositories();
+        const serverDirs = await this.serverRepo.getAllServerDirectories();
         for (const [id, serverDir] of serverDirs) {
           const startupOptions = await serverDir.getStartupOptions();
           currentPorts.push(startupOptions.port);
@@ -1088,13 +1087,13 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
   };
 
   private async setServerWelcomeOptions(response: ResponseBuilder, serverId: number, enable?: boolean) {
-    const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+    const serverDir = await this.serverRepo.getServerDirectoryById(serverId);
     const pluginOptions = await serverDir.getPluginOptions();
 
     if (enable != undefined) {
-      pluginOptions.plugins = pluginOptions.plugins.filter(plugin => plugin === BotPluginFileName.Welcome);
+      pluginOptions.plugins = pluginOptions.plugins.filter(plugin => plugin === OpenRCT2Module.PluginFileName.Welcome);
       if (enable) {
-        pluginOptions.plugins.push(BotPluginFileName.ServerAdapter);
+        pluginOptions.plugins.push(OpenRCT2Module.PluginFileName.ServerAdapter);
         response.addText(`Enabled the welcome plugin.`);
       } else {
         response.addText(`Disabled the welcome plugin.`);
@@ -1119,7 +1118,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     listLines = new Map<number, string>(),
     footerLines = new Map<number, string>(),
   ) {
-    const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+    const serverDir = await this.serverRepo.getServerDirectoryById(serverId);
     const pluginOptions = await serverDir.getPluginOptions();
 
     if (windowTitle != undefined) {
@@ -1195,7 +1194,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     listFormats = new Map<number, TextFormat>(),
     footerFormats = new Map<number, TextFormat>(),
   ) {
-    const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+    const serverDir = await this.serverRepo.getServerDirectoryById(serverId);
     const pluginOptions = await serverDir.getPluginOptions();
 
     if (windowTitleFormat != undefined) {
@@ -1280,7 +1279,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
   };
 
   private async createNewServer(response: ResponseBuilder) {
-    const newDirResult = await this.serverHostRepo.createOpenRCT2ServerDirectory();
+    const newDirResult = await this.serverRepo.createServerDirectory();
     response.addText(`Successfully created ${underscore(italic(`Server ${newDirResult.id}`))} and its starting data!`);
   };
 
@@ -1290,12 +1289,11 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       return;
     };
 
-    const exactScenario = await this.scenarioRepo.getScenarioByName(scenarioName);
-    const matchingScenarios = exactScenario ? [] : await this.scenarioRepo.getScenariosByFuzzySearch(scenarioName);
-    if (exactScenario || matchingScenarios.length === 1) {
+    const scenarios = await this.scenarioRepo.getScenariosByFuzzySearch(scenarioName);
+    if (scenarios.length === 1) {
       try {
-        const targetScenario = exactScenario ?? matchingScenarios[0];
-        await this.openRCT2ServerController.startGameServerOnScenario(serverId, targetScenario);
+        const targetScenario = scenarios[0];
+        await this.openRCT2ServerController.startServer(serverId, targetScenario);
         response.addText(
           `Started ${
             underscore(italic(`Server ${serverId}`))
@@ -1306,7 +1304,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       };
     } else {
       response.addErrorText(
-        this.formatNonsingleScenarioError(matchingScenarios.map(scenario => scenario.name), scenarioName)
+        this.formatNonsingleScenarioError(scenarios.map(scenario => scenario.name), scenarioName)
       );
     };
   };
@@ -1317,16 +1315,12 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       return;
     }
 
-    if (autosaveIndex < 1) {
-      autosaveIndex = 1;
-    };
-
     try {
-      if (1 === autosaveIndex) {
-        await this.openRCT2ServerController.startGameServerOnAutosave(serverId);
+      if (autosaveIndex === 1) {
+        await this.openRCT2ServerController.startServer(serverId);
         response.addText(`Started ${underscore(italic(`Server ${serverId}`))} on the latest autosave.`);
       } else {
-        await this.openRCT2ServerController.startGameServerOnAutosave(serverId, autosaveIndex - 1);
+        await this.openRCT2ServerController.startServer(serverId, undefined, autosaveIndex - 1);
         response.addText(`Started ${underscore(italic(`Server ${serverId}`))} on autosave ${autosaveIndex}.`);
       };
     } catch (err) {
@@ -1340,20 +1334,20 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       return;
     }
 
-    const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+    const serverDir = await this.serverRepo.getServerDirectoryById(serverId);
     const queue = await serverDir.getQueue();
 
-    if (queue.waitingScenarios.length > 0) {
+    if (queue.scenarios.length > 0) {
       try {
         if (defer) {
-          this.openRCT2ServerController.startGameServerFromQueue(serverId, defer);
+          this.openRCT2ServerController.startServerFromQueue(serverId, defer);
           response.addText(
             `Initiated to start the next scenario in the ${
               underscore(italic(`Server ${serverId}`))
             } scenario queue.`
           );
         } else {
-          await this.openRCT2ServerController.startGameServerFromQueue(serverId);
+          await this.openRCT2ServerController.startServerFromQueue(serverId);
           response.addText(
             `Started the next scenario in the ${
               underscore(italic(`Server ${serverId}`))
@@ -1378,7 +1372,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
 
     if (scenarios.length > 0) {
       try {
-        this.openRCT2ServerController.startGameServerOnScenario(serverId, scenarios[0]);
+        this.openRCT2ServerController.startServer(serverId, scenarios[0]);
         response.addText(
           `Started ${
             underscore(italic(`Server ${serverId}`))
@@ -1393,7 +1387,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
   };
 
   private async stopServer(response: ResponseBuilder, serverId: number) {
-    await this.openRCT2ServerController.stopGameServer(serverId);
+    await this.openRCT2ServerController.stopServer(serverId);
     response.addText(`Stopped ${underscore(italic(`Server ${serverId}`))}.`);
   };
 
@@ -1434,8 +1428,8 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
 
     msgSegments.push('');
     msgSegments.push(`Limit: ${queue.limit}`);
-    if (queue.waitingScenarios.length) {
-      const scenarioNameList = queue.waitingScenarios.map(scenarioName => `• ${italic(scenarioName)}`);
+    if (queue.scenarios.length) {
+      const scenarioNameList = queue.scenarios.map(scenarioName => `• ${italic(scenarioName)}`);
       msgSegments.push('Scenarios:');
       msgSegments.push(...scenarioNameList);
     } else {

@@ -3,10 +3,10 @@
   "clientId": "",
   "dirs": {
     "bot": "",
-    "game-build": "",
+    "build": "",
     "logs": "",
     "scenario": "",
-    "serverHost": "",
+    "server": "",
     "plugin": ""
   },
   "openRCT2ExecutablePath": "",

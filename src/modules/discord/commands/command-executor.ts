@@ -3,6 +3,7 @@ import {
   Client,
   Guild,
   GuildMember,
+  inlineCode,
   PermissionFlagsBits
 } from 'discord.js';
 import { 
@@ -50,10 +51,10 @@ export class CommandExecutor {
     } else {
       const command = this.commandFactory.getCommand(interaction.commandName);
 
-      if (command && this.canUserCallCommand(command, userPermLevel)) {
-        if (this.canUserCallCommandInChannel(command, userPermLevel, interaction, guildInfo)) {
+      if (command && this.canUserCallCommandInChannel(command, userPermLevel, interaction, guildInfo)) {
+        const accessResult = command.confirmCommandAccess(interaction, userPermLevel);
+        if (accessResult.isSuccess) {
           try {
-            const accessResult = command.confirmCommandAccess(interaction, userPermLevel);
             const log = `${interaction.user.username} called the '${command.data.name}' command.`;
             await this.logger.writeLog(log);
             await command.execute(interaction);
@@ -65,19 +66,28 @@ export class CommandExecutor {
             };
           };
         } else {
-          await interaction.reply({ content: 'You cannot use that command here.', ephemeral: true });
+          let errorMsg = '';
+          if (accessResult.deniedSubcommandGroup) {
+            errorMsg += `You cannot use the subcommand under the ${inlineCode(accessResult.deniedSubcommandGroup)} subcommand group`
+            errorMsg += accessResult.deniedOptions?.length
+              ? ` with the specified options: ${accessResult.deniedOptions.map(option => inlineCode(option)).join(' ')}`
+              : '.';
+          } else if (accessResult.deniedSubcommand) {
+            errorMsg += `You cannot use the ${inlineCode(accessResult.deniedSubcommand)} subcommand`
+            errorMsg += accessResult.deniedOptions?.length
+              ? ` with the specified options: ${accessResult.deniedOptions.map(option => inlineCode(option)).join(' ')}`
+              : '.';
+          } else if (accessResult.deniedOptions?.length) {
+            errorMsg += `You cannot use that command with the specified options: ${accessResult.deniedOptions.map(option => inlineCode(option)).join(' ')}`;
+          } else {
+            errorMsg += 'You cannot use that command.';
+          };
+          await interaction.reply({ content: errorMsg, ephemeral: true });
         };
       } else {
-        await interaction.reply({ content: 'You cannot use that command.', ephemeral: true });
+        await interaction.reply({ content: 'You cannot use that command here.', ephemeral: true });
       };
     };
-  };
-
-  private canUserCallCommand(
-    command: DiscordBotCommand,
-    userPermLevel: CommandPermissionLevel
-  ) {
-    return userPermLevel >= command.permissionLevel;
   };
 
   private canUserCallCommandInChannel(
@@ -90,7 +100,7 @@ export class CommandExecutor {
       return guildInfo.gameServerChannels.find(channel => channel.channelId === interaction.channelId) !== undefined;
     } else {
       return userPermLevel > CommandPermissionLevel.Trusted
-        || 0 === guildInfo.botChannelIds.length
+        || !guildInfo.botChannelIds.length
         || guildInfo.botChannelIds.includes(interaction.channelId);
     };
   };

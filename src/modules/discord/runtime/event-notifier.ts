@@ -205,7 +205,7 @@ export class EventNotifier {
         };
 
         if (success) {
-          await this.openRCT2ServerController.startGameServerFromQueue(args.serverId, true);
+          await this.openRCT2ServerController.startServerFromQueue(args.serverId, true);
         } else {
           await this.postDebug(`Failed to post a snapshot message for ${underscore(italic(`Server ${args.serverId}`))}.`);
         };

@@ -1,63 +1,21 @@
 import { Socket } from 'net';
 import { EventEmitter } from 'events';
 
-export declare interface OpenRCT2PluginAdapter {
+export declare interface ServerPluginAdapter {
 
   /**
    * Adds the `listener` function to the end of the listeners array for the event named `eventName`.
    * @param event The name of the event.
    * @param listener The callback function.
    */
-  on(event: 'data', listener: (args: PluginEventArgs<keyof AdapterResponseValueTypes>) => void): this;
-};
-
-export interface AdapterRequestArgTypes {
-  'chat': string;
-  'group.list': undefined;
-  'pause.toggle': undefined;
-  'player.group.set': {
-    playerId: number,
-    groupId: number
-  }; 
-  'player.list': undefined;
-  'save': undefined;
-  'scenario': undefined;
-  'screenshot': undefined;
-};
-
-export interface AdapterResponseValueTypes {
-  'chat': void;
-  'group.list': {
-    id: number,
-    name: string
-  }[];
-  'pause.toggle': void;
-  'player.group.set': {
-    id: number,
-    name: string,
-    group: string,
-  };
-  'player.list': {
-    id: number,
-    name: string,
-    group: string,
-  }[];
-  'save': string;
-  'scenario': {
-    name: string
-    details: string
-    filename: string
-    status: 'inProgress' | 'completed' | 'failed',
-    ticks: number
-  };
-  'screenshot': string;
+  on(event: 'data', listener: (args: PluginEventArgs<keyof OpenRCT2Module.AdapterResponse>) => void): this;
 };
 
 /** Represents arguments returned from an emitted plugin event. */
-export class PluginEventArgs<V extends keyof AdapterResponseValueTypes> {
+export class PluginEventArgs<R extends keyof OpenRCT2Module.AdapterResponse> {
   constructor(
-    public readonly eventName: V,
-    public readonly data?: AdapterResponseValueTypes[V]
+    public readonly eventName: R,
+    public readonly data?: OpenRCT2Module.AdapterResponse[R]
   ) {};
 };
 
@@ -65,7 +23,7 @@ export class PluginEventArgs<V extends keyof AdapterResponseValueTypes> {
  * Represents an adapter to communicate with a OpenRCT2 game server instance
  * with a TCP server port opened by a plugin.
  */
-export class OpenRCT2PluginAdapter extends EventEmitter {
+export class ServerPluginAdapter extends EventEmitter {
   private static readonly pluginResponseRegex = /([a-z\.]+);([0-9]+|e);([^\n]*?);\n/g;
 
   private readonly client: Socket;
@@ -84,29 +42,30 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
   };
 
   /**
-   * Sends an action request to the game server instance.
+   * Sends an action or query request to the game server instance.
    * @async
-   * @param action The action name to execute.
+   * @param requestName The action or query name to execute.
    * @param userId The id of the user that called the action.
    * @param args Arguments to pass to the plugin call.
+   * @param timeoutMs The length of time in milliseconds before a request times out.
    * @returns A result from executing the plugin action.
    */
-  async executeAction<A extends keyof AdapterRequestArgTypes>(
-    action: A,
+  async sendRequest<R extends keyof OpenRCT2Module.AdapterRequest>(
+    requestName: R,
     userId: string,
-    args?: AdapterRequestArgTypes[A],
+    args?: OpenRCT2Module.AdapterRequest[R],
     timeoutMs = 10 * 1000
-  ): Promise<AdapterResponseValueTypes[A]> {
+  ): Promise<OpenRCT2Module.AdapterRequestResponse[R]> {
     const actionStr = typeof args === 'string' || args == null
-      ? `${action};${userId};${args}`
-      : `${action};${userId};${JSON.stringify(args)}`
+      ? `${requestName};${userId};${args}`
+      : `${requestName};${userId};${JSON.stringify(args)}`
     
     this.client.write(actionStr);
     const result = await new Promise<any>((resolve, reject) => {
       const timeout = setTimeout(() => {
-        reject(new Error(`Plugin action '${action}' timed out.`));
+        reject(new Error(`Plugin action '${requestName}' timed out.`));
       }, timeoutMs);
-      this.once(`${action}${userId}`, data => {
+      this.once(`${requestName}${userId}`, data => {
         clearTimeout(timeout);
         resolve(data);
       });
@@ -121,10 +80,10 @@ export class OpenRCT2PluginAdapter extends EventEmitter {
   private onData(data: Buffer) {
     const dataStr = data.toString('utf8');
     console.log(dataStr);
-    const responseArray = Array.from(dataStr.matchAll(OpenRCT2PluginAdapter.pluginResponseRegex));
+    const responseArray = Array.from(dataStr.matchAll(ServerPluginAdapter.pluginResponseRegex));
     if (responseArray.length > 0) {
       for (const response of responseArray) {
-        const eventName = response[1] as keyof AdapterResponseValueTypes;
+        const eventName = response[1] as keyof OpenRCT2Module.AdapterResponse;
         const eventInitiator = response[2];
         let eventData = response[3];
         try {

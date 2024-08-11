@@ -5,9 +5,9 @@ import { Logger } from '@modules/logging';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 import * as OpenRCT2Repositories from '@modules/openrct2/data/repositories';
 import {
-  OpenRCT2BuildDownloader,
-  OpenRCT2MasterServer
-} from '@modules/openrct2/web';
+  BuildDownloadService,
+  MasterServerService
+} from '@modules/openrct2/services';
 
 export class CommandFactory {
   private readonly commandCache = new Map<string, Commands.DiscordBotCommand>();
@@ -16,22 +16,21 @@ export class CommandFactory {
     config: Configuration,
     logger: Logger,
     botDataRepo: BotDataRepository,
-    gameBuildRepo: OpenRCT2Repositories.OpenRCT2BuildRepository,
-    pluginRepo: OpenRCT2Repositories.PluginRepository,
+    buildRepo: OpenRCT2Repositories.BuildRepository,
     scenarioRepo: OpenRCT2Repositories.ScenarioRepository,
-    serverHostRepo: OpenRCT2Repositories.ServerHostRepository,
-    openRCT2BuildDownloader: OpenRCT2BuildDownloader,
-    openRCT2MasterServer: OpenRCT2MasterServer,
+    serverRepo: OpenRCT2Repositories.ServerRepository,
+    buildDownloadService: BuildDownloadService,
+    openRCT2MasterServer: MasterServerService,
     openRCT2ServerController: OpenRCT2ServerController,
   ) {
     const commands: Commands.DiscordBotCommand[] = [
       new Commands.ChannelCommand(botDataRepo),
-      new Commands.GameBuildCommand(logger, gameBuildRepo, openRCT2BuildDownloader),
+      new Commands.GameBuildCommand(logger, buildRepo, buildDownloadService),
       new Commands.MasterServerCommand(config, openRCT2MasterServer),
       new Commands.ScenarioCommand(scenarioRepo),
-      new Commands.ServerCommand(botDataRepo, gameBuildRepo, pluginRepo, scenarioRepo, serverHostRepo, openRCT2ServerController),
-      new Commands.SnapshotCommand(logger, botDataRepo, serverHostRepo, openRCT2ServerController),
-      new Commands.VoteCommand(logger, botDataRepo, scenarioRepo, serverHostRepo, openRCT2ServerController),
+      new Commands.ServerCommand(botDataRepo, buildRepo, scenarioRepo, serverRepo, openRCT2ServerController),
+      new Commands.SnapshotCommand(logger, botDataRepo, serverRepo, openRCT2ServerController),
+      new Commands.VoteCommand(logger, botDataRepo, scenarioRepo, serverRepo, openRCT2ServerController),
       new Commands.ChatCommand(logger, botDataRepo, openRCT2ServerController),
       new Commands.GroupCommand(logger, botDataRepo, openRCT2ServerController),
       new Commands.PauseCommand(logger, botDataRepo, openRCT2ServerController),

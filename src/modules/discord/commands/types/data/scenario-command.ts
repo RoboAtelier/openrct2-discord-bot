@@ -13,7 +13,6 @@ import {
 } from '@modules/discord/commands';
 import { ScenarioMetadata } from '@modules/openrct2/data/models';
 import { ScenarioRepository } from '@modules/openrct2/data/repositories';
-import { ScenarioFileExtension } from '@modules/openrct2/data/types';
 import { getArraySectionWithDetails } from '@modules/utils/array-utils';
 import { areStringsEqualCaseInsensitive } from '@modules/utils/string-utils';
 
@@ -26,6 +25,7 @@ const ScenarioSubcommands = <const>[
   {
     name: 'list',
     description: 'Gets the available RollerCoaster Tycoon scenarios.',
+    permissionLevel: CommandPermissionLevel.User,
     options: [
       { 
         name: 'file-type',
@@ -44,6 +44,7 @@ const ScenarioSubcommands = <const>[
   {
     name: 'search',
     description: 'Searches for RollerCoaster Tycoon scenarios using specified parameters.',
+    permissionLevel: CommandPermissionLevel.User,
     options: [
       { 
         name: 'name',
@@ -72,7 +73,6 @@ const ScenarioSubcommands = <const>[
   {
     name: 'edit',
     description: 'Changes a RollerCoaster Tycoon scenario file and its data.',
-    permissionLevel: CommandPermissionLevel.Trusted,
     options: [
       { 
         name: 'scenario',
@@ -126,7 +126,7 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
       'Gets and manages RollerCoaster Tycoon scenario files for gameplay.',
       undefined,
       ScenarioSubcommands,
-      CommandPermissionLevel.User
+      CommandPermissionLevel.Trusted
     );
 
     this.scenarioRepo = scenarioRepo;
@@ -138,7 +138,7 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
     const scenarios = await this.scenarioRepo.getAvailableScenarios();
     const response = new ResponseBuilder();
 
-    if (0 === scenarios.length) {
+    if (!scenarios.length) {
       response.addErrorText('There are currently no scenarios to show or use.');
     } else {
       if (subcommandName === 'edit') {
@@ -151,7 +151,7 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
         const active = options.get('active')?.value as boolean;
         await this.setScenarioValues(response, scenarioName, newName, newTags, active);
       } else {
-        const scenarioFileExts: ScenarioFileExtension[] = [];
+        const scenarioFileExts: OpenRCT2Module.ScenarioFileExtension[] = [];
         const fileType = this.getInteractionOption(interaction, 'file-type');
         if (fileType) {
           const extChoice = fileType.value as string;
@@ -179,6 +179,7 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
         interaction.deferred 
           ? await interaction.editReply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage)
           : await interaction.reply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage);
+        return;
       };
 
       await interaction.reply(response.resolve(interaction));
@@ -192,10 +193,9 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
     newTags?: string[],
     active?: boolean
   ) {
-    const exactScenario = await this.scenarioRepo.getScenarioByName(scenarioName);
-    const matchingScenarios = exactScenario ? [] : await this.scenarioRepo.getScenariosByFuzzySearch(scenarioName);
-    if (exactScenario || matchingScenarios.length === 1) {
-      const scenarioToChange = exactScenario ?? matchingScenarios[0];
+    const scenarios = await this.scenarioRepo.getScenariosByFuzzySearch(scenarioName);
+    if (scenarios.length === 1) {
+      const scenarioToChange = scenarios[0];
       const metadata = await this.scenarioRepo.getScenarioMetadataForFile(scenarioToChange);
       const updateActions: (() => Promise<void>)[] = [];
       const performUpdates = async () => { for (const action of updateActions) { await action(); }; };
@@ -238,7 +238,7 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
         response.addText('Updates may take a bit of time to fully apply.');
       };
     } else {
-      response.addErrorText(this.formatNonsingleScenarioError(matchingScenarios.map(scenario => scenario.name), scenarioName));
+      response.addErrorText(this.formatNonsingleScenarioError(scenarios.map(scenario => scenario.name), scenarioName));
     };
   };
 
@@ -270,7 +270,7 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
 
   private async getScenariosBySearchQuery(
     response: ResponseBuilder,
-    scenarioFileExts: ScenarioFileExtension[],
+    scenarioFileExts: OpenRCT2Module.ScenarioFileExtension[],
     resultIndex: number,
     nameSearch?: string,
     tags?: string[]
@@ -304,7 +304,7 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
 
   private async getScenarioList(
     response: ResponseBuilder,
-    scenarioFileExts: ScenarioFileExtension[],
+    scenarioFileExts: OpenRCT2Module.ScenarioFileExtension[],
     resultIndex: number
   ) {
     const metadata = 0 === scenarioFileExts.length

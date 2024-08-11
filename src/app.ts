@@ -16,17 +16,17 @@ import { BotDataRepository } from '@modules/discord/data/repositories';
 import { Logger } from '@modules/logging';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
 import { 
-  OpenRCT2BuildRepository,
+  BuildRepository,
   PluginRepository,
   ScenarioRepository,
-  ServerHostRepository
+  ServerRepository
 } from '@modules/openrct2/data/repositories';
-import { BotPluginFileName } from '@modules/openrct2/data/types';
-import { OpenRCT2ProcessEngine } from '@modules/openrct2/runtime';
 import {
-  OpenRCT2MasterServer,
-  OpenRCT2BuildDownloader
-} from '@modules/openrct2/web';
+  BuildDownloadService,
+  GameService,
+  MasterServerService,
+  PluginService
+} from '@modules/openrct2/services';
 import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
 
 /** Main application entry point. */
@@ -48,20 +48,20 @@ async function main() {
   );
   const logger = new Logger(config);
   const botDataRepo = new BotDataRepository(config);
-  const gameBuildRepo = new OpenRCT2BuildRepository(config);
+  const gameBuildRepo = new BuildRepository(config);
   const pluginRepo = new PluginRepository(config);
   const scenarioRepo = new ScenarioRepository(config);
-  const serverHostRepo = new ServerHostRepository(config);
-  const openRCT2ProcessEngine = new OpenRCT2ProcessEngine();
-  const openRCT2MasterServer = new OpenRCT2MasterServer();
-  const openRCT2BuildDownloader = new OpenRCT2BuildDownloader();
-  const openRCT2ServerController = new OpenRCT2ServerController(logger, openRCT2ProcessEngine, scenarioRepo, serverHostRepo);
+  const serverHostRepo = new ServerRepository(config);
+  const openRCT2ProcessEngine = new GameService();
+  const pluginService = new PluginService(pluginRepo, serverHostRepo);
+  const openRCT2MasterServer = new MasterServerService();
+  const openRCT2BuildDownloader = new BuildDownloadService();
+  const openRCT2ServerController = new OpenRCT2ServerController(logger, openRCT2ProcessEngine, pluginService, scenarioRepo, serverHostRepo);
   const commandFactory = new CommandFactory(
     config,
     logger,
     botDataRepo,
     gameBuildRepo,
-    pluginRepo,
     scenarioRepo,
     serverHostRepo,
     openRCT2BuildDownloader,
@@ -71,14 +71,14 @@ async function main() {
   const commandExecutor = new CommandExecutor(discordClient, logger, commandFactory, botDataRepo);
   new EventNotifier(discordClient, logger, botDataRepo, openRCT2ServerController);
 
-  const serverDirs = await serverHostRepo.getAllOpenRCT2ServerRepositories();
+  const serverDirs = await serverHostRepo.getAllServerDirectories();
   const botPlugins = await pluginRepo.getPluginFiles();
   for (const [serverId, serverDir] of serverDirs) {
     await serverDir.removePluginFiles(...botPlugins.map(botPlugin => botPlugin.name));
     const pluginOptions = await serverDir.getPluginOptions();
-    if (pluginOptions.plugins.includes(BotPluginFileName.ServerAdapter)) {
+    if (pluginOptions.plugins.includes(OpenRCT2Module.PluginFileName.ServerAdapter)) {
       await serverDir.addPluginFiles(...botPlugins);
-      const adapterPlugin = await serverDir.getPluginFileByName(BotPluginFileName.ServerAdapter);
+      const adapterPlugin = await serverDir.getPluginFileByName(OpenRCT2Module.PluginFileName.ServerAdapter);
       await adapterPlugin.setGlobalVariables(
         ['serverId', serverId],
         ['port', pluginOptions.adapterPluginPort]

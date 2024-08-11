@@ -8,12 +8,9 @@ import {
 } from '@modules/io';
 import { 
   ScenarioFile,
+  ScenarioGroup,
   ScenarioMetadata
 } from '@modules/openrct2/data/models/scenario';
-import { 
-  ScenarioFileExtension,
-  ScenarioFileExtensionArray
-} from '@modules/openrct2/data/types';
 import {
   areStringsEqualCaseInsensitive,
   isStringNullOrWhiteSpace
@@ -22,11 +19,13 @@ import {
 /** Represents a data repository for OpenRCT2 scenario files. */
 export class ScenarioRepository extends FileSystemCachedRepository<string, any> {
   private static readonly dirKey = 'scenario';
-  private static readonly metadataFileName = 'metadata.json';
-  private static readonly fuseOptions = { keys: ['name'], threshold: 0.1 };
-  private static readonly refreshInterval = 1000 * 60 * 0.1; //ms/sec * sec/min * # of min
+  private static readonly metadataFileName = 'scenario-metadata.json';
+  private static readonly groupFileName = 'scenario-groups.json';
+  private static readonly fuseOptions = { keys: ['name'], threshold: 0.2 };
+  private static readonly refreshInterval = 1000 * 60 * 5; //ms/sec * sec/min * # of min
 
   private readonly metadataFile: ConcurrentObjectArrayFile<ScenarioMetadata>;
+  private readonly groupFile: ConcurrentObjectArrayFile<ScenarioGroup>;
   private readonly refreshLog = new Map<string, number>();
 
   protected readonly dataDir: ConcurrentDirectory;
@@ -38,6 +37,10 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
     this.metadataFile = new ConcurrentObjectArrayFile<ScenarioMetadata>(
       path.join(this.dataDir.path, ScenarioRepository.metadataFileName),
       new ScenarioMetadata()
+    );
+    this.groupFile = new ConcurrentObjectArrayFile<ScenarioGroup>(
+      path.join(this.dataDir.path, ScenarioRepository.groupFileName),
+      new ScenarioGroup()
     );
   };
 
@@ -59,7 +62,7 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
    * Gets scenario files that have the specified file extension(s).
    * @param fileExtensions The file extensions to match for the scenarios.
    */
-  async getScenariosByFileExtension(...fileExtensions: ScenarioFileExtension[]) {
+  async getScenariosByFileExtension(...fileExtensions: OpenRCT2Module.ScenarioFileExtension[]) {
     const scenarioFiles = await this.getAvailableScenarios();
     const requestedScenarioFiles = scenarioFiles.filter(scenarioFile => {
       return scenarioFile.hasFileExtension(...fileExtensions);
@@ -88,10 +91,16 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
    * @param fileExtensions The file extensions to match for the scenarios.
    * @returns An array of scenario files that closely match the parameters.
    */
-  async getScenariosByFuzzySearch(name: string, ...fileExtensions: ScenarioFileExtension[]) {
-    const scenarioFiles = fileExtensions.length > 0
+  async getScenariosByFuzzySearch(name: string, ...fileExtensions: OpenRCT2Module.ScenarioFileExtension[]) {
+    const scenarioFiles = fileExtensions.length
       ? await this.getScenariosByFileExtension(...fileExtensions)
-      : await this.getAvailableScenarios()
+      : await this.getAvailableScenarios();
+    const requestedScenarioFile = scenarioFiles.find(scenarioFile => {
+      return areStringsEqualCaseInsensitive(scenarioFile.name, name);
+    });
+    if (requestedScenarioFile) {
+      return [requestedScenarioFile];
+    };
     const fuse = new Fuse(scenarioFiles, ScenarioRepository.fuseOptions);
     const result = fuse.search(name);
     return result.map(resultElement => resultElement.item);
@@ -221,7 +230,7 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
    * @param fileExtensions The file extensions to match for the scenarios.
    * @returns An array of scenario metadata records that contain the specified file extensions.
    */
-  async getScenarioMetadataByFileExtension(...fileExtensions: ScenarioFileExtension[]) {
+  async getScenarioMetadataByFileExtension(...fileExtensions: OpenRCT2Module.ScenarioFileExtension[]) {
     const requestedScenarioFiles = await this.getScenariosByFileExtension(...fileExtensions);
     const metadata = await this.getScenarioMetadata();
     return requestedScenarioFiles.map(file => {
@@ -261,7 +270,7 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
    * @param fileExtensions The file extensions to match for the scenarios.
    * @returns An array of scenario metadata records that closely match the parameters.
    */
-  async getScenarioMetadataByFuzzySearch(scenarioFileName: string, ...fileExtensions: ScenarioFileExtension[]) {
+  async getScenarioMetadataByFuzzySearch(scenarioFileName: string, ...fileExtensions: OpenRCT2Module.ScenarioFileExtension[]) {
     const requestedScenarioFiles = await this.getScenariosByFuzzySearch(scenarioFileName, ...fileExtensions);
     const metadata = await this.getScenarioMetadata();
     const requestedMetadata = requestedScenarioFiles.map(file => {
@@ -327,7 +336,7 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
     const files = await this.dataDir.getFilesExclusive();
     const scenarioFiles = files.filter(file => {
       const fileExtension = file.name.substring(file.name.lastIndexOf('.'));
-      return ScenarioFileExtensionArray.some(ext => areStringsEqualCaseInsensitive(fileExtension, ext));
+      return OpenRCT2Module.ScenarioFileExtensionArray.some(ext => areStringsEqualCaseInsensitive(fileExtension, ext));
     });
     return scenarioFiles.map(dirent => new ScenarioFile(path.join(this.dataDir.path, dirent.name)));
   };
@@ -346,7 +355,7 @@ export class ScenarioRepository extends FileSystemCachedRepository<string, any> 
   };
 
   private getScenarioFileExtension(scenarioFileName: string) {
-    const fileExtension = ScenarioFileExtensionArray.find(ext => {
+    const fileExtension = OpenRCT2Module.ScenarioFileExtensionArray.find(ext => {
       const scenarioFileExtension = scenarioFileName.substring(scenarioFileName.lastIndexOf('.'));
       return areStringsEqualCaseInsensitive(scenarioFileExtension, ext);
     });

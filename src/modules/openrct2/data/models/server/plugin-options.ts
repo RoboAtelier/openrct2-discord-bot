@@ -1,42 +1,34 @@
 import { SerializableObject } from '@modules/io';
 
 /** 
- * Represents bot plugin options for a hosted OpenRCT2 game server instance.
- * This should not apply to external plugins that were sourced elsewhere.
+ * Represents plugin options for custom OpenRCT2 module plugins.
+ * This would not apply to external plugins that were sourced elsewhere.
  */
 export class PluginOptions extends SerializableObject<PluginOptions> {
-
-  /** Gets or sets the plugins in use. */
-  plugins: string[];
-
-  /** Gets or sets the port number for the server adapter plugin. */
-  adapterPluginPort: number;
-
-  /** Gets or sets the welcome message properties for the welcome plugin. */
-  welcomeMessage: {
-    title: string;
-    bodyLines: [number, string][];
-    bodyAlignment: 'left' | 'centred';
-    listTitle?: string;
-    listLines?: [number, string][];
-    listAlignment?: 'left' | 'centred';
-    footerLines?: [number, string][];
-    footerAlignment?: 'left' | 'centred';
-  };
-
   constructor(
-    plugins = [],
-    adapterPluginPort = -1,
-    welcomeMessage = {
+    /** Gets or sets the module plugins in use. */
+    public plugins: OpenRCT2Module.PluginFileName[] = [],
+
+    /** Gets or sets the port number for the server adapter plugin. */
+    public adapterPluginPort = -1,
+
+    /** Gets or sets the welcome message properties for the welcome plugin. */
+    public welcomeMessage: {
+      title: string;
+      bodyLines: [number, string][];
+      bodyAlignment: 'left' | 'centred';
+      listTitle?: string;
+      listLines?: [number, string][];
+      listAlignment?: 'left' | 'centred';
+      footerLines?: [number, string][];
+      footerAlignment?: 'left' | 'centred';
+    } = {
       title: '',
       bodyLines: [],
       bodyAlignment: <const>'left'
     }
   ) {
     super();
-    this.plugins = plugins;
-    this.adapterPluginPort = adapterPluginPort;
-    this.welcomeMessage = welcomeMessage;
   };
 
   fromDataString(dataStr: string) {

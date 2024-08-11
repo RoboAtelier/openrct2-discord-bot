@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import path from 'path';
 import Fuse from 'fuse.js'
 import tar from 'tar';
@@ -8,14 +7,16 @@ import {
   ConcurrentDirectory,
   FileSystemRepository,
 } from '@modules/io';
-import { OpenRCT2BuildFileExtensionArray } from '@modules/openrct2/data/types';
-import { OpenRCT2Build } from '@modules/openrct2/data/models';
-import { isStringValidForFileName } from '@modules/utils/string-utils';
+import { BuildDirectory } from '@modules/openrct2/data/models';
+import { 
+  areStringsEqualCaseInsensitive,
+  isStringValidForFileName
+} from '@modules/utils/string-utils';
 
 /** Represents a data repository for OpenRCT2 game release and development builds. */
-export class OpenRCT2BuildRepository extends FileSystemRepository {
-  private static readonly dirKey = 'game-build';
-  private static readonly fuseOptions = { keys: ['name'], threshold: 0.05 };
+export class BuildRepository extends FileSystemRepository {
+  private static readonly dirKey = 'build';
+  private static readonly fuseOptions = { keys: ['name'], threshold: 0.2 };
 
   private readonly inProgress: string[] = [];
 
@@ -23,7 +24,7 @@ export class OpenRCT2BuildRepository extends FileSystemRepository {
 
   constructor(config: Configuration) {
     super(config);
-    this.dataDir = new ConcurrentDirectory(config.getDirectoryPath(OpenRCT2BuildRepository.dirKey));
+    this.dataDir = new ConcurrentDirectory(config.getDirectoryPath(BuildRepository.dirKey));
   };
 
   /** @override */
@@ -36,12 +37,12 @@ export class OpenRCT2BuildRepository extends FileSystemRepository {
    * @param fileName The name of the compressed OpenRCT2 build file to write data to.
    * @returns A write stream for the requested OpenRCT2 build name.
    */
-  createOpenRCT2BuildWriteStream(fileName: string) {
+  createBuildWriteStream(fileName: string) {
     if (this.inProgress.includes(fileName)) {
       throw new Error(`${fileName} is already is use.`);
     };
 
-    this.validateOpenRCT2BuildFileName(fileName);
+    this.validateBuildFileName(fileName);
     const writeStream = this.dataDir.createFixedPathWriteStream(fileName);
     this.inProgress.push(fileName);
     return writeStream;
@@ -51,15 +52,12 @@ export class OpenRCT2BuildRepository extends FileSystemRepository {
    * Extracts a OpenRCT2 build file package.
    * @async
    * @param fileName The name of the file to extract.
-   * @param sha256Checksum The SHA-256 checksum to check against to validate file integrity.
    */
-  async extracOpenRCT2Build(fileName: string, sha256Checksum: string) {
+  async extractBuild(fileName: string) {
     if (!this.inProgress.includes(fileName)) {
       throw new Error(`${fileName} was not used to generate an initial write stream.`);
     };
-
-    await this.validateHashes(fileName, sha256Checksum);
-    await this.extractOpenRCT2BuildToDirectory(fileName);
+    await this.extractBuildToDirectory(fileName);
   };
 
   /**
@@ -67,8 +65,8 @@ export class OpenRCT2BuildRepository extends FileSystemRepository {
    * @async
    * @returns An array of the current decompiled OpenRCT2 builds within the bot application. 
    */
-  async getAvailableOpenRCT2Builds() {
-    return await this.readOpenRCT2Builds();
+  async getAvailableBuilds() {
+    return await this.readBuilds();
   };
 
   /**
@@ -78,11 +76,11 @@ export class OpenRCT2BuildRepository extends FileSystemRepository {
    * @param commitHeader The commit header for returning develop versions.
    * @returns An array of matching OpenRCT2 builds.
    */
-  async getOpenRCT2BuildsByVersion(baseVersion: string, commitHeader?: string) {
+  async getBuildsByVersion(baseVersion: string, commitHeader?: string) {
     const baseVersionV = baseVersion.startsWith('v') ? baseVersion : `v${baseVersion}`;
     const targetVersion = commitHeader ? `${baseVersionV}-${commitHeader}` : baseVersionV;
 
-    const openRCT2Builds = await this.readOpenRCT2Builds(baseVersionV);
+    const openRCT2Builds = await this.readBuilds(baseVersionV);
     return openRCT2Builds.filter(build => build.version.startsWith(targetVersion));
   };
 
@@ -92,15 +90,21 @@ export class OpenRCT2BuildRepository extends FileSystemRepository {
    * @param name
    * @returns 
    */
-  async getOpenRCT2BuildsByFuzzySearch(name: string) {
-    const openRCT2Builds = await this.readOpenRCT2Builds();
-    const fuse = new Fuse(openRCT2Builds, OpenRCT2BuildRepository.fuseOptions);
+  async getBuildsByFuzzySearch(name: string) {
+    const openRCT2Builds = await this.readBuilds();
+    const requestedOpenRCT2Build = openRCT2Builds.find(openRCT2Build => {
+      return areStringsEqualCaseInsensitive(openRCT2Build.name, name);
+    });
+    if (requestedOpenRCT2Build) {
+      return [requestedOpenRCT2Build];
+    };
+    const fuse = new Fuse(openRCT2Builds, BuildRepository.fuseOptions);
     const result = fuse.search(name);
     return result.map(resultElement => resultElement.item);
   };
 
-  private async readOpenRCT2Builds(baseVersion?: string) {
-    const versionDirs = await this.readOpenRCT2VersionDirectories();
+  private async readBuilds(baseVersion?: string) {
+    const versionDirs = await this.readVersionDirectories();
     const buildRelPaths = [];
     
     if (baseVersion) {
@@ -122,16 +126,16 @@ export class OpenRCT2BuildRepository extends FileSystemRepository {
 
     const buildNameRegex = new RegExp(`\\${path.sep}v\\d+\\.\\d+\\.\\d+(?:\\-[0-9a-f]{7})?_[a-z\\-]+_[a-z0-9\\-]+$`)
     const validRelPaths = buildRelPaths.filter(relPath => buildNameRegex.test(relPath));
-    return validRelPaths.map(relPath => new OpenRCT2Build(path.join(this.dataDir.path, relPath)));
+    return validRelPaths.map(relPath => new BuildDirectory(path.join(this.dataDir.path, relPath)));
   };
 
-  private async readOpenRCT2VersionDirectories() {
+  private async readVersionDirectories() {
     const dirs = await this.dataDir.getDirectoriesExclusive();
     return dirs.filter(dir => /^v\d+\.\d+\.\d+$/.test(dir.name));
   };
 
-  private async extractOpenRCT2BuildToDirectory(fileName: string) {
-    const fileExtension = OpenRCT2BuildFileExtensionArray.find(ext => fileName.endsWith(ext));
+  private async extractBuildToDirectory(fileName: string) {
+    const fileExtension = OpenRCT2Module.BuildFileExtensionArray.find(ext => fileName.endsWith(ext));
     if (!fileExtension) {
       throw new Error(`Cannot extract ${fileName}. Unsupported file extension found.`);
     };
@@ -189,20 +193,10 @@ export class OpenRCT2BuildRepository extends FileSystemRepository {
     };
   };
 
-  private async validateHashes(fileName: string, sha256Checksum: string) {
-    const hash = crypto.createHash('sha256');
-    const gameBuildBuffer = await this.dataDir.readFileAsBufferExclusive(fileName);
-    hash.update(gameBuildBuffer);
-    const sha256Hex = hash.digest('hex');
-    if (sha256Hex !== sha256Checksum) {
-      throw new Error('The SHA-256 build file hash did not match the checksum value.');
-    };
-  };
-
-  private validateOpenRCT2BuildFileName(fileName: string) {
+  private validateBuildFileName(fileName: string) {
     if (!isStringValidForFileName(fileName)) {
       throw new Error(`Invalid characters specified for build file name: ${fileName}`);
-    } else if (!OpenRCT2BuildFileExtensionArray.some(ext => fileName.endsWith(ext))) {
+    } else if (!OpenRCT2Module.BuildFileExtensionArray.some(ext => fileName.endsWith(ext))) {
       throw new Error(`Expected the build file name to have a supported file extension: ${fileName}`);
     } else if (this.inProgress.includes(fileName)) {
       throw new Error(`${fileName} is currently being utilized.`);

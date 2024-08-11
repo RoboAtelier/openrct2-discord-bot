@@ -1,4 +1,4 @@
-class CommandAccessResult {
+export class CommandAccessResult {
   constructor(
     readonly canUseCommand: boolean,
     readonly deniedSubcommandGroup?: string,
@@ -10,7 +10,7 @@ class CommandAccessResult {
     return this.canUseCommand
       && !this.deniedSubcommandGroup
       && !this.deniedSubcommand
-      && !(this.deniedOptions && this.deniedOptions.length)
+      && !(this.deniedOptions?.length)
   };
 };
 

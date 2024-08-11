@@ -2,50 +2,32 @@ import { SerializableObject } from '@modules/io';
 
 /** Represents startup options for a hosted OpenRCT2 game server instance. */
 export class StartupOptions extends SerializableObject<StartupOptions> {
-  
-  /** Gets or sets the target executable to run to start the OpenRCT2 game server instance. */
-  openRCT2ExecutablePath: string;
-
-  /** Gets or sets the port number that a game server would be running on. */
-  port: number;
-
-  /** Gets or sets the password for regulating game server entry. */
-  password: string;
-
-  /** Specifies if a game server will run as a headless server. */
-  headless: boolean;
-
-  /** Specifies if a game server will output more detailed debug messages. */
-  verbose: boolean;
-
-  /** Specifies if a game server finalizes automatically on scenario completion. */
-  autoFinalize: boolean;
-
-  /** Specifies if a game server will track scenario victories and failures. */
-  keepScore: boolean;
-  
-  /** Gets or sets the number of minutes to delay for on a deferred server start.*/
-  delayDuration: number;
-
   constructor(
-    openRCT2ExecutablePath = '',
-    port = -1,
-    password = '',
-    headless = false,
-    verbose = false,
-    autoFinalize = false,
-    keepScore = false,
-    delayDuration = 1
+    /** Gets or sets the target executable to run to start the OpenRCT2 game server instance. */
+    public openRCT2ExecutablePath = '',
+
+    /** Gets or sets the port number that a game server would be running on. */
+    public port = -1,
+
+    /** Gets or sets the password for regulating game server entry. */
+    public password = '',
+
+    /** Specifies if a game server will run as a headless server. */
+    public headless = false,
+
+    /** Specifies if a game server will output more detailed debug messages. */
+    public verbose = false,
+
+    /** Specifies if a game server finalizes automatically on scenario completion. */
+    public autoFinalize = false,
+
+    /** Specifies if a game server will track scenario victories and failures. */
+    public keepScore = false,
+    
+    /** Gets or sets the number of minutes to delay for on a deferred server start.*/
+    public delayDuration = 1
   ) {
     super();
-    this.openRCT2ExecutablePath = openRCT2ExecutablePath;
-    this.port = port;
-    this.password = password;
-    this.headless = headless;
-    this.verbose = verbose;
-    this.autoFinalize = autoFinalize;
-    this.keepScore = keepScore;
-    this.delayDuration = delayDuration;
   };
 
   fromDataString(dataStr: string) {

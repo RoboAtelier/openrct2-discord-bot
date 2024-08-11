@@ -2,18 +2,17 @@ import path from 'path';
 import { spawn } from 'child_process';
 import { unlink } from 'fs/promises';
 import { Socket } from 'net';
-import { OpenRCT2Server } from '.';
-import { OpenRCT2PluginAdapter } from '@modules/openrct2/adapters';
+import { OpenRCT2Server } from '../runtime';
+import { ServerPluginAdapter } from '@modules/openrct2/adapters';
 import { 
   PluginOptions,
   ScenarioFile,
   StartupOptions
 } from '@modules/openrct2/data/models';
 import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
-import { BotPluginFileName } from '@modules/openrct2/data/types';
 
 /** Represents a class that handles running built-in processes using the OpenRCT2 application executable. */
-export class OpenRCT2ProcessEngine {
+export class GameService {
 
   /**
    * 
@@ -92,7 +91,7 @@ export class OpenRCT2ProcessEngine {
     );
     
     let launched = false;
-    let adapterPlugin = false;
+    let pluginAdapterCheck = !pluginOptions.plugins.includes(OpenRCT2Module.PluginFileName.ServerAdapter);
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         gameInstance.kill('SIGKILL');
@@ -106,10 +105,10 @@ export class OpenRCT2ProcessEngine {
         console.log(dataStr);
         if (dataStr.includes(`istening for clients on *:${startupOptions.port}`)) {
           launched = true;
-        } else if (dataStr.includes(`pter plugin for server ${serverId} is active`)) {
-          adapterPlugin = true;
+        } else if (dataStr.includes('Server Adapter] Started')) {
+          pluginAdapterCheck = true;
         };
-        if (launched && adapterPlugin) {
+        if (launched && pluginAdapterCheck) {
           clearTimeout(timeout);
           gameInstance.stdout.removeAllListeners('data');
           gameInstance.removeAllListeners('error');
@@ -119,7 +118,7 @@ export class OpenRCT2ProcessEngine {
     });
 
     let pluginAdapter;
-    if (pluginOptions.plugins.includes(BotPluginFileName.ServerAdapter)) {
+    if (pluginOptions.plugins.includes(OpenRCT2Module.PluginFileName.ServerAdapter)) {
       const client = new Socket();
       client.connect(pluginOptions.adapterPluginPort, 'localhost');
       await new Promise<void>((resolve, reject) => {
@@ -131,7 +130,7 @@ export class OpenRCT2ProcessEngine {
           resolve();
         });
       });
-      pluginAdapter = new OpenRCT2PluginAdapter(client);
+      pluginAdapter = new ServerPluginAdapter(client);
     };
 
     return new OpenRCT2Server(serverId, gameInstance, scenarioFile, pluginAdapter);
@@ -181,7 +180,7 @@ export class OpenRCT2ProcessEngine {
       const timeout = setTimeout(() => {
         reject(new Error('Screenshot generation timed out.'));
       }, timeoutMs);
-      screenshotProcess.on('exit', async (code, signal) => {
+      screenshotProcess.on('exit', (code, signal) => {
         clearTimeout(timeout);
         resolve({ code: code, signal: signal });
       });

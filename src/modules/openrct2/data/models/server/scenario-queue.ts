@@ -2,20 +2,14 @@ import { SerializableObject } from '@modules/io';
 
 /** Represents queues and queue settings for a OpenRCT2 game server. */
 export class ScenarioQueue extends SerializableObject<ScenarioQueue> {
-
-  /** Gets or sets the current queue of scenarios waiting to start for a game server. */
-  waitingScenarios: string[];
-
-  /** Gets or sets how large the scenario queue can be. */
-  limit: number;
-
   constructor(
-    waitingScenarios: string[] = [],
-    limit = 3
+    /** Gets or sets the current queue of scenarios waiting to start for a game server. */
+    public scenarios: string[] = [],
+
+    /** Gets or sets how large the scenario queue can be. */
+    public limit = 3
   ) {
     super();
-    this.waitingScenarios = waitingScenarios;
-    this.limit = limit;
   };
 
   fromDataString(dataStr: string) {

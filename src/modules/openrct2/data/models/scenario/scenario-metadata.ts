@@ -2,40 +2,26 @@ import { SerializableToArray } from '@modules/io';
 
 /** Represents supplemental data about a RollerCoaster Tycoon scenario exclusive to this bot. */
 export class ScenarioMetadata extends SerializableToArray<ScenarioMetadata> {
-
-  /** Gets the file name of this scenario. */
-  readonly fileName: string;
-
-  /** Gets or sets this scenario's metadata tags. */
-  tags: string[];
-
-  /** Gets or sets the number of times this scenario was played. */
-  plays: number;
-
-  /** Gets or sets the number of wins on this scenario. */
-  wins: number;
-
-  /** Gets or sets the number of losses on this scenario. */
-  losses: number;
-
-  /** Gets or sets a value specifying if the scenario is available for use. */
-  active: boolean;
-
   constructor(
-    fileName = '',
-    tags: string[] = [],
-    plays = 0,
-    wins = 0,
-    losses = 0,
-    active = true
+    /** Gets the file name of this scenario. */
+    public readonly fileName = '',
+
+    /** Gets or sets this scenario's metadata tags. */
+    public tags: string[] = [],
+
+    /** Gets or sets the number of times this scenario was played. */
+    public plays = 0,
+
+    /** Gets or sets the number of wins on this scenario. */
+    public wins = 0,
+
+    /** Gets or sets the number of losses on this scenario. */
+    public losses = 0,
+
+    /** Gets or sets a value specifying if the scenario is available for use. */
+    public active = true
   ) {
     super();
-    this.fileName = fileName;
-    this.tags = tags;
-    this.plays = plays;
-    this.wins = wins;
-    this.losses = losses;
-    this.active = active;
   };
 
   fromDataString(dataStr: string) {

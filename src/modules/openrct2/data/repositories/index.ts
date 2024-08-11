@@ -1,4 +1,4 @@
-export * from './openrct2-build-repository';
+export * from './build-repository';
 export * from './plugin-repository';
 export * from './scenario-repository';
-export * from './server-host-repository';
+export * from './server-repository';

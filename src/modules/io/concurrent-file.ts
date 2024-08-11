@@ -16,10 +16,7 @@ import { Stream } from 'stream';
 import { ConcurrentFileSystemObject } from '.';
 import { isStringNullOrEmpty } from '@modules/utils/string-utils';
 
-/** 
- * Represents a class for handling concurrent processes
- * on a generic file system file.
- */
+/** Represents a class for handling concurrent processes on a generic file system file. */
 export class ConcurrentFile extends ConcurrentFileSystemObject {
   constructor(filePath: string, defaultData = '', setDefaultOnLoad = false) {
     const resolvedFilePath = path.resolve(filePath);

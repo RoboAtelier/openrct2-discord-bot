@@ -22,7 +22,6 @@ const PlayerSubcommandGroups = <const>[
       { 
         name: 'set',
         description: 'Sets the player group for an active player.',
-        permissionLevel: CommandPermissionLevel.Moderator,
         options: [
           { 
             name: 'player-id',
@@ -44,9 +43,23 @@ const PlayerSubcommandGroups = <const>[
   }
 ];
 const PlayerSubcommands = <const>[
+  {
+    name: 'kick',
+    description: 'Kicks an active player out from an OpenRCT2 game server.',
+    options: [
+      { 
+        name: 'player-id',
+        type: 'integer',
+        description: 'The id number of the player in the server.',
+        required: true,
+        minValue: 1
+      },
+    ]
+  },
   { 
     name: 'list',
     description: 'Gets the current player list on an OpenRCT2 game server.',
+    permissionLevel: CommandPermissionLevel.User,
     options: null
   }
 ];
@@ -69,7 +82,7 @@ export class PlayerCommand extends SubcommandsDiscordBotCommand<typeof PlayerSub
       'Gets and manages an OpenRCT2 game server\'s current players.',
       PlayerSubcommandGroups,
       PlayerSubcommands,
-      CommandPermissionLevel.User,
+      CommandPermissionLevel.Moderator,
       CommandType.Game
     );
 
@@ -89,7 +102,15 @@ export class PlayerCommand extends SubcommandsDiscordBotCommand<typeof PlayerSub
 
     await interaction.deferReply();
 
-    if (subcommandName === 'list') {
+    if (subcommandName === 'kick') {
+      const options = this.getInteractionSubcommandOptions(interaction, subcommandName);
+      await this.kickPlayer(
+        response,
+        gameServerChannel.serverId,
+        interaction.user,
+        options.get('player-id')?.value as number
+      );
+    } else if (subcommandName === 'list') {
       await this.getPlayerList(response, gameServerChannel.serverId, interaction.user);
     } else if (groupName === 'group') {
       if (subcommandName === 'set') {
@@ -108,14 +129,39 @@ export class PlayerCommand extends SubcommandsDiscordBotCommand<typeof PlayerSub
       interaction.deferred 
         ? await interaction.editReply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage)
         : await interaction.reply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage);
+      return;
     };
 
     await interaction.editReply(response.resolve(interaction));
   };
 
+  private async kickPlayer(
+    response: ResponseBuilder,
+    serverId: number,
+    user: User,
+    playerId: number
+  ) {
+    try {
+      const kickedPlayer = await this.openRCT2ServerController.executePluginRequest(
+        serverId,
+        'player.kick',
+        user.id,
+        playerId
+      );
+      if (kickedPlayer) {
+        response.addText(`${bold(kickedPlayer)} has been kicked.`);
+      } else {
+        response.addErrorText('Failed to kick a player.');
+      };
+    } catch (err) {
+      await this.logger.writeError(err as Error);
+      response.addErrorText((err as Error).message);
+    };
+  };
+
   private async getPlayerList(response: ResponseBuilder, serverId: number, user: User) {
     try {
-      const serverPlayers = await this.openRCT2ServerController.executePluginAction(serverId, 'player.list', user.id);
+      const serverPlayers = await this.openRCT2ServerController.executePluginRequest(serverId, 'player.list', user.id);
       response.addText(this.formatPlayerListMessage(serverPlayers));
     } catch (err) {
       await this.logger.writeError(err as Error);
@@ -131,15 +177,19 @@ export class PlayerCommand extends SubcommandsDiscordBotCommand<typeof PlayerSub
     groupId: number
   ) {
     try {
-      const updatedPlayer = await this.openRCT2ServerController.executePluginAction(
+      const updatedPlayer = await this.openRCT2ServerController.executePluginRequest(
         serverId,
         'player.group.set',
         user.id,
         { playerId: playerId, groupId: groupId }
       );
-      response.addText(`Successfully assigned player group ${bold(updatedPlayer.group)} to ${
-        bold(updatedPlayer.name.replace(PlayerCommand.formatCodeRegex, ''))
-      } (PID ${updatedPlayer.id}).`);
+      if (updatedPlayer) {
+        response.addText(`Successfully assigned player group ${bold(updatedPlayer.group)} to ${
+          bold(updatedPlayer.name.replace(PlayerCommand.formatCodeRegex, ''))
+        } (PID ${updatedPlayer.id}).`);
+      } else {
+        response.addErrorText('Failed to assign player group.');
+      };
     } catch (err) {
       await this.logger.writeError(err as Error);
       response.addErrorText((err as Error).message);

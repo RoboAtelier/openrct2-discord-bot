@@ -46,16 +46,14 @@ export class PauseCommand extends OptionsDiscordBotCommand<typeof PauseCommandOp
     const gameServerChannel = guildInfo.gameServerChannels.find(channel => channel.channelId === interaction.channelId)!;
 
     await interaction.deferReply();
-
     await this.togglePause(response, gameServerChannel.serverId, interaction.user);
-
     await interaction.editReply(response.resolve(interaction));
   };
 
   private async togglePause(response: ResponseBuilder, serverId: number, user: User) {
     try {
       const serverStatus = this.openRCT2ServerController.getGameServerStatus(serverId);
-      await this.openRCT2ServerController.executePluginAction(serverId, 'pause.toggle', user.id);
+      await this.openRCT2ServerController.executePluginRequest(serverId, 'pause.toggle', user.id);
       if (serverStatus?.isPaused) {
         response.addText('Unpaused the server.');
       } else if (serverStatus?.isPaused === false) {

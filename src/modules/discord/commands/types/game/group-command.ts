@@ -18,6 +18,7 @@ const GroupSubcommands = <const>[
   { 
     name: 'list',
     description: 'Gets the player group list on an OpenRCT2 game server.',
+    permissionLevel: CommandPermissionLevel.User,
     options: null
   }
 ];
@@ -40,7 +41,7 @@ export class GroupCommand extends SubcommandsDiscordBotCommand<undefined, typeof
       'Gets and manages an OpenRCT2 game server\'s player groups.',
       undefined,
       GroupSubcommands,
-      CommandPermissionLevel.User,
+      CommandPermissionLevel.Moderator,
       CommandType.Game
     );
 
@@ -63,7 +64,7 @@ export class GroupCommand extends SubcommandsDiscordBotCommand<undefined, typeof
 
   private async getPlayerGroupList(response: ResponseBuilder, serverId: number, user: User) {
     try {
-      const playerGroups = await this.openRCT2ServerController.executePluginAction(serverId, 'group.list', user.id);
+      const playerGroups = await this.openRCT2ServerController.executePluginRequest(serverId, 'group.list', user.id);
       response.addText(this.formatGroupListMessage(playerGroups));
     } catch (err) {
       await this.logger.writeError(err as Error);

@@ -10,35 +10,22 @@ const OpenRCT2LinuxDistroArray = <const>['ubuntu', 'debian'];
 
 /** Represents platform information for an OpenRCT2 runtime target. */
 export class OpenRCT2PlatformInfo {
-  
-  /** Gets the name of the operating system platform. */
-  readonly name: OpenRCT2Platform;
-
-  /** Gets the target operating system CPU architecture. */
-  readonly architecture: string;
-
-  /** Gets the target operating system version. */
-  readonly version: string;
-
-  /** Gets the target Linux operating system distribution that OpenRCT2 can run on. */
-  readonly distro?: OpenRCT2LinuxDistro;
-
-  /** Gets the codename of a Linux operating system version. */
-  readonly codeName?: string;
-
   constructor(
-    platformName: OpenRCT2Platform,
-    architecture?: string,
-    version?: string,
-    distro?: OpenRCT2LinuxDistro,
-    codeName?: string
-  ) {
-    this.name = platformName;
-    this.architecture = architecture ?? os.arch();
-    this.version = version ?? os.version();
-    this.distro = distro;
-    this.codeName = codeName;
-  };
+    /** Gets the name of the operating system platform. */
+    public readonly name: OpenRCT2Platform,
+
+    /** Gets the target operating system CPU architecture. */
+    public readonly architecture = os.arch(),
+
+    /** Gets the target operating system version. */
+    public readonly version = os.version(),
+
+    /** Gets the target Linux operating system distribution that OpenRCT2 can run on. */
+    public readonly distro?: OpenRCT2LinuxDistro,
+
+    /** Gets the codename of a Linux operating system version. */
+    public readonly codeName?: string
+  ) {};
 
   /** Gets a more recognizable name of the operating system platform. */
   get friendlyName() {

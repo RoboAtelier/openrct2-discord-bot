@@ -67,7 +67,7 @@ export class ChatCommand extends OptionsDiscordBotCommand<typeof ChatCommandOpti
   private async sendGameChatMessage(response: ResponseBuilder, serverId: number, user: User, message: string) {
     try {
       const fullMessage = `{DISCORD}{PALELAVENDER}${user.username}#${user.discriminator}: {WHITE}${message}`;
-      await this.openRCT2ServerController.executePluginAction(serverId, 'chat', user.id, fullMessage);
+      await this.openRCT2ServerController.executePluginRequest(serverId, 'chat', user.id, fullMessage);
       response.addText(message);
     } catch (err) {
       await this.logger.writeError(err as Error);

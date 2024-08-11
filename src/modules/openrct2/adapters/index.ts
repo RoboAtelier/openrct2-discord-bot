@@ -1,1 +1,1 @@
-export * from './openrct2-plugin-adapter';
+export * from './server-plugin-adapter';

@@ -17,7 +17,7 @@ import {
 import { BotDataRepository } from '@modules/discord/data/repositories';
 import { Logger } from '@modules/logging';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
-import { ServerHostRepository } from '@modules/openrct2/data/repositories';
+import { ServerRepository } from '@modules/openrct2/data/repositories';
 import { 
   createDateTimestamp,
   isStringNullOrWhiteSpace
@@ -28,6 +28,7 @@ const SnapshotSubcommands = <const>[
   {
     name: 'screenshot',
     description: 'Creates snapshots of a OpenRCT2 game server.',
+    permissionLevel: CommandPermissionLevel.User,
     options: [
       {
         name: 'server-id',
@@ -45,8 +46,7 @@ const SnapshotSubcommands = <const>[
         name: 'server-id',
         type: 'integer',
         description: 'The id number of the server to finalize.',
-        minValue: 1,
-        permissionLevel: CommandPermissionLevel.Trusted
+        minValue: 1
       }
     ]
   }
@@ -56,13 +56,13 @@ const SnapshotSubcommands = <const>[
 export class SnapshotCommand extends SubcommandsDiscordBotCommand<undefined, typeof SnapshotSubcommands[number]> {
   private readonly logger: Logger;
   private readonly botDataRepo: BotDataRepository;
-  private readonly serverHostRepo: ServerHostRepository;
+  private readonly serverRepo: ServerRepository;
   private readonly openRCT2ServerController: OpenRCT2ServerController;
 
   constructor(
     logger: Logger,
     botDataRepo: BotDataRepository,
-    serverHostRepository: ServerHostRepository,
+    serverRepo: ServerRepository,
     openRCT2ServerController: OpenRCT2ServerController
   ) {
     super(
@@ -70,13 +70,13 @@ export class SnapshotCommand extends SubcommandsDiscordBotCommand<undefined, typ
       'Creates snapshots of a OpenRCT2 game server.',
       undefined,
       SnapshotSubcommands,
-      CommandPermissionLevel.User
+      CommandPermissionLevel.Trusted
     );
 
     this.logger = logger;
     this.botDataRepo = botDataRepo;
+    this.serverRepo = serverRepo;
     this.openRCT2ServerController = openRCT2ServerController;
-    this.serverHostRepo = serverHostRepository;
   };
 
   /** @override */
@@ -107,6 +107,7 @@ export class SnapshotCommand extends SubcommandsDiscordBotCommand<undefined, typ
       interaction.deferred 
         ? await interaction.editReply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage)
         : await interaction.reply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage);
+      return;
     };
 
     if (subcommandName === 'finalize') {
@@ -184,7 +185,7 @@ export class SnapshotCommand extends SubcommandsDiscordBotCommand<undefined, typ
         const finalSaveFileName = /^autosave_\d{4}-\d{2}-\d{2}/.test(save.saveFile.nameNoExtension)
           ? `final_${createDateTimestamp()}${save.saveFile.fileExtension}`
           : `${save.scenarioName}_final_${createDateTimestamp()}${save.saveFile.fileExtension}`;
-        const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+        const serverDir = await this.serverRepo.getServerDirectoryById(serverId);
         await serverDir.addScenarioSaveFile(save.saveFile, finalSaveFileName);
         const saveFilePayload = {
           attachment: save.saveFile.path,
@@ -194,7 +195,7 @@ export class SnapshotCommand extends SubcommandsDiscordBotCommand<undefined, typ
 
         if ((saveAttachment.data as Buffer).length > fileByteSizeLimit) {
           try {
-            const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+            const serverDir = await this.serverRepo.getServerDirectoryById(serverId);
             const latestAutosave = await serverDir.getScenarioAutosave();
             const autosaveFilePayload = {
               attachment: latestAutosave.path,

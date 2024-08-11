@@ -33,7 +33,7 @@ import {
 } from '@modules/openrct2/data/models';
 import { 
   ScenarioRepository,
-  ServerHostRepository
+  ServerRepository
 } from '@modules/openrct2/data/repositories';
 import { fisherYatesShuffle } from '@modules/utils/array-utils';
 import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
@@ -237,7 +237,7 @@ export class VoteCommand extends SubcommandsDiscordBotCommand<typeof VoteSubcomm
   private readonly logger: Logger;
   private readonly botDataRepo: BotDataRepository;
   private readonly scenarioRepo: ScenarioRepository;
-  private readonly serverHostRepo: ServerHostRepository;
+  private readonly serverRepo: ServerRepository;
   private readonly openRCT2ServerController: OpenRCT2ServerController;
   private readonly activeVotes = new Map<number, VoteSession<unknown>>();
 
@@ -245,7 +245,7 @@ export class VoteCommand extends SubcommandsDiscordBotCommand<typeof VoteSubcomm
     logger: Logger,
     botDataRepo: BotDataRepository,
     scenarioRepo: ScenarioRepository,
-    serverHostRepo: ServerHostRepository,
+    serverRepo: ServerRepository,
     openRCT2ServerController: OpenRCT2ServerController,
   ) {
     super(
@@ -259,7 +259,7 @@ export class VoteCommand extends SubcommandsDiscordBotCommand<typeof VoteSubcomm
     this.logger = logger;
     this.botDataRepo = botDataRepo;
     this.scenarioRepo = scenarioRepo;
-    this.serverHostRepo = serverHostRepo;
+    this.serverRepo = serverRepo;
     this.openRCT2ServerController = openRCT2ServerController;
   };
 
@@ -320,6 +320,7 @@ export class VoteCommand extends SubcommandsDiscordBotCommand<typeof VoteSubcomm
       interaction.deferred 
         ? await interaction.editReply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage)
         : await interaction.reply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage);
+      return;
     };
 
     const messagePayload = response.resolve(interaction);
@@ -334,10 +335,10 @@ export class VoteCommand extends SubcommandsDiscordBotCommand<typeof VoteSubcomm
     serverId: number,
     voteSession: VoteSession<ScenarioMetadata>
   ) {
-    const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+    const serverDir = await this.serverRepo.getServerDirectoryById(serverId);
     const queue = await serverDir.getQueue();
 
-    if (queue.limit < 1 || queue.waitingScenarios.length < queue.limit) {
+    if (queue.limit < 1 || queue.scenarios.length < queue.limit) {
       this.activeVotes.set(serverId, voteSession);
 
       await voteSession.setupNewVoteRound();
@@ -465,7 +466,7 @@ export class VoteCommand extends SubcommandsDiscordBotCommand<typeof VoteSubcomm
           if (0 === voteResult.highestVoteCount) {
             await voteMessage.reply(`No votes were placed for ${underscore(italic(`Server ${serverId}`))}. No changes have been made.`);
           } else {
-            const serverDir = await this.serverHostRepo.getOpenRCT2ServerDirectoryById(serverId);
+            const serverDir = await this.serverRepo.getServerDirectoryById(serverId);
             const queue = await serverDir.getQueue();
 
             const winningCandidate = voteResult.winningCandidates.length > 1
@@ -479,9 +480,9 @@ export class VoteCommand extends SubcommandsDiscordBotCommand<typeof VoteSubcomm
             
             const scenarioFile = (await this.scenarioRepo.getScenarioByName(winningCandidate.fileName))!;
             if (queue.limit < 1) {
-              this.openRCT2ServerController.startGameServerOnScenarioDeferred(serverId, scenarioFile);
+              this.openRCT2ServerController.startServerDeferred(serverId, scenarioFile);
               resultMessageBody += `${EOL}${scenarioFile.nameNoExtension} will start on ${underscore(italic(`Server ${serverId}`))} shortly.`;
-            } else if (queue.waitingScenarios.length < queue.limit) {
+            } else if (queue.scenarios.length < queue.limit) {
               this.openRCT2ServerController.addToServerScenarioQueue(serverId, scenarioFile);
               resultMessageBody += `${EOL}${scenarioFile.nameNoExtension} has been added to the ${underscore(italic(`Server ${serverId}`))} scenario queue.`;
             } else {

@@ -11,9 +11,9 @@ import {
   SubcommandsDiscordBotCommand
 } from '@modules/discord/commands';
 import { 
-  OpenRCT2MasterServer,
+  MasterServerService,
   PublicOpenRCT2ServerInfo
-} from '@modules/openrct2/web';
+} from '@modules/openrct2/services';
 import { getArraySectionWithDetails } from '@modules/utils/array-utils';
 
 const MasterServerSubcommands = <const>[
@@ -65,11 +65,11 @@ export class MasterServerCommand extends SubcommandsDiscordBotCommand<undefined,
   private static readonly detailMax = 7;
 
   private readonly hostingIPAddress: string;
-  private readonly openRCT2MasterServer: OpenRCT2MasterServer;
+  private readonly openRCT2MasterServer: MasterServerService;
 
   constructor(
     config: Configuration,
-    openRCT2MasterServer: OpenRCT2MasterServer
+    openRCT2MasterServer: MasterServerService
   ) {
     super(
       'master-server',
@@ -110,6 +110,7 @@ export class MasterServerCommand extends SubcommandsDiscordBotCommand<undefined,
       interaction.deferred 
         ? await interaction.editReply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage)
         : await interaction.reply(SubcommandsDiscordBotCommand.unknownCommandErrorMessage);
+      return;
     };
 
     const messagePayload = response.resolve(interaction);
@@ -125,7 +126,7 @@ export class MasterServerCommand extends SubcommandsDiscordBotCommand<undefined,
     serverName?: string
   ) {
     if (!serverName && !ipAddress) {
-      const publicServers = await this.openRCT2MasterServer.requestPublicOpenRCT2ServerList();
+      const publicServers = await this.openRCT2MasterServer.requestPublicServerList();
       if (publicServers.length > 0) {
         const serverListSection = getArraySectionWithDetails(publicServers, resultIndex);
         response.addText(this.formatBasicServerInfoListMessage(serverListSection));
@@ -134,8 +135,8 @@ export class MasterServerCommand extends SubcommandsDiscordBotCommand<undefined,
       };
     } else {
       const publicServers = serverName
-        ? await this.openRCT2MasterServer.getPublicOpenRCT2ServersByFuzzySearch(serverName)
-        : await this.openRCT2MasterServer.requestPublicOpenRCT2ServerList();
+        ? await this.openRCT2MasterServer.getPublicServersByFuzzySearch(serverName)
+        : await this.openRCT2MasterServer.requestPublicServerList();
 
       const requestedServers = ipAddress
         ? publicServers.filter(server => {

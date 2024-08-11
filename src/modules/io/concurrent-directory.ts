@@ -27,10 +27,7 @@ import {
 } from '.';
 import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
 
-/** 
- * Represents a class for handling concurrent processes
- * on a file system directory.
- */
+/** Represents a class for handling concurrent processes on a file system directory. */
 export class ConcurrentDirectory extends ConcurrentFileSystemObject {
   constructor(dirPath: string) {
     const resolvedDirPath = path.resolve(dirPath);

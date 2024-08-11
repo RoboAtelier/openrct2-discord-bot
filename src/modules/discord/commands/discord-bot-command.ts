@@ -1,5 +1,4 @@
 ﻿import {
-  inlineCode,
   ChatInputCommandInteraction,
   SlashCommandBuilder,
   CommandInteractionOption,
@@ -8,6 +7,7 @@
 import { 
   buildSlashCommandOptions,
   buildSlashCommandSubcommands,
+  CommandAccessResult,
   CommandAccessResultBuilder,
   CommandOption,
   CommandPermissionLevel,
@@ -21,37 +21,27 @@ import {
  * @abstract
  */
 export abstract class DiscordBotCommand {
+  protected static readonly unknownCommandErrorMessage = 'Unknown or unimplemented command specified.';
 
   /** The maximum number of entries to return from a command result array section. */
   protected static readonly resultSetElementsLimit = 10;
 
   /** Gets the Discord slash command configuration data. */
-  readonly data: SlashCommandBuilder;
-
-  /** Gets the name of this bot command. */
-  readonly name: string;
-
-  /** Gets the description about this bot command. */
-  readonly description: string;
-
-  /** Gets the required permission level to execute this command. */
-  readonly permissionLevel: CommandPermissionLevel;
-
-  /** Gets the type of this bot command. */
-  readonly type: CommandType;
+  readonly data = new SlashCommandBuilder();
 
   constructor(
-    name: string,
-    description: string,
-    permissionLevel = CommandPermissionLevel.Administrator,
-    type = CommandType.Bot
-  ) {
-    this.name = name;
-    this.description = description;
-    this.permissionLevel = permissionLevel;
-    this.type = type;
-    this.data = new SlashCommandBuilder();
-  };
+    /** Gets the name of this bot command. */
+    public readonly name: string,
+
+    /** Gets the description about this bot command. */
+    public readonly description: string,
+
+    /** Gets the required permission level to execute this command. */
+    public readonly permissionLevel = CommandPermissionLevel.Administrator,
+
+    /** Gets the type of this bot command. */
+    public readonly type = CommandType.Bot
+  ) { };
 
   /**
    * Runs the command.
@@ -67,31 +57,10 @@ export abstract class DiscordBotCommand {
    * @param userLevel The command permission level of the user that called the command.
    * @returns A result that states if command usage is allowed or denied.
    */
-  confirmCommandAccess(
+  abstract confirmCommandAccess(
     interaction: ChatInputCommandInteraction,
     userLevel: CommandPermissionLevel
-  ) {
-    const accessResult = new CommandAccessResultBuilder();
-
-    if (this.confirmCommandUsagePermissions(interaction, userLevel)) {
-      accessResult.withAccess(true);
-    };
-
-    return accessResult.resolve();
-  };
-
-  /**
-   * Checks that a user has enough permissions to call this command.
-   * @param interaction The Discord chat command interaction.
-   * @param userLevel The command permission level of the user that called the command.
-   * @returns `true` if the user permission level is sufficient; otherwise, `false`.
-   */
-  protected confirmCommandUsagePermissions(
-    interaction: ChatInputCommandInteraction,
-    userLevel: CommandPermissionLevel
-  ) {
-    return interaction.commandName === this.name && userLevel >= this.permissionLevel;
-  };
+  ): CommandAccessResult;
 };
 
 /**
@@ -99,18 +68,17 @@ export abstract class DiscordBotCommand {
  * @abstract
  */
 export abstract class OptionsDiscordBotCommand<O extends CommandOption> extends DiscordBotCommand {
-  protected static readonly unknownCommandErrorMessage = 'Unknown or unimplemented command specified.';
-  readonly options: ReadonlyArray<O>;
-
   constructor(
     name: string,
     description: string,
-    options: ReadonlyArray<O>,
+
+    /** Gets the specified command options. */
+    public readonly options: ReadonlyArray<O>,
+
     permissionLevel = CommandPermissionLevel.Administrator,
     type = CommandType.Bot
   ) {
     super(name, description, permissionLevel, type);
-    this.options = options;
     this.data
       .setName(name)
       .setDescription(description);
@@ -120,12 +88,13 @@ export abstract class OptionsDiscordBotCommand<O extends CommandOption> extends 
   override confirmCommandAccess(interaction: ChatInputCommandInteraction, userLevel: CommandPermissionLevel) {
     const accessResult = new CommandAccessResultBuilder();
 
-    if (this.confirmCommandUsagePermissions(interaction, userLevel)) {
-      accessResult.withAccess(true);
+    if (this.options.length) {
       const deniedOptions = this.confirmCommandOptionPermissions(interaction, userLevel);
-      if (deniedOptions.length) {
-        accessResult.withDeniedOptions(...deniedOptions);
-      };
+      deniedOptions.length
+        ? accessResult.withDeniedOptions(...deniedOptions)
+        : accessResult.withAccess(true);
+    } else {
+      accessResult.withAccess(this.confirmCommandUsagePermissions(interaction, userLevel));
     };
 
     return accessResult.resolve();
@@ -146,12 +115,25 @@ export abstract class OptionsDiscordBotCommand<O extends CommandOption> extends 
       const interactionOption = interaction.options.get(option.name);
       if (
         interactionOption
-        && (option.permissionLevel ?? CommandPermissionLevel.Restricted) > userLevel
+        && (option.permissionLevel ?? this.permissionLevel) > userLevel
       ) {
         deniedOptions.push(option.name);
       };
     };
     return deniedOptions;
+  };
+
+  /**
+   * Checks that a user has enough permissions to call this command.
+   * @param interaction The Discord chat command interaction.
+   * @param userLevel The command permission level of the user that called the command.
+   * @returns `true` if the user permission level is sufficient; otherwise, `false`.
+   */
+  protected confirmCommandUsagePermissions(
+    interaction: ChatInputCommandInteraction,
+    userLevel: CommandPermissionLevel
+  ) {
+    return interaction.commandName === this.name && userLevel >= this.permissionLevel;
   };
 
   /**
@@ -210,21 +192,20 @@ export abstract class SubcommandsDiscordBotCommand<
   G extends SubcommandGroup | undefined,
   S extends Subcommand | undefined
 > extends DiscordBotCommand {
-  protected static readonly unknownCommandErrorMessage = 'Unknown or unimplemented command specified.';
-  readonly groups?: ReadonlyArray<NonNullable<G>>;
-  readonly subcommands?: ReadonlyArray<NonNullable<S>>;
-
   constructor(
     name: string,
     description: string,
-    groups?: ReadonlyArray<NonNullable<G>>,
-    subcommands?: ReadonlyArray<NonNullable<S>>,
+
+    /** Gets the specified subcommand groups. */
+    public readonly groups?: ReadonlyArray<NonNullable<G>>,
+
+    /** Gets the specified subcommands. */
+    public readonly subcommands?: ReadonlyArray<NonNullable<S>>,
+
     permissionLevel = CommandPermissionLevel.Administrator,
     type = CommandType.Bot
   ) {
     super(name, description, permissionLevel, type);
-    this.groups = groups;
-    this.subcommands = subcommands;
     this.data
       .setName(name)
       .setDescription(description);
@@ -234,19 +215,19 @@ export abstract class SubcommandsDiscordBotCommand<
   override confirmCommandAccess(interaction: ChatInputCommandInteraction, userLevel: CommandPermissionLevel) {
     const accessResult = new CommandAccessResultBuilder();
 
-    if (this.confirmCommandUsagePermissions(interaction, userLevel)) {
-      accessResult.withAccess(true);
-      const deniedValues = this.confirmCommandSubcommandPermissions(interaction, userLevel);
-      if (deniedValues.deniedSubcommandGroup) {
-        accessResult.withDeniedSubcommandGroup(deniedValues.deniedSubcommandGroup);
-      };
-      if (deniedValues.deniedSubcommand) {
-        accessResult.withDeniedSubcommand(deniedValues.deniedSubcommand);
-      };
-      if (deniedValues.deniedOptions && deniedValues.deniedOptions.length) {
-        accessResult.withDeniedOptions(...deniedValues.deniedOptions);
-      };
+    const deniedValues = this.confirmCommandSubcommandPermissions(interaction, userLevel);
+    if (deniedValues.deniedSubcommandGroup) {
+      accessResult.withDeniedSubcommandGroup(deniedValues.deniedSubcommandGroup);
     };
+    if (deniedValues.deniedSubcommand) {
+      accessResult.withDeniedSubcommand(deniedValues.deniedSubcommand);
+    };
+    if (deniedValues.deniedOptions.length) {
+      accessResult.withDeniedOptions(...deniedValues.deniedOptions);
+    };
+    accessResult.withAccess(
+      !(deniedValues.deniedSubcommandGroup || deniedValues.deniedSubcommand || deniedValues.deniedOptions.length)
+    );
 
     return accessResult.resolve();
   };
@@ -264,40 +245,42 @@ export abstract class SubcommandsDiscordBotCommand<
     const deniedValues: {
       deniedSubcommandGroup?: string,
       deniedSubcommand?: string,
-      deniedOptions?: string[]
-    } = {};
+      deniedOptions: string[]
+    } = { deniedOptions: [] };
     const groupName = interaction.options.getSubcommandGroup();
     const subcommandName = interaction.options.getSubcommand();
-    let selectedSubcommand: Subcommand;
+    let selectedGroup: SubcommandGroup | undefined;
+    let selectedSubcommand: Subcommand | undefined;
 
     if (groupName) {
-      const group = this.groups?.find(group => group.name === groupName)!;
-      if ((group.permissionLevel ?? CommandPermissionLevel.Restricted) > userLevel) {
+      selectedGroup = this.groups?.find(group => group.name === groupName)!;
+      if ((selectedGroup.permissionLevel ?? this.permissionLevel) > userLevel) {
         deniedValues.deniedSubcommandGroup = groupName;
         return deniedValues;
       };
-      selectedSubcommand = group.subcommands.find(subcommand => subcommand.name === subcommandName)!;
+      selectedSubcommand = selectedGroup.subcommands.find(subcommand => subcommand.name === subcommandName)!;
     } else {
       selectedSubcommand = this.subcommands?.find(subcommand => subcommand.name === subcommandName)!;
     };
     
-    if ((selectedSubcommand.permissionLevel ?? CommandPermissionLevel.Restricted) > userLevel) {
-      deniedValues.deniedSubcommandGroup = groupName ?? undefined;
-      deniedValues.deniedSubcommand = subcommandName;
-      return deniedValues;
+    if (!selectedSubcommand) {
+      throw new Error('Could not find a valid subcommand.');
     };
 
-    const deniedOptions = [];
     for (const option of selectedSubcommand.options ?? []) {
       const interactionOption = interaction.options.get(option.name);
-      if (
-        interactionOption
-        && (option.permissionLevel ?? CommandPermissionLevel.Restricted) > userLevel
-      ) {
-        deniedOptions.push(option.name);
+      if (interactionOption) {
+        if (option.permissionLevel && option.permissionLevel > userLevel) {
+          deniedValues.deniedOptions.push(option.name);
+        } else if (selectedSubcommand.permissionLevel && selectedSubcommand.permissionLevel > userLevel) {
+          deniedValues.deniedSubcommand = selectedSubcommand.name;
+        } else if (selectedGroup?.permissionLevel && selectedGroup.permissionLevel > userLevel) {
+          deniedValues.deniedSubcommandGroup = selectedGroup.name;
+        } else if (this.permissionLevel > userLevel) {
+          deniedValues.deniedOptions.push(option.name);
+        };
       };
     };
-    deniedValues.deniedOptions = deniedOptions;
 
     return deniedValues;
   };
