@@ -2,7 +2,7 @@ import {
   readFile,
   writeFile
 } from 'fs/promises';
-import { PluginFile } from '.';
+import { PluginFile } from '@modules/openrct2/data/models';
 
 /** Represents a custom OpenRCT2 plugin file developed for this module. */
 export class ModulePluginFile extends PluginFile {
