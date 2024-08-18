@@ -186,7 +186,7 @@ function formatResponsePayload<R extends keyof MessagingPlugin.Response>(
 	if (data == null) {
 		return `${sourceName};${source};;\n`;
 	};
-	return `${sourceName};${source};${removeNewLines(JSON.stringify(data))}\n`;
+	return `${sourceName};${source};${removeNewLines(JSON.stringify(data))};\n`;
 };
 
 function toPlayerDto(player: Player) {
