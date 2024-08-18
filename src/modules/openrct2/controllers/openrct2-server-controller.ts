@@ -165,6 +165,8 @@ export class OpenRCT2ServerController extends EventEmitter {
           await this.stopServer(serverId, false);
         };
   
+        await this.pluginService.syncServerPluginSettings(serverId);
+        await wait(1, 's');
         const startupOptions = await serverDir.getStartupOptions();
         const pluginOptions = await serverDir.getPluginOptions();
         const status = await serverDir.getStatus();
@@ -182,7 +184,6 @@ export class OpenRCT2ServerController extends EventEmitter {
         };
         status.lastStartupTime = new Date();
   
-        await this.pluginService.syncServerPluginSettings(serverId);
         const gameServer = await this.gameService.createGameServerInstance(
           serverId,
           serverDir.path,

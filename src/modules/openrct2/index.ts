@@ -24,8 +24,6 @@ export namespace OpenRCT2 {
     Welcome = 'welcome.js'
   };
 
-  export const ServerAdapterPluginName = 'Server Adapter Plugin';
-
   /** Represents a valid RollerCoaster Tycoon scenario file extension. */
   export type ScenarioFileExtension = typeof ScenarioFileExtensionArray[number];
   export const ScenarioFileExtensionArray = <const>['.sc4', '.sv4', '.sc6', '.sv6', '.park'];
