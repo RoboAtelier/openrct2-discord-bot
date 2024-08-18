@@ -219,8 +219,8 @@ const ServerSubcommandGroups = <const>[
           description: 'The operating system name.',
           required: true,
           choices: Array.of(
-            { name: 'Windows', value: 'win32' },
-            { name: 'MacOS', value: 'darwin' },
+            { name: 'Windows', value: 'windows' },
+            { name: 'MacOS', value: 'macos' },
             { name: 'Linux', value: 'linux' },
             { name: 'Ubuntu', value: 'ubuntu' },
             { name: 'Debian', value: 'debian' }
@@ -943,8 +943,8 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     const startupOptions = await serverDir.getStartupOptions();
 
     let buildName = commit
-      ? `${baseVersion}_${operatingSystem}`
-      : `${baseVersion}-${commit}_${operatingSystem}`;
+      ? `${baseVersion}-${commit}_${operatingSystem}`
+      : `${baseVersion}_${operatingSystem}`;
     if (codename) {
       buildName += `-${codename}`;
     };
