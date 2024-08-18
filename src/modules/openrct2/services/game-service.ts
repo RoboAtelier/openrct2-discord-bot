@@ -109,7 +109,7 @@ export class GameService {
         console.log(dataStr);
         if (dataStr.includes(`istening for clients on *:${startupOptions.port}`)) {
           launched = true;
-        } else if (dataStr.includes(`${pluginName}] Started`)) {
+        } else if (dataStr.includes(`${pluginName} for server ${serverId} is active`)) {
           pluginCheck = true;
         };
         if (launched && pluginCheck) {
