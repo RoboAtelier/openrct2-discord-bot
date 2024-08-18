@@ -134,7 +134,7 @@ function startup() {
 	});
 
 	server.listen(port, 'localhost');
-	console.log(`Adapter plugin for server ${serverId} is active!`);
+	console.log(`${pluginName} for server ${serverId} is active!`);
 };
 
 // Event Handlers

@@ -94,7 +94,7 @@ export class GameService {
     );
     
     let launched = false;
-    let pluginCheck = !pluginOptions.plugins.includes(OpenRCT2.PluginFileName.ServerAdapter);
+    let pluginCheck = !pluginOptions.plugins.includes(OpenRCT2.PluginFileName.Messaging);
     await new Promise<void>((resolve, reject) => {
       const pluginName: MessagingPlugin.Name = 'Messaging Plugin';
       const timeout = setTimeout(() => {
@@ -122,7 +122,7 @@ export class GameService {
     });
 
     let pluginAdapter;
-    if (pluginOptions.plugins.includes(OpenRCT2.PluginFileName.ServerAdapter)) {
+    if (pluginOptions.plugins.includes(OpenRCT2.PluginFileName.Messaging)) {
       const client = new Socket();
       client.connect(pluginOptions.adapterPluginPort, 'localhost');
       await new Promise<void>((resolve, reject) => {

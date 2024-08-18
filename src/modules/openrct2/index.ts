@@ -20,7 +20,7 @@ export namespace OpenRCT2 {
 
   /** Specifies a file name for this module's custom plugins for OpenRCT2. */
   export enum PluginFileName {
-    ServerAdapter = 'server-adapter.js',
+    Messaging = 'messaging.js',
     Welcome = 'welcome.js'
   };
 

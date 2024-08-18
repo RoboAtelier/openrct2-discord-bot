@@ -20,8 +20,8 @@ export class PluginRepository extends FileSystemRepository {
     super(config);
     this.dataDir = new ConcurrentDirectory(config.pluginDirPath);
 
-    const serverAdapterPlugin = new ConcurrentFile(path.join(this.dataDir.path, OpenRCT2.PluginFileName.ServerAdapter));
-    this.pluginFiles.set(OpenRCT2.PluginFileName.ServerAdapter, serverAdapterPlugin);
+    const messagingPlugin = new ConcurrentFile(path.join(this.dataDir.path, OpenRCT2.PluginFileName.Messaging));
+    this.pluginFiles.set(OpenRCT2.PluginFileName.Messaging, messagingPlugin);
   };
 
   /** @override */

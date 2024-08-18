@@ -254,20 +254,20 @@ const ServerSubcommandGroups = <const>[
     }]
   },
   {
-    name: 'adapter',
+    name: 'messaging',
     subcommands: [{
       name: 'set',
-      description: 'Sets server adapter plugin properties of an OpenRCT2 server.',
+      description: 'Sets messaging plugin properties of an OpenRCT2 server.',
       options: [
         {
           name: 'enable',
           type: 'boolean',
-          description: 'To enable the server adapter plugin or not.'
+          description: 'To enable the server messaging plugin or not.'
         },
         {
-          name: 'adapter-port',
+          name: 'plugin-port',
           type: 'string',
-          description: 'The new port number for the server adapter plugin.',
+          description: 'The new port number for the messaging plugin.',
           minValue: Math.pow(2, 10) + 1,
           maxValue: Math.pow(2, 16) - 1
         },
@@ -765,20 +765,20 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
             options.get('codename')?.value as string
           );
         };
-      } else if (groupName === 'adapter') {
+      } else if (groupName === 'messaging') {
         if (subcommandName === 'set') {
           const options = this.getInteractionSubcommandGroupSubcommandOptions(interaction, groupName, subcommandName);
-          await this.setServerAdapterOptions(
+          await this.setMessagingPluginOptions(
             response,
             serverId,
             options.get('enable')?.value as boolean,
-            options.get('adapter-port')?.value as number
+            options.get('plugin-port')?.value as number
           );
         };
       } else if (groupName === 'welcome') {
         if (subcommandName === 'plugin-set') {
           const options = this.getInteractionSubcommandGroupSubcommandOptions(interaction, groupName, subcommandName);
-          await this.setServerWelcomeOptions(
+          await this.setWelcomePluginOptions(
             response,
             serverId,
             options.get('enable')?.value as boolean
@@ -1038,7 +1038,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     };
   };
 
-  private async setServerAdapterOptions(
+  private async setMessagingPluginOptions(
     response: ResponseBuilder,
     serverId: number,
     enable?: boolean,
@@ -1048,12 +1048,14 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     const pluginOptions = await serverDir.getPluginOptions();
 
     if (enable != undefined) {
-      pluginOptions.plugins = pluginOptions.plugins.filter(plugin => plugin === OpenRCT2.PluginFileName.ServerAdapter);
       if (enable) {
-        pluginOptions.plugins.push(OpenRCT2.PluginFileName.ServerAdapter);
-        response.addText(`Enabled the adapter plugin.`);
+        if (!pluginOptions.plugins.includes(OpenRCT2.PluginFileName.Messaging)) {
+          pluginOptions.plugins.push(OpenRCT2.PluginFileName.Messaging);
+        };
+        response.addText(`Enabled the messaging plugin.`);
       } else {
-        response.addText(`Disabled the adapter plugin.`);
+        pluginOptions.plugins = pluginOptions.plugins.filter(pluginName => pluginName !== OpenRCT2.PluginFileName.Messaging);
+        response.addText(`Disabled the messaging plugin.`);
       };
     };
 
@@ -1076,7 +1078,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
           response.addErrorText(`Port number ${bold(`${adapterPortNumber}`)} is already in use by a different game server or plugin.`);
         } else {
           pluginOptions.adapterPluginPort = adapterPortNumber;
-          response.addText(`Updated the adapter plugin to use port number ${bold(`${adapterPortNumber}`)}.`);
+          response.addText(`Updated the messaging plugin to use port number ${bold(`${adapterPortNumber}`)}.`);
         };
       };
     };
@@ -1090,16 +1092,18 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     };
   };
 
-  private async setServerWelcomeOptions(response: ResponseBuilder, serverId: number, enable?: boolean) {
+  private async setWelcomePluginOptions(response: ResponseBuilder, serverId: number, enable?: boolean) {
     const serverDir = await this.serverRepo.getServerDirectoryById(serverId);
     const pluginOptions = await serverDir.getPluginOptions();
 
     if (enable != undefined) {
-      pluginOptions.plugins = pluginOptions.plugins.filter(plugin => plugin === OpenRCT2.PluginFileName.Welcome);
       if (enable) {
-        pluginOptions.plugins.push(OpenRCT2.PluginFileName.ServerAdapter);
+        if (!pluginOptions.plugins.includes(OpenRCT2.PluginFileName.Welcome)) {
+          pluginOptions.plugins.push(OpenRCT2.PluginFileName.Welcome);
+        };
         response.addText(`Enabled the welcome plugin.`);
       } else {
+        pluginOptions.plugins = pluginOptions.plugins.filter(pluginName => pluginName !== OpenRCT2.PluginFileName.Welcome);
         response.addText(`Disabled the welcome plugin.`);
       };
     };

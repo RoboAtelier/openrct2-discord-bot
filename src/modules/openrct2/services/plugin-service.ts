@@ -30,7 +30,7 @@ export class PluginService {
     };
 
     for (const plugin of currentPlugins) {
-      if (plugin.name === OpenRCT2.PluginFileName.ServerAdapter) {
+      if (plugin.name === OpenRCT2.PluginFileName.Messaging) {
         await plugin.setGlobalVariables(
           ['serverId', serverId],
           ['port', pluginOptions.adapterPluginPort]
