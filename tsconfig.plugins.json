@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "ES5",
     "module": "ES2020",
-    "moduleResolution": "node",  
+    "moduleResolution": "node",
     "baseUrl": "./plugins",
     "paths": {
       "@modules/*": ["./modules/*"]
@@ -10,7 +10,7 @@
     "sourceMap": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "strict": true,
+    "noImplicitUseStrict": true,
     "skipLibCheck": true
   },
   "include": [
