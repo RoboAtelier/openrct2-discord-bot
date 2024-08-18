@@ -266,7 +266,7 @@ const ServerSubcommandGroups = <const>[
         },
         {
           name: 'plugin-port',
-          type: 'string',
+          type: 'integer',
           description: 'The new port number for the messaging plugin.',
           minValue: Math.pow(2, 10) + 1,
           maxValue: Math.pow(2, 16) - 1
@@ -1024,7 +1024,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       if (queue.scenarios.length < queue.limit) {
         await this.openRCT2ServerController.addToServerScenarioQueue(serverId, targetScenario);
         response.addText(
-          `Added the ${
+          `${EOL}Added the ${
             bold(targetScenario.nameNoExtension)
           } scenario to ${underscore(italic(`Server ${serverId}`))}'s scenario queue.`
         );
@@ -1070,14 +1070,14 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
           currentPorts.push(startupOptions.port);
           if (id !== serverId) {
             const pluginOptions = await serverDir.getPluginOptions();
-            currentPorts.push(pluginOptions.adapterPluginPort);
+            currentPorts.push(pluginOptions.messagingPluginPort);
           };
         };
 
         if (currentPorts.includes(adapterPortNumber)) {
           response.addErrorText(`Port number ${bold(`${adapterPortNumber}`)} is already in use by a different game server or plugin.`);
         } else {
-          pluginOptions.adapterPluginPort = adapterPortNumber;
+          pluginOptions.messagingPluginPort = adapterPortNumber;
           response.addText(`Updated the messaging plugin to use port number ${bold(`${adapterPortNumber}`)}.`);
         };
       };
@@ -1422,7 +1422,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     } else {
       msgSegments.push(`Enabled Plugins: ${italic('None')}`);
     };
-    msgSegments.push(`Adapter Port: ${pluginOptions.adapterPluginPort}`);
+    msgSegments.push(`Messaging Plugin Port: ${pluginOptions.messagingPluginPort}`);
     msgSegments.push(`Welcome Message: ${pluginOptions.welcomeMessage.bodyLines.length ? bold('SET') : bold('NOT SET')}`);
     msgSegments.push('');
     msgSegments.push(`${underscore('Queue Settings:')}`);

@@ -10,8 +10,8 @@ export class PluginOptions extends SerializableObject<PluginOptions> {
     /** Gets or sets the module plugins in use. */
     public plugins: OpenRCT2.PluginFileName[] = [],
 
-    /** Gets or sets the port number for the server adapter plugin. */
-    public adapterPluginPort = -1,
+    /** Gets or sets the port number for the server messaging plugin. */
+    public messagingPluginPort = -1,
 
     /** Gets or sets the welcome message properties for the welcome plugin. */
     public welcomeMessage: {

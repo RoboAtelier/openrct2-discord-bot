@@ -124,7 +124,7 @@ export class GameService {
     let pluginAdapter;
     if (pluginOptions.plugins.includes(OpenRCT2.PluginFileName.Messaging)) {
       const client = new Socket();
-      client.connect(pluginOptions.adapterPluginPort, 'localhost');
+      client.connect(pluginOptions.messagingPluginPort, 'localhost');
       await new Promise<void>((resolve, reject) => {
         client.once('error', err => {
           reject(err);

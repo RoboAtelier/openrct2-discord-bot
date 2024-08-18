@@ -490,13 +490,14 @@ class ServerDirectory extends ConcurrentDirectory {
    * Adds plugin files to the OpenRCT2 game server directory
    * if they are not currently in the `plugin` subdirectory.
    * @async
+   * @param force Specifies if plugin files get overwritten if they already exist.
    * @param pluginFiles The plugin files to add.
    */
-  async addPluginFiles(...pluginFiles: PluginFile[]) {
+  async addPluginFiles(force = false, ...pluginFiles: PluginFile[]) {
     const files = await this.pluginSubdir.getFilesExclusive();
     const currentPluginFileNames = files.map(file => file.name);
     for (const pluginFile of pluginFiles) {
-      if (!currentPluginFileNames.includes(pluginFile.name)) {
+      if (!currentPluginFileNames.includes(pluginFile.name) || force) {
         await this.pluginSubdir.addFileExclusive(pluginFile.path);
       };
     };
