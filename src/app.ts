@@ -72,21 +72,6 @@ async function main() {
   const commandExecutor = new CommandExecutor(discordClient, logger, commandFactory, botDataRepo);
   new EventNotifier(discordClient, logger, botDataRepo, openRCT2ServerController);
 
-  const serverDirs = await serverHostRepo.getAllServerDirectories();
-  const botPlugins = await pluginRepo.getPluginFiles();
-  for (const [serverId, serverDir] of serverDirs) {
-    await serverDir.removePluginFiles(...botPlugins.map(botPlugin => botPlugin.name));
-    const pluginOptions = await serverDir.getPluginOptions();
-    if (pluginOptions.plugins.includes(OpenRCT2.PluginFileName.ServerAdapter)) {
-      await serverDir.addPluginFiles(...botPlugins);
-      const adapterPlugin = await serverDir.getPluginFileByName(OpenRCT2.PluginFileName.ServerAdapter);
-      await adapterPlugin.setGlobalVariables(
-        ['serverId', serverId],
-        ['port', pluginOptions.adapterPluginPort]
-      );
-    };
-  };
-
   discordClient.on(Events.ClientReady, async () => {
     if (discordClient.user === null) {
       throw new Error('Bot client user object was null on startup.');
