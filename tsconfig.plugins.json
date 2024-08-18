@@ -7,7 +7,6 @@
     "paths": {
       "@modules/*": ["./modules/*"]
     },
-    "sourceMap": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "noImplicitUseStrict": true,
