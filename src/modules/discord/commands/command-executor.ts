@@ -11,10 +11,10 @@ import {
   CommandFactory,
   CommandPermissionLevel,
   CommandType
- } from '.';
-import { GuildInfo } from '@modules/discord/data/models/bot';
-import { BotDataRepository } from '@modules/discord/data/repositories';
-import { Logger } from '@modules/logging';
+ } from './index.js';
+import { GuildInfo } from '@modules/discord/data/models/bot/index.js';
+import { BotDataRepository } from '@modules/discord/data/repositories/index.js';
+import { Logger } from '@modules/logging/index.js';
 
 export class CommandExecutor {
   private readonly discordClient: Client<true>;

@@ -1,4 +1,4 @@
-import { SerializableObject } from '@modules/io';
+import { SerializableObject } from '@modules/io/index.js';
 
 /** Represents queues and queue settings for a OpenRCT2 game server. */
 export class ScenarioQueue extends SerializableObject<ScenarioQueue> {

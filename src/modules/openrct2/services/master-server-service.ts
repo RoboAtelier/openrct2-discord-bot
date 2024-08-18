@@ -1,5 +1,5 @@
 import Fuse from 'fuse.js';
-import { wait } from '@modules/utils/runtime-utils';
+import { wait } from '@modules/utils/runtime-utils.js';
 
 /** Represents information about a public OpenRCT2 server broadcasting on the master server list. */
 export interface PublicOpenRCT2ServerInfo {

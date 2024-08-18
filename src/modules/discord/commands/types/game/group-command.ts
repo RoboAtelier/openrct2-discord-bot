@@ -1,18 +1,18 @@
+import { EOL } from 'os';
 import {
   bold,
   ChatInputCommandInteraction,
   User
 } from 'discord.js';
-import { EOL } from 'os';
 import { 
   CommandPermissionLevel,
   ResponseBuilder,
   CommandType,
   SubcommandsDiscordBotCommand
-} from '@modules/discord/commands';
-import { BotDataRepository } from '@modules/discord/data/repositories';
-import { Logger } from '@modules/logging';
-import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
+} from '@modules/discord/commands/index.js';
+import { BotDataRepository } from '@modules/discord/data/repositories/index.js';
+import { Logger } from '@modules/logging/index.js';
+import { OpenRCT2ServerController } from '@modules/openrct2/controllers/index.js';
 
 const GroupSubcommands = <const>[
   { 

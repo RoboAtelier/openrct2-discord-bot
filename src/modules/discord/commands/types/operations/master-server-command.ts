@@ -1,20 +1,20 @@
+import { EOL } from 'os';
 import {
   bold,
   ChatInputCommandInteraction,
   italic
 } from 'discord.js';
-import { EOL } from 'os';
-import { Configuration } from '@modules/configuration';
+import { Configuration } from '@modules/configuration/index.js';
 import {
   CommandPermissionLevel,
   ResponseBuilder,
   SubcommandsDiscordBotCommand
-} from '@modules/discord/commands';
+} from '@modules/discord/commands/index.js';
 import { 
   MasterServerService,
   PublicOpenRCT2ServerInfo
-} from '@modules/openrct2/services';
-import { getArraySectionWithDetails } from '@modules/utils/array-utils';
+} from '@modules/openrct2/services/index.js';
+import { getArraySectionWithDetails } from '@modules/utils/array-utils.js';
 
 const MasterServerSubcommands = <const>[
   {
@@ -61,7 +61,6 @@ const MasterServerSubcommands = <const>[
  * from the OpenRCT2 master server.
  */
 export class MasterServerCommand extends SubcommandsDiscordBotCommand<undefined, typeof MasterServerSubcommands[number]> {
-  private static readonly ipAddressKey = 'ipAddress';
   private static readonly detailMax = 7;
 
   private readonly hostingIPAddress: string;
@@ -79,7 +78,7 @@ export class MasterServerCommand extends SubcommandsDiscordBotCommand<undefined,
       CommandPermissionLevel.User
     );
 
-    this.hostingIPAddress = config.getValue<string>(MasterServerCommand.ipAddressKey);
+    this.hostingIPAddress = config.ipAddress;
     this.openRCT2MasterServer = openRCT2MasterServer;
   };
 

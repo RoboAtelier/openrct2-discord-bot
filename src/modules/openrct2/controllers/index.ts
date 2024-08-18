@@ -1,1 +1,1 @@
-export * from './openrct2-server-controller';
+export * from './openrct2-server-controller.js';

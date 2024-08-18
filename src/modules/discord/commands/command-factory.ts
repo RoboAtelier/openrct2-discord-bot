@@ -1,13 +1,13 @@
-import { Configuration } from '@modules/configuration';
-import * as Commands from '@modules/discord/commands';
-import { BotDataRepository } from '@modules/discord/data/repositories';
-import { Logger } from '@modules/logging';
-import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
-import * as OpenRCT2Repositories from '@modules/openrct2/data/repositories';
+import { Configuration } from '@modules/configuration/index.js';
+import * as Commands from '@modules/discord/commands/index.js';
+import { BotDataRepository } from '@modules/discord/data/repositories/index.js';
+import { Logger } from '@modules/logging/index.js';
+import { OpenRCT2ServerController } from '@modules/openrct2/controllers/index.js';
+import * as OpenRCT2Repositories from '@modules/openrct2/data/repositories/index.js';
 import {
   BuildDownloadService,
   MasterServerService
-} from '@modules/openrct2/services';
+} from '@modules/openrct2/services/index.js';
 
 export class CommandFactory {
   private readonly commandCache = new Map<string, Commands.DiscordBotCommand>();

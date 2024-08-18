@@ -1,3 +1,3 @@
-export * from './build-directory';
-export * from './game-configuration';
-export * from './openrct2-platform-info';
+export * from './build-directory.js';
+export * from './game-configuration.js';
+export * from './platform-info.js';

@@ -1,3 +1,4 @@
+import { EOL } from 'os';
 import {
   bold,
   ChatInputCommandInteraction,
@@ -5,16 +6,16 @@ import {
   italic,
   underscore
 } from 'discord.js';
-import { EOL } from 'os';
 import {
   CommandPermissionLevel,
   ResponseBuilder,
   SubcommandsDiscordBotCommand
-} from '@modules/discord/commands';
-import { ScenarioMetadata } from '@modules/openrct2/data/models';
-import { ScenarioRepository } from '@modules/openrct2/data/repositories';
-import { getArraySectionWithDetails } from '@modules/utils/array-utils';
-import { areStringsEqualCaseInsensitive } from '@modules/utils/string-utils';
+} from '@modules/discord/commands/index.js';
+import { OpenRCT2 } from '@modules/openrct2/index.js';
+import { ScenarioMetadata } from '@modules/openrct2/data/models/index.js';
+import { ScenarioRepository } from '@modules/openrct2/data/repositories/index.js';
+import { getArraySectionWithDetails } from '@modules/utils/array-utils.js';
+import { areStringsEqualCaseInsensitive } from '@modules/utils/string-utils.js';
 
 const FileTypeOptionChoices = [
   { name: '.scv* (RCT1 & RCT2)', value: 'scv' },
@@ -151,7 +152,7 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
         const active = options.get('active')?.value as boolean;
         await this.setScenarioValues(response, scenarioName, newName, newTags, active);
       } else {
-        const scenarioFileExts: OpenRCT2Module.ScenarioFileExtension[] = [];
+        const scenarioFileExts: OpenRCT2.ScenarioFileExtension[] = [];
         const fileType = this.getInteractionOption(interaction, 'file-type');
         if (fileType) {
           const extChoice = fileType.value as string;
@@ -270,7 +271,7 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
 
   private async getScenariosBySearchQuery(
     response: ResponseBuilder,
-    scenarioFileExts: OpenRCT2Module.ScenarioFileExtension[],
+    scenarioFileExts: OpenRCT2.ScenarioFileExtension[],
     resultIndex: number,
     nameSearch?: string,
     tags?: string[]
@@ -304,7 +305,7 @@ export class ScenarioCommand extends SubcommandsDiscordBotCommand<undefined, typ
 
   private async getScenarioList(
     response: ResponseBuilder,
-    scenarioFileExts: OpenRCT2Module.ScenarioFileExtension[],
+    scenarioFileExts: OpenRCT2.ScenarioFileExtension[],
     resultIndex: number
   ) {
     const metadata = 0 === scenarioFileExts.length

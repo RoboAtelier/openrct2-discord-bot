@@ -1,1 +1,1 @@
-export * from './bot-data-repository';
+export * from './bot-data-repository.js';

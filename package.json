@@ -8,21 +8,24 @@
     "async-mutex": "^0.5",
     "discord.js": "^14.9.0",
     "fuse.js": "^6.6.2",
-    "module-alias": "^2.2.2",
     "tar": "^6.1.13",
     "zip-lib": "^0.7.3"
   },
-  "main": "dist/src/app.js",
+  "exports": "./dist/src/app.js",
+  "engines": {
+    "node": ">=14.16"
+  },
   "scripts": {
-    "build": "tsc && tsc -p tsconfig.plugins.json",
+    "build": "tsc && tsc-alias && tsc -p tsconfig.plugins.json",
     "build-plugins": "tsc -p tsconfig.plugins.json"
   },
   "license": "ISC",
-  "type": "commonjs",
-  "_moduleAliases": {
+  "type": "module",
+  "aliases": {
     "@modules": "dist/modules"
   },
   "devDependencies": {
-    "@types/tar": "^6.1.4"
+    "@types/tar": "^6.1.4",
+    "tsc-alias": "^1.8.10"
   }
 }

@@ -1,3 +1,4 @@
+import { EOL } from 'os';
 import {
   ActionRowData,
   APIAttachment,
@@ -12,7 +13,6 @@ import {
   MessagePayload,
   MessageTarget
 } from 'discord.js';
-import { EOL } from 'os';
 
 /** Represents a builder for a result response payload.*/
 export class ResponseBuilder {

@@ -1,34 +1,29 @@
 import {
+  arch,
+  platform,
+  EOL
+} from 'os';
+import {
   bold,
   ChatInputCommandInteraction,
   inlineCode,
   italic
 } from 'discord.js';
 import {
-  platform,
-  EOL
-} from 'os';
-import {
   CommandPermissionLevel,
   ResponseBuilder,
   SubcommandsDiscordBotCommand
-} from '@modules/discord/commands';
-import { Logger } from '@modules/logging';
+} from '@modules/discord/commands/index.js';
+import { Logger } from '@modules/logging/index.js';
 import {
   BuildDirectory,
-  OpenRCT2LinuxDistro,
-  OpenRCT2Platform,
-  OpenRCT2PlatformInfo
-} from '@modules/openrct2/data/models';
-import { BuildDownloadService } from '@modules/openrct2/services';
-import { BuildRepository } from '@modules/openrct2/data/repositories';
-import { wait } from '@modules/utils/runtime-utils';
+  PlatformInfo,
+  ArchitectureTypeArray,
+} from '@modules/openrct2/data/models/index.js';
+import { BuildDownloadService } from '@modules/openrct2/services/index.js';
+import { BuildRepository } from '@modules/openrct2/data/repositories/index.js';
+import { wait } from '@modules/utils/runtime-utils.js';
 
-const OperatingSystemChoices = [
-  { name: 'Windows', value: 'win32' },
-  { name: 'MacOS', value: 'darwin' },
-  { name: 'Ubuntu/Debian', value: 'linux/ubuntu' }
-];
 
 const GameBuildSubcommands = <const>[
   {
@@ -79,7 +74,13 @@ const GameBuildSubcommands = <const>[
         name: 'os',
         type: 'string',
         description: 'The target operating system to download for.',
-        choices: OperatingSystemChoices
+        choices: Array.of(
+          { name: 'Windows', value: 'win32' },
+          { name: 'MacOS', value: 'darwin' },
+          { name: 'Linux', value: 'linux' },
+          { name: 'Ubuntu', value: 'ubuntu' },
+          { name: 'Debian', value: 'debian' }
+        )
       },
       {
         name: 'codename',
@@ -89,7 +90,17 @@ const GameBuildSubcommands = <const>[
       {
         name: 'architecture',
         type: 'string',
-        description: 'The target operating system CPU architecture.'
+        description: 'The target operating system CPU architecture.',
+        choices: ArchitectureTypeArray.map(arch => { return { name: arch, value: arch }})
+      },
+      {
+        name: 'type',
+        type: 'string',
+        description: 'The build type to download.',
+        choices: Array.of(
+          { name: 'Windows Portable', value: 'portable' },
+          { name: 'Linux AppImage', value: 'AppImage' }
+        )
       }
     ]
   },
@@ -115,7 +126,7 @@ export class GameBuildCommand extends SubcommandsDiscordBotCommand<
     buildDownloadService: BuildDownloadService
   ) {
     super(
-      'game-build',
+      'build',
       'Manages OpenRCT2 builds.',
       undefined,
       GameBuildSubcommands,
@@ -156,13 +167,12 @@ export class GameBuildCommand extends SubcommandsDiscordBotCommand<
 
       let distro;
       let operatingSystem = options.get('os')?.value as string ?? platform();
-      if (operatingSystem && operatingSystem.startsWith('linux')) {
-        distro = operatingSystem.substring(operatingSystem.indexOf('/') + 1) as OpenRCT2LinuxDistro;
+      if (['ubuntu', 'debian'].includes(operatingSystem)) {
+        distro = operatingSystem.slice();
         operatingSystem = 'linux';
       };
-
-      const platformInfo = new OpenRCT2PlatformInfo(
-        operatingSystem as OpenRCT2Platform,
+      const platformInfo = new PlatformInfo(
+        operatingSystem,
         options.get('architecture')?.value as string,
         undefined,
         distro,
@@ -173,10 +183,11 @@ export class GameBuildCommand extends SubcommandsDiscordBotCommand<
         interaction,
         platformInfo,
         baseVersion,
-        options.get('commit')?.value as string
+        options.get('commit')?.value as string,
+        options.get('type')?.value as 'portable' | 'AppImage'
       );
     } else if (subcommandName === 'list') {
-      await this.getGameBuildVersionList(response);
+      await this.getBuildVersionList(response);
     }
 
     if (!response.hasContent) {
@@ -204,9 +215,9 @@ export class GameBuildCommand extends SubcommandsDiscordBotCommand<
         : await this.buildDownloadService.queryDevelopBuildByIndex(buildIndex);
 
       if (gameBuild) {
-        response.addText(`${italic(gameBuild.version)}`, '');
+        response.addText(`${italic(gameBuild.version)}`, '', `${bold('Available Builds:')}`);
         for (const assetName of gameBuild.assetNames) {
-          response.addText(bold(assetName));
+          response.addText(`▸ ${inlineCode(assetName)}`);
         };
       };
 
@@ -225,39 +236,41 @@ export class GameBuildCommand extends SubcommandsDiscordBotCommand<
   private async downloadOpenRCT2Build(
     response: ResponseBuilder,
     interaction: ChatInputCommandInteraction,
-    platform: OpenRCT2PlatformInfo,
+    platform: PlatformInfo,
     baseVersion: string,
-    commitHeader?: string
+    commitHeader?: string,
+    assetType?: 'portable' | 'AppImage'
   ) {
     try {
-      const downloadInfo = await this.buildDownloadService.getBuildInfo(
+      const downloads = await this.buildDownloadService.queryDownloads(
         platform,
         baseVersion,
-        commitHeader
+        commitHeader,
+        assetType
       );
-      if (downloadInfo) {
-        const writeStream = this.buildRepo.createBuildWriteStream(downloadInfo.fileName);
+      if (downloads?.length === 1) {
+        const download = downloads[0];
 
         let ticked = false;
-        await this.buildDownloadService.downloadBuild(
-          downloadInfo.downloadUrl,
-          writeStream,
-          async (percentage: string) => {
-            if (!ticked) {
+        await this.buildDownloadService.downloadAndInstallBuild(
+          download,
+          async (percentage, extractComplete) => {
+            if (percentage < 100 && !ticked) {
               ticked = true;
-              await interaction.editReply(`Downloading ${inlineCode(downloadInfo.fileName)}: ${percentage} complete`);
-              await wait(3, 's');
+              await interaction.editReply(`Downloading ${inlineCode(download.fileName)}: ${percentage.toFixed(2)}% complete`);
+              await wait(2, 's');
               ticked = false;
+            } else if (percentage === 100) {
+              if (!extractComplete) {
+                await interaction.editReply(`Unpacking ${inlineCode(download.fileName)}...`);
+              } else {
+                response.addText(`Successfully downloaded and unpacked ${inlineCode(download.fileName)}.`);
+              };
             };
           }
         );
-  
-        await interaction.editReply(`Unpacking ${inlineCode(downloadInfo.fileName)}...`);
-        await this.buildRepo.extractBuild(downloadInfo.fileName);
-  
-        response.addText(`Successfully downloaded and unpacked ${inlineCode(downloadInfo.fileName)}.`);
       } else {
-        response.addErrorText('Failed to retrieve a build with the specified parameters.');
+        response.addErrorText(this.formatNonsingleDownloadError(platform, downloads));
       };
     } catch (err) {
       const versionHeader = `${baseVersion}${commitHeader ? `-${commitHeader}` : ''}`;
@@ -268,10 +281,10 @@ export class GameBuildCommand extends SubcommandsDiscordBotCommand<
     };
   };
 
-  private async getGameBuildVersionList(response: ResponseBuilder) {
+  private async getBuildVersionList(response: ResponseBuilder) {
     try {
       const gameBuilds = await this.buildRepo.getAvailableBuilds();
-      response.addText(this.formatGameBuildVersionListMessage(gameBuilds));
+      response.addText(this.formatBuildVersionListMessage(gameBuilds));
     } catch (err) {
       const errMsg = 'Failed to return current list of downloaded game builds.';
       await this.logger.writeError(errMsg);
@@ -280,14 +293,36 @@ export class GameBuildCommand extends SubcommandsDiscordBotCommand<
     };
   };
 
-  private formatGameBuildVersionListMessage(gameBuilds: BuildDirectory[]) {
+  private formatBuildVersionListMessage(buildDirs: BuildDirectory[]) {
     const msgSegments = [];
 
-    for (const gameBuild of gameBuilds) {
-      let versionSegment = `▸ ${bold(gameBuild.name)}`;
+    for (const gameBuild of buildDirs) {
+      let versionSegment = `▸ ${inlineCode(gameBuild.name)}`;
       msgSegments.push(versionSegment);
     };
 
     return msgSegments.join(EOL);
+  };
+
+  private formatNonsingleDownloadError(
+    platform: PlatformInfo,
+    downloads?: { originalFileName: string }[]
+  ) {
+    const errorMsgSegments = [];
+
+    if (downloads && downloads.length > 1) {
+      errorMsgSegments.push(`Multiple builds match ${
+        inlineCode(`${platform.friendlyName}_${platform.version ?? '?'}_${platform.architecture}`)
+      }:`, '');
+      for (const download of downloads.slice(0, 10)) {
+        errorMsgSegments.push(`▸ ${inlineCode(download.originalFileName)}`);
+      };
+    } else {
+      errorMsgSegments.push(`Failed to find a build for ${
+        inlineCode(`${platform.friendlyName}_${platform.version ?? '?'}_${platform.architecture}`)
+      }`)
+    };
+
+    return errorMsgSegments.join(EOL);
   };
 };

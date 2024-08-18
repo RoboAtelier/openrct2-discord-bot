@@ -24,11 +24,13 @@ import {
   ConcurrentFileSystemObject,
   FixedPathReadStream,
   FixedPathWriteStream
-} from '.';
-import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
+} from './index.js';
+import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils.js';
 
 /** Represents a class for handling concurrent processes on a file system directory. */
 export class ConcurrentDirectory extends ConcurrentFileSystemObject {
+  private static readonly openWriteStreams = new Set<string>();
+
   constructor(dirPath: string) {
     const resolvedDirPath = path.resolve(dirPath);
     super(dirPath);
@@ -90,8 +92,12 @@ export class ConcurrentDirectory extends ConcurrentFileSystemObject {
     this.validateActive();
     const fullFilePath = path.join(this.objPath, fileNameOrRelPath);
     this.validateManagedFilePath(fullFilePath);
-
-    return createWriteStream(fullFilePath, options) as FixedPathWriteStream;
+    if (ConcurrentDirectory.openWriteStreams.has(fullFilePath)) {
+      throw new Error(`Write stream for file path '${fullFilePath}' already exists.`);
+    };
+    const writeStream = createWriteStream(fullFilePath, options) as FixedPathWriteStream;
+    writeStream.on('close', () => ConcurrentDirectory.openWriteStreams.delete(fullFilePath));
+    return writeStream;
   };
 
   /**

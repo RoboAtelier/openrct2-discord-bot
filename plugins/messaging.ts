@@ -1,6 +1,5 @@
 /// <reference path="../src/modules/openrct2/openrct2.d.ts" />
-/// <reference path="../src/modules/openrct2/index.d.ts"/>
-//export {};
+/// <reference path="./messaging.d.ts" />
 
 var serverId = 0;
 var port = 0;
@@ -11,7 +10,7 @@ function startup() {
 		conn.on('data', data => {
 			try {
 				const args = data.split(';', 3);
-				const actionOrQueryName = args[0] as keyof OpenRCT2Module.AdapterRequest;
+				const actionOrQueryName = args[0] as keyof MessagingPlugin.Request;
 				const userId = args[1];
 				
 				if (actionOrQueryName === 'chat') {
@@ -35,7 +34,7 @@ function startup() {
 					context.executeAction('pausetoggle', {});
 					conn.write(formatResponsePayload(actionOrQueryName, userId));
 				} else if (actionOrQueryName === 'player.group.set') {
-					const requestArgs = JSON.parse(args[2]) as OpenRCT2Module.AdapterRequest[typeof actionOrQueryName];
+					const requestArgs = JSON.parse(args[2]) as MessagingPlugin.Request[typeof actionOrQueryName];
 					const player = network.getPlayer(requestArgs.playerId);
 					const group = network.getGroup(requestArgs.groupId);
 					if (player == null || group == null) {
@@ -53,7 +52,7 @@ function startup() {
 						));
 					};
 				} else if (actionOrQueryName === 'player.kick') {
-					const requestArgs = JSON.parse(args[2]) as OpenRCT2Module.AdapterRequest[typeof actionOrQueryName];
+					const requestArgs = JSON.parse(args[2]) as MessagingPlugin.Request[typeof actionOrQueryName];
 					const player = network.getPlayer(requestArgs);
 					if (player) {
 						network.kickPlayer(player.id);
@@ -96,7 +95,7 @@ function startup() {
 							status: scenario.status
 						}
 					));
-				} else if (actionOrQueryName === 'scenario.status') {
+				} else if (actionOrQueryName === 'server.status') {
 					conn.write(formatResponsePayload(
 						actionOrQueryName,
 						userId,
@@ -141,7 +140,7 @@ function startup() {
 // Event Handlers
 function onIntervalDay(conn: Socket) {
 	conn.write(formatResponsePayload(
-		'scenario.status',
+		'server.status',
 		'e',
 		{
 			name: scenario.name,
@@ -179,10 +178,10 @@ function removeNewLines(str: string) {
 };
 
 // Transformers
-function formatResponsePayload<R extends keyof OpenRCT2Module.AdapterResponse>(
+function formatResponsePayload<R extends keyof MessagingPlugin.Response>(
 	sourceName: R,
 	source: string,
-	data?: OpenRCT2Module.AdapterResponse[R]
+	data?: MessagingPlugin.Response[R]
 ) {
 	if (data == null) {
 		return `${sourceName};${source};;\n`;
@@ -221,8 +220,9 @@ class PlayerDto {
   ) {};
 };
 
+const pluginName: MessagingPlugin.Name = 'Messaging Plugin';
 registerPlugin({
-	name: 'Server Adapter',
+	name: pluginName,
 	version: '0.1.2',
 	authors: ['Robo'],
 	type: 'remote',

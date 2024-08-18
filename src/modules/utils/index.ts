@@ -1,1 +1,1 @@
-export * from './flag-manager';
+export * from './flag-manager.js';

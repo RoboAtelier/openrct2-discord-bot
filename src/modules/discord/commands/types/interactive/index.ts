@@ -1,1 +1,1 @@
-export * from './vote-command';
+export * from './vote-command.js';

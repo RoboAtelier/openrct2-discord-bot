@@ -1,4 +1,4 @@
-import { SerializableObject } from '.';
+import { SerializableObject } from './serializable-object.js';
 
 /** Contains contracts for handling an array of serialized objects. */
 export abstract class SerializableToArray<T> extends SerializableObject<T> {

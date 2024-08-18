@@ -7,7 +7,7 @@ import {
   SlashCommandSubcommandBuilder,
   SlashCommandSubcommandGroupBuilder
 } from 'discord.js';
-import { CommandPermissionLevel } from '@modules/discord/commands';
+import { CommandPermissionLevel } from '@modules/discord/commands/index.js';
 
 export function buildSlashCommandOptions(
   builder: SlashCommandBuilder | SlashCommandSubcommandBuilder,

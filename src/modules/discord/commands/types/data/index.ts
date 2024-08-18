@@ -1,1 +1,1 @@
-export * from './scenario-command';
+export * from './scenario-command.js';

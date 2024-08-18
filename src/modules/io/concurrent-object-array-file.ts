@@ -10,8 +10,8 @@ import {
 import { 
   ConcurrentFileSystemObject,
   SerializableToArray
-} from '.';
-import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
+} from './index.js';
+import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils.js';
 
 /** 
  * Represents a class for handling concurrent processes

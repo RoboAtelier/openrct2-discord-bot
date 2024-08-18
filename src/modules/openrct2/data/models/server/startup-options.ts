@@ -1,4 +1,4 @@
-import { SerializableObject } from '@modules/io';
+import { SerializableObject } from '@modules/io/index.js';
 
 /** Represents startup options for a hosted OpenRCT2 game server instance. */
 export class StartupOptions extends SerializableObject<StartupOptions> {

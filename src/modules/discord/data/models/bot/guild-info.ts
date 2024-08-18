@@ -1,54 +1,43 @@
-import { SerializableObject } from '@modules/io';
+import { SerializableObject } from '@modules/io/index.js';
 
 /** Represents supplemental metadata about a Discord guild for bot operations. */
 export class GuildInfo extends SerializableObject<GuildInfo> {
-
-  /** Gets or sets the id of the guild the bot is managing in. */
-  guildId: string;
-
-  /** Gets or sets the id of the guild channel for debug messages. */
-  debugChannelId: string;
-
-  /** Gets or sets the id of the guild channel for event listeners or notifiers. */
-  eventChannelId: string;
-
-  /** Gets or sets the id of the guild channel for posting OpenRCT2 game scenarios. */
-  scenarioChannelId: string;
-
-  /** Gets or sets the id of the guild channel for votes. */
-  votingChannelId: string;
-
-  /**
-   * Gets or sets the array of ids of guild channels
-   * that set specifically for executing bot commands.
-   */
-  botChannelIds: string[];
-
-  /**
-   * Gets or sets the array of ids of guild channels
-   * set for relaying chat messages between Discord and the game servers.
-   */
-  gameServerChannels: { serverId: number, channelId: string, autoRelay: boolean }[];
-
-  /** Gets or sets the array of ids of guild roles assigned for trusted users. */
-  trustedRoleIds: string[];
-
-  /** 
-   * Gets or sets the array of guild user ids
-   * that have restricted access to bot commands.
-   */
-  restrictedUserIds: string[];
-
   constructor(
-    guildId = '',
-    debugChannelId = '',
-    eventChannelId = '',
-    scenarioChannelId = '',
-    votingChannelId = '',
-    botChannelIds: string[] = [],
-    gameServerChannels = [],
-    trustedRoleIds: string[] = [],
-    restrictedUserIds: string[] = []
+    /** Gets or sets the id of the guild the bot is managing in. */
+    public guildId = '',
+
+    /** Gets or sets the id of the guild channel for debug messages. */
+    public debugChannelId = '',
+
+    /** Gets or sets the id of the guild channel for event listeners or notifiers. */
+    public eventChannelId = '',
+
+    /** Gets or sets the id of the guild channel for posting OpenRCT2 game scenarios. */
+    public scenarioChannelId = '',
+
+    /** Gets or sets the id of the guild channel for votes. */
+    public votingChannelId = '',
+
+    /**
+     * Gets or sets the array of ids of guild channels
+     * that set specifically for executing bot commands.
+     */
+    public botChannelIds: string[] = [],
+
+    /**
+     * Gets or sets the array of ids of guild channels
+     * set for relaying chat messages between Discord and the game servers.
+     */
+    public gameServerChannels: { serverId: number, channelId: string, autoRelay: boolean }[] = [],
+
+    /** Gets or sets the array of ids of guild roles assigned for trusted users. */
+    public trustedRoleIds: string[] = [],
+
+    /** 
+     * Gets or sets the array of guild user ids
+     * that have restricted access to bot commands.
+     */
+    public restrictedUserIds: string[] = []
   ) {
     super();
     this.guildId = guildId;

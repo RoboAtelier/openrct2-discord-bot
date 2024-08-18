@@ -2,29 +2,29 @@ import path from 'path';
 import Fuse from 'fuse.js'
 import tar from 'tar';
 import { Unzip } from 'zip-lib';
-import { Configuration } from '@modules/configuration';
+import { Configuration } from '@modules/configuration/index.js';
 import { 
   ConcurrentDirectory,
   FileSystemRepository,
-} from '@modules/io';
-import { BuildDirectory } from '@modules/openrct2/data/models';
+} from '@modules/io/index.js';
+import { OpenRCT2 } from '@modules/openrct2/index.js';
+import { BuildDirectory } from '@modules/openrct2/data/models/index.js';
 import { 
   areStringsEqualCaseInsensitive,
   isStringValidForFileName
-} from '@modules/utils/string-utils';
+} from '@modules/utils/string-utils.js';
 
 /** Represents a data repository for OpenRCT2 game release and development builds. */
 export class BuildRepository extends FileSystemRepository {
-  private static readonly dirKey = 'build';
   private static readonly fuseOptions = { keys: ['name'], threshold: 0.2 };
 
-  private readonly inProgress: string[] = [];
+  private readonly activeExtractions = new Set<string>();
 
   protected readonly dataDir: ConcurrentDirectory;
 
   constructor(config: Configuration) {
     super(config);
-    this.dataDir = new ConcurrentDirectory(config.getDirectoryPath(BuildRepository.dirKey));
+    this.dataDir = new ConcurrentDirectory(config.buildDirPath);
   };
 
   /** @override */
@@ -38,13 +38,8 @@ export class BuildRepository extends FileSystemRepository {
    * @returns A write stream for the requested OpenRCT2 build name.
    */
   createBuildWriteStream(fileName: string) {
-    if (this.inProgress.includes(fileName)) {
-      throw new Error(`${fileName} is already is use.`);
-    };
-
     this.validateBuildFileName(fileName);
     const writeStream = this.dataDir.createFixedPathWriteStream(fileName);
-    this.inProgress.push(fileName);
     return writeStream;
   };
 
@@ -54,10 +49,66 @@ export class BuildRepository extends FileSystemRepository {
    * @param fileName The name of the file to extract.
    */
   async extractBuild(fileName: string) {
-    if (!this.inProgress.includes(fileName)) {
-      throw new Error(`${fileName} was not used to generate an initial write stream.`);
+    const fileExtension = OpenRCT2.BuildFileExtensionArray.find(ext => fileName.endsWith(ext));
+    if (!fileExtension) {
+      throw new Error(`Cannot extract ${fileName}. Unsupported file extension found.`);
     };
-    await this.extractBuildToDirectory(fileName);
+
+    const version = fileName.substring(0, fileName.indexOf('_'));
+    const baseVersion = version.includes('-') ? version.substring(0, version.indexOf('-')) : version;
+    const dirName = fileName.substring(0, fileName.lastIndexOf(fileExtension));
+    const targetDirPath = path.join(baseVersion, dirName);
+    const fullGameBuildFilePath = path.join(this.dataDir.path, fileName);
+    const fullTargetDirPath = path.join(this.dataDir.path, targetDirPath);
+    if (this.activeExtractions.has(fullGameBuildFilePath)) {
+      throw new Error(`${fileName} is already being extracted.`);
+    };
+    this.activeExtractions.add(fullGameBuildFilePath);
+
+    try {
+      await this.dataDir.createSubdirectoryExclusive(targetDirPath);
+      switch (fileExtension) {
+        case '.zip':
+          try {
+            const unzip = new Unzip({ overwrite: true });
+            await unzip.extract(
+              fullGameBuildFilePath,
+              fullTargetDirPath
+            );
+          } catch (err) {
+            await this.dataDir.removeSubdirectoryExclusive(targetDirPath);
+            throw err;
+          };
+          break;
+        case '.tar.gz':
+          const tempDirPath = path.join(baseVersion, `${dirName}_temp`);
+          const extractedDirPath = path.join(targetDirPath, 'OpenRCT2');
+          try {
+            await tar.extract({
+              file: fullGameBuildFilePath,
+              cwd: fullTargetDirPath
+            });
+            const extractedDirs = await this.dataDir.getDirectoriesExclusive(targetDirPath);
+            if (extractedDirs.length === 1 && extractedDirs[0].name === 'OpenRCT2') {
+              await this.dataDir.renameOrMoveSubdirectoryExclusive(extractedDirPath, tempDirPath);
+              await this.dataDir.removeSubdirectoryExclusive(targetDirPath);
+              await this.dataDir.renameOrMoveSubdirectoryExclusive(tempDirPath, targetDirPath);
+            };
+          } catch (err) {
+            await this.dataDir.removeSubdirectoryExclusive(tempDirPath);
+            await this.dataDir.removeSubdirectoryExclusive(targetDirPath);
+            throw err;
+          };
+          break;
+        default:
+          throw new Error(`Cannot currently extract ${fileExtension} files for ${fileName}.`);
+      };
+    } catch (err) {
+      throw err;
+    } finally {
+      this.activeExtractions.delete(fullGameBuildFilePath);
+      await this.dataDir.removeFileExclusive(fileName);
+    };
   };
 
   /**
@@ -134,72 +185,11 @@ export class BuildRepository extends FileSystemRepository {
     return dirs.filter(dir => /^v\d+\.\d+\.\d+$/.test(dir.name));
   };
 
-  private async extractBuildToDirectory(fileName: string) {
-    const fileExtension = OpenRCT2Module.BuildFileExtensionArray.find(ext => fileName.endsWith(ext));
-    if (!fileExtension) {
-      throw new Error(`Cannot extract ${fileName}. Unsupported file extension found.`);
-    };
-
-    const version = fileName.substring(0, fileName.indexOf('_'));
-    const baseVersion = version.includes('-') ? version.substring(0, version.indexOf('-')) : version;
-    const dirName = fileName.substring(0, fileName.lastIndexOf(fileExtension));
-    const targetDirPath = path.join(baseVersion, dirName);
-    const fullGameBuildFilePath = path.join(this.dataDir.path, fileName);
-    const fullTargetDirPath = path.join(this.dataDir.path, targetDirPath);
-
-    try {
-      await this.dataDir.createSubdirectoryExclusive(targetDirPath);
-      switch (fileExtension) {
-        case '.zip':
-          try {
-            const unzip = new Unzip({ overwrite: true });
-            await unzip.extract(
-              fullGameBuildFilePath,
-              fullTargetDirPath
-            );
-          } catch (err) {
-            await this.dataDir.removeSubdirectoryExclusive(targetDirPath);
-            throw err;
-          };
-          break;
-        case '.tar.gz':
-          const tempDirPath = path.join(baseVersion, `${dirName}_temp`);
-          const extractedDirPath = path.join(targetDirPath, 'OpenRCT2');
-          try {
-            await tar.extract({
-              file: fullGameBuildFilePath,
-              cwd: fullTargetDirPath
-            });
-            const extractedDirs = await this.dataDir.getDirectoriesExclusive(targetDirPath);
-            if (extractedDirs.length === 1 && extractedDirs[0].name === 'OpenRCT2') {
-              await this.dataDir.renameOrMoveSubdirectoryExclusive(extractedDirPath, tempDirPath);
-              await this.dataDir.removeSubdirectoryExclusive(targetDirPath);
-              await this.dataDir.renameOrMoveSubdirectoryExclusive(tempDirPath, targetDirPath);
-            };
-          } catch (err) {
-            await this.dataDir.removeSubdirectoryExclusive(tempDirPath);
-            await this.dataDir.removeSubdirectoryExclusive(targetDirPath);
-            throw err;
-          };
-          break;
-        default:
-          throw new Error(`Cannot currently extract ${fileExtension} files for ${fileName}.`);
-      };
-    } catch (err) {
-      throw err;
-    } finally {
-      this.inProgress.splice(this.inProgress.indexOf(fileName), 1);
-      await this.dataDir.removeFileExclusive(fileName);
-    };
-  };
-
   private validateBuildFileName(fileName: string) {
     if (!isStringValidForFileName(fileName)) {
       throw new Error(`Invalid characters specified for build file name: ${fileName}`);
-    } else if (!OpenRCT2Module.BuildFileExtensionArray.some(ext => fileName.endsWith(ext))) {
+    } else if (!OpenRCT2.BuildFileExtensionArray.some(ext => fileName.endsWith(ext))) {
       throw new Error(`Expected the build file name to have a supported file extension: ${fileName}`);
-    } else if (this.inProgress.includes(fileName)) {
-      throw new Error(`${fileName} is currently being utilized.`);
     };
   };
 };

@@ -1,4 +1,4 @@
-import { SerializableObject } from '@modules/io';
+import { SerializableObject } from '@modules/io/index.js';
 
 /** Represents a status snapshot of a OpenRCT2 game server's runtime. */
 export class ServerStatus extends SerializableObject<ServerStatus> {

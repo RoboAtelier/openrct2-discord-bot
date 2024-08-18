@@ -1,4 +1,5 @@
-import { SerializableObject } from '@modules/io';
+import { SerializableObject } from '@modules/io/index.js';
+import { OpenRCT2 } from '@modules/openrct2/index.js';
 
 /** 
  * Represents plugin options for custom OpenRCT2 module plugins.
@@ -7,7 +8,7 @@ import { SerializableObject } from '@modules/io';
 export class PluginOptions extends SerializableObject<PluginOptions> {
   constructor(
     /** Gets or sets the module plugins in use. */
-    public plugins: OpenRCT2Module.PluginFileName[] = [],
+    public plugins: OpenRCT2.PluginFileName[] = [],
 
     /** Gets or sets the port number for the server adapter plugin. */
     public adapterPluginPort = -1,

@@ -9,10 +9,10 @@ import {
   CommandPermissionLevel,
   ResponseBuilder,
   SubcommandsDiscordBotCommand
-} from '@modules/discord/commands';
-import { GuildInfo } from '@modules/discord/data/models/bot';
-import { BotDataRepository } from '@modules/discord/data/repositories';
-import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
+} from '@modules/discord/commands/index.js';
+import { GuildInfo } from '@modules/discord/data/models/bot/index.js';
+import { BotDataRepository } from '@modules/discord/data/repositories/index.js';
+import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils.js';
 
 type ChannelInput = {
   serverId?: number

@@ -1,16 +1,14 @@
 import { EOL } from 'os';
-import { Configuration } from '@modules/configuration';
-import { ConcurrentDirectory } from '@modules/io';
-import { createDateTimestamp } from '@modules/utils/string-utils';
+import { Configuration } from '@modules/configuration/index.js';
+import { ConcurrentDirectory } from '@modules/io/index.js';
+import { createDateTimestamp } from '@modules/utils/string-utils.js';
 
 /** Represents a generic logger. */
 export class Logger {
-  private static readonly dirKey = 'logs';
-
   private readonly logDir: ConcurrentDirectory;
 
   constructor(config: Configuration) {
-    this.logDir = new ConcurrentDirectory(config.getDirectoryPath(Logger.dirKey));
+    this.logDir = new ConcurrentDirectory(config.logsDirPath);
   };
 
   /**

@@ -1,2 +1,2 @@
-export * from './configuration';
-export * from './configuration-builder';
+export * from './configuration.js';
+export * from './configuration-builder.js';

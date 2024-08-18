@@ -13,8 +13,8 @@ import {
   writeFile
 } from 'fs/promises';
 import { Stream } from 'stream';
-import { ConcurrentFileSystemObject } from '.';
-import { isStringNullOrEmpty } from '@modules/utils/string-utils';
+import { ConcurrentFileSystemObject } from './concurrent-file-system-object.js';
+import { isStringNullOrEmpty } from '@modules/utils/string-utils.js';
 
 /** Represents a class for handling concurrent processes on a generic file system file. */
 export class ConcurrentFile extends ConcurrentFileSystemObject {

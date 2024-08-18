@@ -13,16 +13,16 @@ import {
   CommandPermissionLevel,
   ResponseBuilder,
   SubcommandsDiscordBotCommand
-} from '@modules/discord/commands';
-import { BotDataRepository } from '@modules/discord/data/repositories';
-import { Logger } from '@modules/logging';
-import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
-import { ServerRepository } from '@modules/openrct2/data/repositories';
+} from '@modules/discord/commands/index.js';
+import { BotDataRepository } from '@modules/discord/data/repositories/index.js';
+import { Logger } from '@modules/logging/index.js';
+import { OpenRCT2ServerController } from '@modules/openrct2/controllers/index.js';
+import { ServerRepository } from '@modules/openrct2/data/repositories/index.js';
 import { 
   createDateTimestamp,
   isStringNullOrWhiteSpace
-} from '@modules/utils/string-utils';
-import { wait } from '@modules/utils/runtime-utils';
+} from '@modules/utils/string-utils.js';
+import { wait } from '@modules/utils/runtime-utils.js';
 
 const SnapshotSubcommands = <const>[
   {

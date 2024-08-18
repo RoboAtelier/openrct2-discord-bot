@@ -1,10 +1,12 @@
+/// <reference path="../../../../plugins/messaging.d.ts" />
+
 import { ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { 
-  ServerPluginAdapter,
+  MessagingPluginAdapter,
   PluginEventArgs
-} from '@modules/openrct2/adapters';
-import { ScenarioFile } from 'modules/openrct2/data/models';
+} from '@modules/openrct2/adapters/index.js';
+import { ScenarioFile } from '@modules/openrct2/data/models/index.js';
 
 export declare interface OpenRCT2Server {
 
@@ -29,7 +31,7 @@ export declare interface OpenRCT2Server {
   ): boolean;
 };
 
-export interface OpenRCT2ServerEvent extends Omit<OpenRCT2Module.AdapterResponse, 'interval.day'> {
+export interface OpenRCT2ServerEvent extends Omit<MessagingPlugin.Response, 'interval.day'> {
   'close': {
     code: number | null,
     signal: NodeJS.Signals | null
@@ -62,7 +64,6 @@ export class OpenRCT2Server extends EventEmitter {
   private _scenarioName: string;
   private _currentScenarioFileName: string;
   private _scenarioStatus?: 'inProgress' | 'completed' | 'failed';
-  private paused?: boolean;
   private lastTicks: number;
 
   /** Gets the id of this OpenRCT2 game server. */
@@ -75,16 +76,16 @@ export class OpenRCT2Server extends EventEmitter {
   readonly initiatedScenarioFile: ScenarioFile;
 
   /** 
-   * Gets the plugin adapter client to remotely execute
+   * Gets the messaging plugin adapter client to remotely execute
    * actions or queries on the game server instance.
    */
-  readonly pluginAdapter?: ServerPluginAdapter;
+  readonly pluginAdapter?: MessagingPluginAdapter;
 
   constructor(
     id: number,
     gameInstance: ChildProcess,
     initiatedScenarioFile: ScenarioFile,
-    pluginAdapter?: ServerPluginAdapter
+    pluginAdapter?: MessagingPluginAdapter
   ) {
     super();
     this.id = id;
@@ -99,6 +100,11 @@ export class OpenRCT2Server extends EventEmitter {
     gameInstance.on('error', err => this.onError(err));
     if (this.pluginAdapter) {
       this.pluginAdapter.on('data', data => this.onPluginData(data));
+      this.pluginAdapter
+        .sendRequest('server.status', `${this.id}`)
+        .then(response => {
+          this.onPluginData(new PluginEventArgs('server.status', response));
+        });
     };
   };
 
@@ -115,11 +121,6 @@ export class OpenRCT2Server extends EventEmitter {
   /** Gets the name of the scenario file the server opened on. */
   get currentScenarioFileName() {
     return this._currentScenarioFileName;
-  };
-
-  /** Specifies if the server is paused. */
-  get isPaused() {
-    return this.paused;
   };
 
   /** Stops and closes the game server instance. */
@@ -140,20 +141,14 @@ export class OpenRCT2Server extends EventEmitter {
    * @param timeoutMs The length of time in milliseconds before a request times out.
    * @returns A result from executing the plugin action.
    */
-  async executePluginRequest<R extends keyof OpenRCT2Module.AdapterRequest>(
+  async executePluginRequest<R extends keyof MessagingPlugin.Request>(
     requestName: R,
     userId: string,
-    args?: OpenRCT2Module.AdapterRequest[R],
+    args?: MessagingPlugin.Request[R],
     timeoutMs = 10 * 1000
   ) {
     if (this.pluginAdapter) {
-      const result = await this.pluginAdapter.sendRequest(requestName, userId, args, timeoutMs);
-      if (requestName === 'pause.toggle') {
-        const snapshot1 = await this.pluginAdapter.sendRequest('scenario.status', `${this.id}`);
-        const snapshot2 = await this.pluginAdapter.sendRequest('scenario.status', `${this.id}`);
-        this.paused = snapshot1.ticks === snapshot2.ticks;
-      };
-      return result;
+      return await this.pluginAdapter.sendRequest(requestName, userId, args, timeoutMs);
     };
     throw new Error(`Could not run plugin action. Server ${this.id} does not have the adapter plugin active.`);
   };
@@ -162,9 +157,9 @@ export class OpenRCT2Server extends EventEmitter {
    * An event handler for when the relay plugin adapter sends back data.
    * @param pluginArgs The response as event arguments from the plugin.
    */
-  private onPluginData(pluginArgs: PluginEventArgs<keyof OpenRCT2Module.AdapterResponse>) {
-    if (pluginArgs.eventName === 'scenario.status' && pluginArgs.data) {
-      const scenarioData = pluginArgs.data as OpenRCT2Module.AdapterResponse[typeof pluginArgs.eventName];
+  private onPluginData(pluginArgs: PluginEventArgs<keyof MessagingPlugin.Response>) {
+    if (pluginArgs.eventName === 'server.status' && pluginArgs.data) {
+      const scenarioData = pluginArgs.data as MessagingPlugin.Response[typeof pluginArgs.eventName];
       this._scenarioName = scenarioData.name ? scenarioData.name : 'Unnamed';
 
         if (this._currentScenarioFileName !== scenarioData.fileName || this._scenarioStatus !== scenarioData.status) {
@@ -181,7 +176,6 @@ export class OpenRCT2Server extends EventEmitter {
           this.emit('scenario.update', args);
         };
 
-        this.paused = this.lastTicks === scenarioData.ticks;
         this.lastTicks = scenarioData.ticks;
     } else {
       const args = new ServerEventArgs(this.id, pluginArgs.data);

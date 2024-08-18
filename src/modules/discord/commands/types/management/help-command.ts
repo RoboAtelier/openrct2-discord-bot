@@ -16,8 +16,8 @@ import {
   SlashCommandData,
   SubcommandData,
   SubcommandGroupData
-} from '@modules/discord/commands';
-import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
+} from '@modules/discord/commands/index.js';
+import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils.js';
 
 const HelpCommandOptions = <const>[
   { 

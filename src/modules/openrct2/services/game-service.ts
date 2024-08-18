@@ -1,15 +1,18 @@
+/// <reference path="../../../../plugins/messaging.d.ts" />
+
 import path from 'path';
 import { spawn } from 'child_process';
 import { unlink } from 'fs/promises';
 import { Socket } from 'net';
-import { OpenRCT2Server } from '../runtime';
-import { ServerPluginAdapter } from '@modules/openrct2/adapters';
+import { OpenRCT2Server } from '@modules/openrct2/runtime/index.js';
+import { OpenRCT2 } from '@modules/openrct2/index.js';
+import { MessagingPluginAdapter } from '@modules/openrct2/adapters/index.js';
 import { 
   PluginOptions,
   ScenarioFile,
   StartupOptions
-} from '@modules/openrct2/data/models';
-import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
+} from '@modules/openrct2/data/models/index.js';
+import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils.js';
 
 /** Represents a class that handles running built-in processes using the OpenRCT2 application executable. */
 export class GameService {
@@ -91,8 +94,9 @@ export class GameService {
     );
     
     let launched = false;
-    let pluginAdapterCheck = !pluginOptions.plugins.includes(OpenRCT2Module.PluginFileName.ServerAdapter);
+    let pluginCheck = !pluginOptions.plugins.includes(OpenRCT2.PluginFileName.ServerAdapter);
     await new Promise<void>((resolve, reject) => {
+      const pluginName: MessagingPlugin.Name = 'Messaging Plugin';
       const timeout = setTimeout(() => {
         gameInstance.kill('SIGKILL');
         reject(new Error('The game instance failed to start correctly.'))
@@ -105,10 +109,10 @@ export class GameService {
         console.log(dataStr);
         if (dataStr.includes(`istening for clients on *:${startupOptions.port}`)) {
           launched = true;
-        } else if (dataStr.includes('Server Adapter] Started')) {
-          pluginAdapterCheck = true;
+        } else if (dataStr.includes(`${pluginName}] Started`)) {
+          pluginCheck = true;
         };
-        if (launched && pluginAdapterCheck) {
+        if (launched && pluginCheck) {
           clearTimeout(timeout);
           gameInstance.stdout.removeAllListeners('data');
           gameInstance.removeAllListeners('error');
@@ -118,7 +122,7 @@ export class GameService {
     });
 
     let pluginAdapter;
-    if (pluginOptions.plugins.includes(OpenRCT2Module.PluginFileName.ServerAdapter)) {
+    if (pluginOptions.plugins.includes(OpenRCT2.PluginFileName.ServerAdapter)) {
       const client = new Socket();
       client.connect(pluginOptions.adapterPluginPort, 'localhost');
       await new Promise<void>((resolve, reject) => {
@@ -130,7 +134,7 @@ export class GameService {
           resolve();
         });
       });
-      pluginAdapter = new ServerPluginAdapter(client);
+      pluginAdapter = new MessagingPluginAdapter(client);
     };
 
     return new OpenRCT2Server(serverId, gameInstance, scenarioFile, pluginAdapter);

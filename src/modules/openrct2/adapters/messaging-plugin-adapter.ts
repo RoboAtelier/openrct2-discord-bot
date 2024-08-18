@@ -1,21 +1,23 @@
+/// <reference path="../../../../plugins/messaging.d.ts" />
+
 import { Socket } from 'net';
 import { EventEmitter } from 'events';
 
-export declare interface ServerPluginAdapter {
+export declare interface MessagingPluginAdapter {
 
   /**
    * Adds the `listener` function to the end of the listeners array for the event named `eventName`.
    * @param event The name of the event.
    * @param listener The callback function.
    */
-  on(event: 'data', listener: (args: PluginEventArgs<keyof OpenRCT2Module.AdapterResponse>) => void): this;
+  on(event: 'data', listener: (args: PluginEventArgs<keyof MessagingPlugin.Response>) => void): this;
 };
 
 /** Represents arguments returned from an emitted plugin event. */
-export class PluginEventArgs<R extends keyof OpenRCT2Module.AdapterResponse> {
+export class PluginEventArgs<R extends keyof MessagingPlugin.Response> {
   constructor(
     public readonly eventName: R,
-    public readonly data?: OpenRCT2Module.AdapterResponse[R]
+    public readonly data?: MessagingPlugin.Response[R]
   ) {};
 };
 
@@ -23,7 +25,7 @@ export class PluginEventArgs<R extends keyof OpenRCT2Module.AdapterResponse> {
  * Represents an adapter to communicate with a OpenRCT2 game server instance
  * with a TCP server port opened by a plugin.
  */
-export class ServerPluginAdapter extends EventEmitter {
+export class MessagingPluginAdapter extends EventEmitter {
   private static readonly pluginResponseRegex = /([a-z\.]+);([0-9]+|e);([^\n]*?);\n/g;
 
   private readonly client: Socket;
@@ -50,12 +52,12 @@ export class ServerPluginAdapter extends EventEmitter {
    * @param timeoutMs The length of time in milliseconds before a request times out.
    * @returns A result from executing the plugin action.
    */
-  async sendRequest<R extends keyof OpenRCT2Module.AdapterRequest>(
+  async sendRequest<R extends keyof MessagingPlugin.Request>(
     requestName: R,
     userId: string,
-    args?: OpenRCT2Module.AdapterRequest[R],
+    args?: MessagingPlugin.Request[R],
     timeoutMs = 10 * 1000
-  ): Promise<OpenRCT2Module.AdapterRequestResponse[R]> {
+  ): Promise<MessagingPlugin.RequestResponse[R]> {
     const actionStr = typeof args === 'string' || args == null
       ? `${requestName};${userId};${args}`
       : `${requestName};${userId};${JSON.stringify(args)}`
@@ -80,10 +82,10 @@ export class ServerPluginAdapter extends EventEmitter {
   private onData(data: Buffer) {
     const dataStr = data.toString('utf8');
     console.log(dataStr);
-    const responseArray = Array.from(dataStr.matchAll(ServerPluginAdapter.pluginResponseRegex));
+    const responseArray = Array.from(dataStr.matchAll(MessagingPluginAdapter.pluginResponseRegex));
     if (responseArray.length > 0) {
       for (const response of responseArray) {
-        const eventName = response[1] as keyof OpenRCT2Module.AdapterResponse;
+        const eventName = response[1] as keyof MessagingPlugin.Response;
         const eventInitiator = response[2];
         let eventData = response[3];
         try {

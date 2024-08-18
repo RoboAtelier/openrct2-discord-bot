@@ -1,4 +1,4 @@
-import { SerializableToArray } from '@modules/io';
+import { SerializableToArray } from '@modules/io/index.js';
 
 /** Represents supplemental data about a RollerCoaster Tycoon scenario exclusive to this bot. */
 export class ScenarioMetadata extends SerializableToArray<ScenarioMetadata> {

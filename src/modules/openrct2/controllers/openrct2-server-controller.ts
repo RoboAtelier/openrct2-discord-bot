@@ -1,27 +1,30 @@
+/// <reference path="../../../../plugins/messaging.d.ts" />
+
 import { EventEmitter } from 'events';
-import { Logger } from '@modules/logging';
+import { Logger } from '@modules/logging/index.js';
+import { OpenRCT2 } from '@modules/openrct2/index.js';
 import { ScenarioFile } from '@modules/openrct2/data/models';
 import {
   ServerRepository,
   ScenarioRepository
-} from '@modules/openrct2/data/repositories';
+} from '@modules/openrct2/data/repositories/index.js';
 import { 
   OpenRCT2Server,
   ServerEventArgs
-} from '@modules/openrct2/runtime';
+} from '@modules/openrct2/runtime/index.js';
 import {
   GameService,
   PluginService
-} from '@modules/openrct2/services'
+} from '@modules/openrct2/services/index.js'
 import { 
   Flag,
   FlagManager
-} from '@modules/utils';
-import { wait } from '@modules/utils/runtime-utils';
+} from '@modules/utils/index.js';
+import { wait } from '@modules/utils/runtime-utils.js';
 import {
   createDateTimestamp,
   isStringNullOrWhiteSpace
-} from '@modules/utils/string-utils';
+} from '@modules/utils/string-utils.js';
 
 interface ProcessFlag extends Flag {
   'start': undefined;
@@ -139,8 +142,7 @@ export class OpenRCT2ServerController extends EventEmitter {
     if (gameServer) {
       return {
         scenarioName: gameServer.scenarioName,
-        scenarioStatus: gameServer.scenarioStatus,
-        isPaused: gameServer.isPaused
+        scenarioStatus: gameServer.scenarioStatus
       };
     };
   };
@@ -373,11 +375,11 @@ export class OpenRCT2ServerController extends EventEmitter {
    * @param timeoutMs
    * @returns 
    */
-  async executePluginRequest<R extends keyof OpenRCT2Module.AdapterRequest>(
+  async executePluginRequest<R extends keyof MessagingPlugin.Request>(
     serverId: number,
     requestName: R,
     userId: string,
-    args?: OpenRCT2Module.AdapterRequest[R],
+    args?: MessagingPlugin.Request[R],
     timeoutMs: number = 10000
   ) {
     const gameServer = this.gameServers.get(serverId);
@@ -412,7 +414,7 @@ export class OpenRCT2ServerController extends EventEmitter {
                 const result = {
                   screenshotFilePath: await this.gameService.createScenarioScreenshot(
                     save.saveFile,
-                    serverDir.getSubdirectoryPath(OpenRCT2Module.ServerSubdirectoryName.Screenshot),
+                    serverDir.getSubdirectoryPath(OpenRCT2.ServerSubdirectoryName.Screenshot),
                     startupOptions.openRCT2ExecutablePath,
                     `s${serverId}_screenshot`
                   ),
@@ -448,7 +450,7 @@ export class OpenRCT2ServerController extends EventEmitter {
         const result = {
           screenshotFilePath: await this.gameService.createScenarioScreenshot(
             latestAutosave,
-            serverDir.getSubdirectoryPath(OpenRCT2Module.ServerSubdirectoryName.Screenshot),
+            serverDir.getSubdirectoryPath(OpenRCT2.ServerSubdirectoryName.Screenshot),
             startupOptions.openRCT2ExecutablePath,
             `s${serverId}_screenshot`
           ),

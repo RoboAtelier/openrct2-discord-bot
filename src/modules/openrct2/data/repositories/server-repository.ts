@@ -1,12 +1,13 @@
 import path from 'path';
 import { readdirSync } from 'fs';
 import { stat } from 'fs/promises';
-import { Configuration } from '@modules/configuration';
+import { Configuration } from '@modules/configuration/index.js';
 import { 
   ConcurrentDirectory,
   ConcurrentObjectFile,
   FileSystemCachedRepository
-} from '@modules/io';
+} from '@modules/io/index.js';
+import { OpenRCT2 } from '@modules/openrct2/index.js';
 import { 
   ModulePluginFile,
   OpenRCT2GameConfiguration,
@@ -16,8 +17,8 @@ import {
   ScenarioQueue,
   ServerStatus,
   StartupOptions
-} from '@modules/openrct2/data/models';
-import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
+} from '@modules/openrct2/data/models/index.js';
+import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils.js';
 
 /** Represents a central data repository for all of the distinct OpenRCT2 game server directories. */
 export class ServerRepository extends FileSystemCachedRepository<number, ServerDirectory> {
@@ -30,7 +31,7 @@ export class ServerRepository extends FileSystemCachedRepository<number, ServerD
 
   constructor(config: Configuration) {
     super(config);
-    this.dataDir = new ConcurrentDirectory(config.getDirectoryPath(ServerRepository.dirKey));
+    this.dataDir = new ConcurrentDirectory(config.serverDirPath);
     const hostSubdirs = readdirSync(this.dataDir.path, { withFileTypes: true });
     for (const hostSubdir of hostSubdirs) {
       const nameMatch = hostSubdir.name.match(ServerRepository.serverDirNameRegex);
@@ -195,22 +196,22 @@ class ServerDirectory extends ConcurrentDirectory {
     this.fileMap.set(ServerDirectory.statusFileName, this.statusFile);
 
     this.autosaveSubdir = new ConcurrentDirectory(
-      path.join(this.path, OpenRCT2Module.ServerSubdirectoryName.Autosave)
+      path.join(this.path, OpenRCT2.ServerSubdirectoryName.Autosave)
     );
     this.chatLogsSubdir = new ConcurrentDirectory(
-      path.join(this.path, OpenRCT2Module.ServerSubdirectoryName.ChatLogs)
+      path.join(this.path, OpenRCT2.ServerSubdirectoryName.ChatLogs)
     );
     this.saveSubdir = new ConcurrentDirectory(
-      path.join(this.path, OpenRCT2Module.ServerSubdirectoryName.Save)
+      path.join(this.path, OpenRCT2.ServerSubdirectoryName.Save)
     )
     this.screenshotSubdir = new ConcurrentDirectory(
-      path.join(this.path, OpenRCT2Module.ServerSubdirectoryName.Screenshot)
+      path.join(this.path, OpenRCT2.ServerSubdirectoryName.Screenshot)
     );
     this.serverLogsSubdir = new ConcurrentDirectory(
-      path.join(this.path, OpenRCT2Module.ServerSubdirectoryName.ServerLogs)
+      path.join(this.path, OpenRCT2.ServerSubdirectoryName.ServerLogs)
     );
     this.pluginSubdir = new ConcurrentDirectory(
-      path.join(this.path, OpenRCT2Module.ServerSubdirectoryName.Plugin)
+      path.join(this.path, OpenRCT2.ServerSubdirectoryName.Plugin)
     );
   };
 
@@ -234,7 +235,7 @@ class ServerDirectory extends ConcurrentDirectory {
    * @param subdirName The name of a valid OpenRCT2 server subdirectory.
    * @returns The path to the requested subdirectory.
    */
-  getSubdirectoryPath(subdirName: OpenRCT2Module.ServerSubdirectoryName) {
+  getSubdirectoryPath(subdirName: OpenRCT2.ServerSubdirectoryName) {
     return path.join(this.path, subdirName);
   };
 
@@ -404,7 +405,7 @@ class ServerDirectory extends ConcurrentDirectory {
   async getScenarioAutosave(index = 0) {
     const files = await this.autosaveSubdir.getFilesExclusive();
     const autosaves = files.filter(file => {
-      return OpenRCT2Module.ScenarioSaveFileExtensionArray.some(ext => file.name.endsWith(ext));
+      return OpenRCT2.ScenarioSaveFileExtensionArray.some(ext => file.name.endsWith(ext));
     });
     if (autosaves.length === 0) {
       throw new Error('No autosaves found.');
@@ -431,7 +432,7 @@ class ServerDirectory extends ConcurrentDirectory {
   async getScenarioSaveByName(name: string) {
     const files = await this.saveSubdir.getFilesExclusive();
     const saves = files.filter(file => {
-      return OpenRCT2Module.ScenarioSaveFileExtensionArray.some(ext => file.name.endsWith(ext));
+      return OpenRCT2.ScenarioSaveFileExtensionArray.some(ext => file.name.endsWith(ext));
     });
     if (saves.length === 0) {
       throw new Error('No save files were found.');
@@ -465,7 +466,7 @@ class ServerDirectory extends ConcurrentDirectory {
    * @param name The name of the plugin file to return.
    * @returns The requested module plugin file in the `plugin` directory.
    */
-  async getPluginFileByName(name: OpenRCT2Module.PluginFileName) {
+  async getPluginFileByName(name: OpenRCT2.PluginFileName) {
     const files = await this.pluginSubdir.getFilesExclusive();
     const requestedPlugin = files.find(file => file.name === name);
     if (requestedPlugin) {
@@ -481,7 +482,7 @@ class ServerDirectory extends ConcurrentDirectory {
    */
   async getPluginFiles() {
     const files = await this.pluginSubdir.getFilesExclusive();
-    const pluginFiles = files.filter(file => (Object.values(OpenRCT2Module.PluginFileName) as string[]).includes(file.name));
+    const pluginFiles = files.filter(file => (Object.values(OpenRCT2.PluginFileName) as string[]).includes(file.name));
     return pluginFiles.map(file => new ModulePluginFile(path.join(this.pluginSubdir.path, file.name)));
   };
 

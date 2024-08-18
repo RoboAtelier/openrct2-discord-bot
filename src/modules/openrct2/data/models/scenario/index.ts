@@ -1,3 +1,3 @@
-export * from './scenario-file';
-export * from './scenario-group';
-export * from './scenario-metadata';
+export * from './scenario-file.js';
+export * from './scenario-group.js';
+export * from './scenario-metadata.js';

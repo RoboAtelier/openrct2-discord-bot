@@ -1,13 +1,10 @@
-import { SerializableObject } from '@modules/io';
+import { SerializableObject } from '@modules/io/index.js';
 
 /** Represents command settings for the Discord bot application. */
 export class CommandSettings extends SerializableObject<CommandSettings> {
-
-  /** Gets or sets a value specifying if commands are restricted to only administrators. */
-  adminRestricted: boolean;
-
   constructor(
-    adminRestricted = false,
+    /** Gets or sets a value specifying if commands are restricted to only administrators. */
+    public adminRestricted = false,
   ) {
     super();
     this.adminRestricted = adminRestricted;

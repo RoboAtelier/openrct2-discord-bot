@@ -1,4 +1,4 @@
-import 'module-alias/register';
+//import 'module-alias/register.js';
 import { 
   Client,
   Events,
@@ -6,28 +6,29 @@ import {
   REST,
   Routes
 } from 'discord.js';
-import { ConfigurationBuilder } from '@modules/configuration';
+import { ConfigurationBuilder } from '@modules/configuration/index.js';
 import {
   CommandExecutor,
   CommandFactory
-} from '@modules/discord/commands';
-import { EventNotifier } from '@modules/discord/runtime';
-import { BotDataRepository } from '@modules/discord/data/repositories';
-import { Logger } from '@modules/logging';
-import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
+} from '@modules/discord/commands/index.js';
+import { EventNotifier } from '@modules/discord/runtime/index.js';
+import { BotDataRepository } from '@modules/discord/data/repositories/index.js';
+import { Logger } from '@modules/logging/index.js';
+import { OpenRCT2 } from '@modules/openrct2/index.js';
+import { OpenRCT2ServerController } from '@modules/openrct2/controllers/index.js';
 import { 
   BuildRepository,
   PluginRepository,
   ScenarioRepository,
   ServerRepository
-} from '@modules/openrct2/data/repositories';
+} from '@modules/openrct2/data/repositories/index.js';
 import {
   BuildDownloadService,
   GameService,
   MasterServerService,
   PluginService
-} from '@modules/openrct2/services';
-import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
+} from '@modules/openrct2/services/index.js';
+import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils.js';
 
 /** Main application entry point. */
 async function main() {
@@ -48,20 +49,20 @@ async function main() {
   );
   const logger = new Logger(config);
   const botDataRepo = new BotDataRepository(config);
-  const gameBuildRepo = new BuildRepository(config);
+  const buildRepo = new BuildRepository(config);
   const pluginRepo = new PluginRepository(config);
   const scenarioRepo = new ScenarioRepository(config);
   const serverHostRepo = new ServerRepository(config);
   const openRCT2ProcessEngine = new GameService();
   const pluginService = new PluginService(pluginRepo, serverHostRepo);
   const openRCT2MasterServer = new MasterServerService();
-  const openRCT2BuildDownloader = new BuildDownloadService();
+  const openRCT2BuildDownloader = new BuildDownloadService(buildRepo);
   const openRCT2ServerController = new OpenRCT2ServerController(logger, openRCT2ProcessEngine, pluginService, scenarioRepo, serverHostRepo);
   const commandFactory = new CommandFactory(
     config,
     logger,
     botDataRepo,
-    gameBuildRepo,
+    buildRepo,
     scenarioRepo,
     serverHostRepo,
     openRCT2BuildDownloader,
@@ -76,9 +77,9 @@ async function main() {
   for (const [serverId, serverDir] of serverDirs) {
     await serverDir.removePluginFiles(...botPlugins.map(botPlugin => botPlugin.name));
     const pluginOptions = await serverDir.getPluginOptions();
-    if (pluginOptions.plugins.includes(OpenRCT2Module.PluginFileName.ServerAdapter)) {
+    if (pluginOptions.plugins.includes(OpenRCT2.PluginFileName.ServerAdapter)) {
       await serverDir.addPluginFiles(...botPlugins);
-      const adapterPlugin = await serverDir.getPluginFileByName(OpenRCT2Module.PluginFileName.ServerAdapter);
+      const adapterPlugin = await serverDir.getPluginFileByName(OpenRCT2.PluginFileName.ServerAdapter);
       await adapterPlugin.setGlobalVariables(
         ['serverId', serverId],
         ['port', pluginOptions.adapterPluginPort]
@@ -107,6 +108,7 @@ async function main() {
       Routes.applicationGuildCommands(config.getValue('clientId'), guildInfo.guildId),
       { body: commandFactory.commandDataArray }
       //{ body: [] }
+      //{ body: commandFactory.commandDataArray.filter(cmd => cmd.name === 'build') }
     );
 
     console.log(`${discordClient.user.tag} has logged in!`);

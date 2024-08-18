@@ -1,1 +1,1 @@
-export * from './server-plugin-adapter';
+export * from './messaging-plugin-adapter.js';

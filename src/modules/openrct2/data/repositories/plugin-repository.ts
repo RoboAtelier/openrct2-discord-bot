@@ -1,29 +1,27 @@
 import path from 'path';
-import { Configuration } from '@modules/configuration';
+import { Configuration } from '@modules/configuration/index.js';
 import { 
   ConcurrentDirectory,
   FileSystemRepository,
   ConcurrentFile
-} from '@modules/io';
-import {
-  ModulePluginFile,
-  PluginFile
-} from '@modules/openrct2/data/models';
+} from '@modules/io/index.js';
+import { OpenRCT2 } from '@modules/openrct2/index.js';
+import { ModulePluginFile } from '@modules/openrct2/data/models/index.js';
 
 /** Represents a data repository for this module's custom OpenRCT2 plugins. */
 export class PluginRepository extends FileSystemRepository {
   private static readonly dirKey = 'plugin';
 
-  private readonly pluginFiles = new Map<OpenRCT2Module.PluginFileName, ConcurrentFile>();
+  private readonly pluginFiles = new Map<OpenRCT2.PluginFileName, ConcurrentFile>();
 
   protected readonly dataDir: ConcurrentDirectory;
 
   constructor(config: Configuration) {
     super(config);
-    this.dataDir = new ConcurrentDirectory(config.getDirectoryPath(PluginRepository.dirKey));
+    this.dataDir = new ConcurrentDirectory(config.pluginDirPath);
 
-    const serverAdapterPlugin = new ConcurrentFile(path.join(this.dataDir.path, OpenRCT2Module.PluginFileName.ServerAdapter));
-    this.pluginFiles.set(OpenRCT2Module.PluginFileName.ServerAdapter, serverAdapterPlugin);
+    const serverAdapterPlugin = new ConcurrentFile(path.join(this.dataDir.path, OpenRCT2.PluginFileName.ServerAdapter));
+    this.pluginFiles.set(OpenRCT2.PluginFileName.ServerAdapter, serverAdapterPlugin);
   };
 
   /** @override */
@@ -37,7 +35,7 @@ export class PluginRepository extends FileSystemRepository {
    * @param name The name of the plugin file including its file extension.
    * @returns The module plugin file that matches the name.
    */
-  async getPluginFileByName(name: OpenRCT2Module.PluginFileName) {
+  async getPluginFileByName(name: OpenRCT2.PluginFileName) {
     const requestedPluginFile = this.pluginFiles.get(name);
     if (requestedPluginFile) {
       return new ModulePluginFile(requestedPluginFile.path);

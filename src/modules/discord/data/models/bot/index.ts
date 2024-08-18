@@ -1,2 +1,2 @@
-export * from './command-settings';
-export * from './guild-info';
+export * from './command-settings.js';
+export * from './guild-info.js';

@@ -1,1 +1,1 @@
-export * from './event-notifier';
+export * from './event-notifier.js';

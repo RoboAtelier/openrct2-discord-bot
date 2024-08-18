@@ -3,15 +3,14 @@ import {
   ConcurrentDirectory,
   ConcurrentObjectFile,
   FileSystemCachedRepository
-} from '@modules/io';
-import { Configuration } from '@modules/configuration';
+} from '@modules/io/index.js';
+import { Configuration } from '@modules/configuration/index.js';
 import { 
   CommandSettings,
   GuildInfo
-} from '@modules/discord/data/models/bot';
+} from '@modules/discord/data/models/bot/index.js';
 
 export class BotDataRepository extends FileSystemCachedRepository<string, any> {
-  private static readonly dirKey = 'bot';
   private static readonly commandSettingsFileName = 'command-settings.json';
   private static readonly guildInfoFileName = 'guild-info.json';
 
@@ -23,7 +22,7 @@ export class BotDataRepository extends FileSystemCachedRepository<string, any> {
 
   constructor(config: Configuration) {
     super(config);
-    this.dataDir = new ConcurrentDirectory(config.getDirectoryPath(BotDataRepository.dirKey));
+    this.dataDir = new ConcurrentDirectory(config.botDirPath);
     this.commandSettingsFile = new ConcurrentObjectFile(
       path.join(this.dataDir.path, BotDataRepository.commandSettingsFileName),
       new CommandSettings()

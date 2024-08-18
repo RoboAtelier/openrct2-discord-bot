@@ -1,13 +1,10 @@
 import path from 'path';
-import {
-  Mutex,
-  MutexInterface
-} from 'async-mutex';
+import { Mutex } from 'async-mutex';
 import { 
   isStringNullOrWhiteSpace,
   isStringValidForFileName,
   isStringValidForDirPath as isStringValidForPath
-} from '@modules/utils/string-utils';
+} from '@modules/utils/string-utils.js';
 
 /** 
  * Represents a class for handling concurrent processes

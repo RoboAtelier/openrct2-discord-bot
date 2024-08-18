@@ -1,4 +1,4 @@
-import { FileSystemRepository } from '.';
+import { FileSystemRepository } from './file-system-repository.js';
 
 /**
  * Represents a data repository that provides

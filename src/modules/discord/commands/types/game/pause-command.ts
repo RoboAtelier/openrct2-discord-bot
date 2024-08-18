@@ -7,10 +7,10 @@ import {
   ResponseBuilder,
   CommandType,
   OptionsDiscordBotCommand
-} from '@modules/discord/commands';
-import { BotDataRepository } from '@modules/discord/data/repositories';
-import { Logger } from '@modules/logging';
-import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
+} from '@modules/discord/commands/index.js';
+import { BotDataRepository } from '@modules/discord/data/repositories/index.js';
+import { Logger } from '@modules/logging/index.js';
+import { OpenRCT2ServerController } from '@modules/openrct2/controllers/index.js';
 
 const PauseCommandOptions = <const>[];
 
@@ -52,15 +52,8 @@ export class PauseCommand extends OptionsDiscordBotCommand<typeof PauseCommandOp
 
   private async togglePause(response: ResponseBuilder, serverId: number, user: User) {
     try {
-      const serverStatus = this.openRCT2ServerController.getGameServerStatus(serverId);
       await this.openRCT2ServerController.executePluginRequest(serverId, 'pause.toggle', user.id);
-      if (serverStatus?.isPaused) {
-        response.addText('Unpaused the server.');
-      } else if (serverStatus?.isPaused === false) {
-        response.addText('Paused the server.');
-      } else {
-        response.addText('Toggled pause.');
-      };
+      response.addText('Toggled pause.');
     } catch (err) {
       await this.logger.writeError(err as Error);
       response.addErrorText((err as Error).message);

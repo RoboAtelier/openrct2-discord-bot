@@ -1,4 +1,5 @@
 import path from 'path';
+import { EOL } from 'os';
 import {
   bold,
   ChatInputCommandInteraction,
@@ -6,41 +7,37 @@ import {
   italic,
   underscore,
 } from 'discord.js';
-import { EOL } from 'os';
 import { 
   CommandPermissionLevel,
   ResponseBuilder,
   SubcommandsDiscordBotCommand
-} from '@modules/discord/commands';
-import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
+} from '@modules/discord/commands/index.js';
+import { BotDataRepository } from '@modules/discord/data/repositories/index.js';
+import { OpenRCT2 } from '@modules/openrct2/index.js';
+import { OpenRCT2ServerController } from '@modules/openrct2/controllers/index.js';
 import {
+  ArchitectureType,
+  ArchitectureTypeArray,
+  PluginOptions,
   ScenarioQueue,
-  StartupOptions,
-  PluginOptions
-} from '@modules/openrct2/data/models';
+  StartupOptions
+} from '@modules/openrct2/data/models/index.js';
 import { 
   BuildRepository,
-  PluginRepository,
   ScenarioRepository,
   ServerRepository
-} from '@modules/openrct2/data/repositories';
-import { fisherYatesShuffle } from '@modules/utils/array-utils';
-import { BotDataRepository } from '@modules/discord/data/repositories';
-import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
+} from '@modules/openrct2/data/repositories/index.js';
+import { fisherYatesShuffle } from '@modules/utils/array-utils.js';
+import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils.js';
 
 type TextAlignment = 'left' | 'centred';
 type TextFormat = '[clear]' | '[blank]';
 
-const OperatingSystemChoices = [
-  { name: 'Windows', value: 'win32' },
-  { name: 'MacOS', value: 'darwin' },
-  { name: 'Ubuntu/Debian', value: 'linux/ubuntu' }
-];
-const TextAlignmentChoices = [
+const TextAlignmentChoices: { name: string, value: TextAlignment }[] = [
   { name: 'Left', value: 'left' },
   { name: 'Centered', value: 'centred' }
 ];
-const TextFormatChoices = [
+const TextFormatChoices: { name: string, value: TextFormat }[] = [
   { name: 'Clear', value: '[clear]' },
   { name: 'Blank', value: '[blank]' }
 ];
@@ -221,7 +218,13 @@ const ServerSubcommandGroups = <const>[
           type: 'string',
           description: 'The operating system name.',
           required: true,
-          choices: OperatingSystemChoices
+          choices: Array.of(
+            { name: 'Windows', value: 'win32' },
+            { name: 'MacOS', value: 'darwin' },
+            { name: 'Linux', value: 'linux' },
+            { name: 'Ubuntu', value: 'ubuntu' },
+            { name: 'Debian', value: 'debian' }
+          )
         },
         {
           name: 'commit',
@@ -238,7 +241,8 @@ const ServerSubcommandGroups = <const>[
         {
           name: 'architecture',
           type: 'string',
-          description: 'The target operating system CPU architecture.'
+          description: 'The target operating system CPU architecture.',
+          choices: ArchitectureTypeArray.map(arch => { return { name: arch, value: arch }})
         },
         {
           name: 'server-id',
@@ -751,13 +755,13 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       } else if (groupName === 'build') {
         if (subcommandName === 'set') {
           const options = this.getInteractionSubcommandGroupSubcommandOptions(interaction, groupName, subcommandName);
-          await this.setServerGameBuild(
+          await this.setServerBuild(
             response,
             serverId,
             `v${(options.get('version')!.value as string).replace('v', '')}`,
             options.get('os')!.value as string,
             options.get('commit')?.value as string,
-            options.get('architecture')?.value as string,
+            options.get('architecture')?.value as ArchitectureType,
             options.get('codename')?.value as string
           );
         };
@@ -926,13 +930,13 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     };
   };
 
-  private async setServerGameBuild(
+  private async setServerBuild(
     response: ResponseBuilder,
     serverId: number,
     baseVersion: string,
     operatingSystem: string,
     commit?: string,
-    architecture?: string,
+    architecture?: ArchitectureType,
     codename?: string
   ) {
     const serverDir = await this.serverRepo.getServerDirectoryById(serverId);
@@ -945,7 +949,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       buildName += `-${codename}`;
     };
     if (architecture) {
-      buildName += `_${architecture}`;
+      buildName += architecture === 'x86_64' ? '_x86-64' : `_${architecture}`;
     };
     const gameBuilds = await this.buildRepo.getBuildsByFuzzySearch(buildName);
     if (!gameBuilds.length) {
@@ -1044,9 +1048,9 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     const pluginOptions = await serverDir.getPluginOptions();
 
     if (enable != undefined) {
-      pluginOptions.plugins = pluginOptions.plugins.filter(plugin => plugin === OpenRCT2Module.PluginFileName.ServerAdapter);
+      pluginOptions.plugins = pluginOptions.plugins.filter(plugin => plugin === OpenRCT2.PluginFileName.ServerAdapter);
       if (enable) {
-        pluginOptions.plugins.push(OpenRCT2Module.PluginFileName.ServerAdapter);
+        pluginOptions.plugins.push(OpenRCT2.PluginFileName.ServerAdapter);
         response.addText(`Enabled the adapter plugin.`);
       } else {
         response.addText(`Disabled the adapter plugin.`);
@@ -1091,9 +1095,9 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     const pluginOptions = await serverDir.getPluginOptions();
 
     if (enable != undefined) {
-      pluginOptions.plugins = pluginOptions.plugins.filter(plugin => plugin === OpenRCT2Module.PluginFileName.Welcome);
+      pluginOptions.plugins = pluginOptions.plugins.filter(plugin => plugin === OpenRCT2.PluginFileName.Welcome);
       if (enable) {
-        pluginOptions.plugins.push(OpenRCT2Module.PluginFileName.ServerAdapter);
+        pluginOptions.plugins.push(OpenRCT2.PluginFileName.ServerAdapter);
         response.addText(`Enabled the welcome plugin.`);
       } else {
         response.addText(`Disabled the welcome plugin.`);

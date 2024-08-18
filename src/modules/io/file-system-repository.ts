@@ -1,5 +1,5 @@
-import { Configuration } from '@modules/configuration';
-import { ConcurrentDirectory } from '.';
+import { Configuration } from '@modules/configuration/index.js';
+import { ConcurrentDirectory } from './concurrent-directory.js';
 
 /**
  * Represents a data repository that provides

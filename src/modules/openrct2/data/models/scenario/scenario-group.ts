@@ -1,4 +1,4 @@
-import { SerializableToArray } from '@modules/io';
+import { SerializableToArray } from '@modules/io/index.js';
 
 /** Represents supplemental data for grouping RollerCoaster Tycoon scenarios. */
 export class ScenarioGroup extends SerializableToArray<ScenarioGroup> {

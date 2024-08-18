@@ -9,14 +9,14 @@ import {
   TextBasedChannel,
   MessagePayload
 } from 'discord.js';
-import { fileByteSizeLimit, ResponseBuilder } from '@modules/discord/commands';
-import { BotDataRepository } from '@modules/discord/data/repositories';
-import { Logger } from '@modules/logging';
-import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
-import { ServerEventArgs } from '@modules/openrct2/runtime';
-import { ScenarioFile } from '@modules/openrct2/data/models';
-import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
-import { wait } from '@modules/utils/runtime-utils';
+import { fileByteSizeLimit, ResponseBuilder } from '@modules/discord/commands/index.js';
+import { BotDataRepository } from '@modules/discord/data/repositories/index.js';
+import { Logger } from '@modules/logging/index.js';
+import { OpenRCT2ServerController } from '@modules/openrct2/controllers/index.js';
+import { ServerEventArgs } from '@modules/openrct2/runtime/index.js';
+import { ScenarioFile } from '@modules/openrct2/data/models/index.js';
+import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils.js';
+import { wait } from '@modules/utils/runtime-utils.js';
 
 export class EventNotifier {
   private static readonly formatCodeRegex = /{[A-Z0-9_]+}/g;

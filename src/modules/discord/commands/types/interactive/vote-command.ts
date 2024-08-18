@@ -1,3 +1,4 @@
+import { EOL } from 'os';
 import {
   bold,
   inlineCode,
@@ -19,24 +20,23 @@ import {
   Message,
   User
 } from 'discord.js';
-import { EOL } from 'os';
 import { 
   CommandPermissionLevel,
   ResponseBuilder,
   SubcommandsDiscordBotCommand
-} from '@modules/discord/commands';
-import { BotDataRepository } from '@modules/discord/data/repositories';
-import { Logger } from '@modules/logging';
-import { OpenRCT2ServerController } from '@modules/openrct2/controllers';
+} from '@modules/discord/commands/index.js';
+import { BotDataRepository } from '@modules/discord/data/repositories/index.js';
+import { Logger } from '@modules/logging/index.js';
+import { OpenRCT2ServerController } from '@modules/openrct2/controllers/index.js';
 import {
   ScenarioMetadata,
-} from '@modules/openrct2/data/models';
+} from '@modules/openrct2/data/models/index.js';
 import { 
   ScenarioRepository,
   ServerRepository
-} from '@modules/openrct2/data/repositories';
-import { fisherYatesShuffle } from '@modules/utils/array-utils';
-import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
+} from '@modules/openrct2/data/repositories/index.js';
+import { fisherYatesShuffle } from '@modules/utils/array-utils.js';
+import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils.js';
 
 const VoteSubcommandGroups = <const>[
   {

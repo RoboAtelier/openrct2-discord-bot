@@ -14,7 +14,7 @@ import {
   CommandType,
   Subcommand,
   SubcommandGroup
-} from '@modules/discord/commands';
+} from '@modules/discord/commands/index.js';
 
 /**
  * Represents a base class for Discord bot commands.

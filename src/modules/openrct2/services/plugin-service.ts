@@ -1,19 +1,14 @@
+import { OpenRCT2 } from '@modules/openrct2/index.js';
 import {
   PluginRepository,
   ServerRepository
-} from '@modules/openrct2/data/repositories';
+} from '@modules/openrct2/data/repositories/index.js';
 
 export class PluginService {
-  private readonly pluginRepo: PluginRepository;
-  private readonly serverHostRepo: ServerRepository;
-
   constructor(
-    pluginRepo: PluginRepository,
-    serverHostRepo: ServerRepository
-  ) {
-    this.pluginRepo = pluginRepo;
-    this.serverHostRepo = serverHostRepo;
-  };
+    private readonly pluginRepo: PluginRepository,
+    private readonly serverHostRepo: ServerRepository
+  ) { };
 
   async syncServerPluginSettings(serverId: number) {
     const serverDir = await this.serverHostRepo.getServerDirectoryById(serverId);
@@ -35,7 +30,7 @@ export class PluginService {
     };
 
     for (const plugin of currentPlugins) {
-      if (plugin.name === OpenRCT2Module.PluginFileName.ServerAdapter) {
+      if (plugin.name === OpenRCT2.PluginFileName.ServerAdapter) {
         await plugin.setGlobalVariables(
           ['serverId', serverId],
           ['port', pluginOptions.adapterPluginPort]

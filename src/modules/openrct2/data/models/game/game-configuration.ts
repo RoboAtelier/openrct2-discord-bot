@@ -1,6 +1,7 @@
 import { EOL } from 'os';
-import { SerializableObject } from '@modules/io';
-import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
+import { SerializableObject } from '@modules/io/index.js';
+import { OpenRCT2 } from '@modules/openrct2/index.js';
+import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils.js';
 
 /** 
  * Represents configuration settings for a OpenRCT2 game instance.
@@ -9,12 +10,12 @@ import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils';
 export class OpenRCT2GameConfiguration extends SerializableObject<OpenRCT2GameConfiguration> {
   
   /** Gets the underlying data of the configuration object. */
-  readonly data: Map<OpenRCT2Module.ConfigurationCategory, Map<string, string | boolean | number>>;
+  readonly data: Map<OpenRCT2.ConfigurationCategory, Map<string, string | boolean | number>>;
 
   constructor() {
     super();
-    this.data = new Map<OpenRCT2Module.ConfigurationCategory, Map<string, string | boolean | number>>();
-    for (const category of OpenRCT2Module.ConfigurationCategoryArray) {
+    this.data = new Map<OpenRCT2.ConfigurationCategory, Map<string, string | boolean | number>>();
+    for (const category of OpenRCT2.ConfigurationCategoryArray) {
       this.data.set(category, new Map<string, string | boolean | number>());
     };
   };
@@ -25,7 +26,7 @@ export class OpenRCT2GameConfiguration extends SerializableObject<OpenRCT2GameCo
    * @param key The configuration key that holds the configuration value.
    */
   getValue<T extends string | boolean | number>(
-    category: OpenRCT2Module.ConfigurationCategory,
+    category: OpenRCT2.ConfigurationCategory,
     key: string
   ) {
     const configCategorySet = this.data.get(category);
@@ -47,7 +48,7 @@ export class OpenRCT2GameConfiguration extends SerializableObject<OpenRCT2GameCo
    * @param newValue A new value for the configuration key.
    */
   setValue(
-    category: OpenRCT2Module.ConfigurationCategory,
+    category: OpenRCT2.ConfigurationCategory,
     key: string,
     newValue: string | boolean | number
   ) {
@@ -95,11 +96,11 @@ export class OpenRCT2GameConfiguration extends SerializableObject<OpenRCT2GameCo
   fromDataString(dataStr: string) {
     const newObj = new OpenRCT2GameConfiguration();
     
-    let currentCategory = OpenRCT2Module.ConfigurationCategoryArray.slice(0, 1)[0];
+    let currentCategory = OpenRCT2.ConfigurationCategoryArray.slice(0, 1)[0];
     const dataLines = dataStr.split(EOL);
     for (const dataLine of dataLines) {
       if (dataLine.startsWith('[') && dataLine.endsWith(']')) {
-        const matchedCategory = OpenRCT2Module.ConfigurationCategoryArray.find(category => {
+        const matchedCategory = OpenRCT2.ConfigurationCategoryArray.find(category => {
           return dataLine.includes(category);
         });
         if (matchedCategory === undefined) {

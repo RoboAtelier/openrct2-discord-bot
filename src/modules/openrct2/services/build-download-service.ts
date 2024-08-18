@@ -1,35 +1,38 @@
 import https from 'https';
 import { Octokit } from '@octokit/rest';
-import { FixedPathWriteStream } from '@modules/io';
-import { OpenRCT2PlatformInfo } from '@modules/openrct2/data/models';
-import { getDistroInfo } from '@modules/utils/runtime-utils';
+import { OpenRCT2 } from '@modules/openrct2/index.js';
+import { PlatformInfo } from '@modules/openrct2/data/models/index.js';
+import { getDistroInfo } from '@modules/utils/runtime-utils.js';
+import { BuildRepository } from '@modules/openrct2/data/repositories/index.js';
 
-interface PlatformTargetInfo {
-  readonly name: string;
-  readonly types: string[];
+export interface DownloadInfo {
+  url: string,
+  originalFileName: string,
+  fileName: string
 };
 
-/** Represents a web request handler for downloading and querying OpenRCT2 builds. */
+/** Represents a web request handler for downloading, installing, and querying OpenRCT2 builds. */
 export class BuildDownloadService {
   private static readonly releaseRepoParams = { owner: 'OpenRCT2', repo: 'OpenRCT2', per_page: 50 };
   private static readonly developRepoParams = { owner: 'Limetric', repo: 'OpenRCT2-binaries', per_page: 50 };
 
-  private octokit = new Octokit();
+  private readonly octokit = new Octokit();
+
+  constructor(private readonly buildRepo: BuildRepository) { };
 
   /**
-   * Downloads an OpenRCT2 build from the specified URL.
-   * @param downloadUrl The URL of the OpenRCT2 build to download.
-   * @param writeStream The write stream consuming the content and writing the data.
-   * @param progressListener An optional event handler lambda expression to send a progress percentage value back.
+   * Downloads and installs an OpenRCT2 build from the specified download information.
+   * @param downloadInfo The information about the OpenRCT2 build to download and install.
+   * @param progressListener An optional event handler lambda expression to send progress values back.
    */
-  async downloadBuild(
-    downloadUrl: string,
-    writeStream: FixedPathWriteStream,
-    progressListener?: (percentage: string) => Promise<void>
+  async downloadAndInstallBuild(
+    downloadInfo: DownloadInfo,
+    progressListener = async (downloadPercentage: number, extractComplete = false) => {}
   ) {
-    let currentUrl = downloadUrl;
-
+    let currentUrl = downloadInfo.url;
     let requesting = true;
+    const writeStream = this.buildRepo.createBuildWriteStream(downloadInfo.fileName);
+
     while (requesting) {
       await new Promise<void>((httpsResolve, httpsReject) => {
         https.get(currentUrl, response => {
@@ -48,10 +51,8 @@ export class BuildDownloadService {
               response.pipe(writeStream);
               response.on('data', chunk => {
                 currentBytes += chunk.length;
-                if (progressListener) {
-                  const percentage = `${(currentBytes / totalBytes * 100).toFixed(2)}%`;
-                  progressListener(percentage);
-                };
+                const percentage = currentBytes / totalBytes * 100;
+                progressListener(percentage);
               });
               response.on('error', async err => {
                 writeStream.close();
@@ -73,6 +74,9 @@ export class BuildDownloadService {
         });
       });
     };
+
+    await this.buildRepo.extractBuild(downloadInfo.fileName);
+    progressListener(100, true);
   };
 
   /**
@@ -134,20 +138,33 @@ export class BuildDownloadService {
    * @param platform 
    * @param baseVersion 
    * @param commitHeader 
+   * @param assetType
    * @returns 
    */
-  async getBuildInfo(
-    platform: OpenRCT2PlatformInfo,
+  async queryDownloads(
+    platform: PlatformInfo,
     baseVersion: string,
-    commitHeader?: string
+    commitHeader?: string,
+    assetType?: 'portable' | 'AppImage' 
   ) {
     const repoParams = commitHeader
       ? { ...BuildDownloadService.developRepoParams, page: 1 }
       : { ...BuildDownloadService.releaseRepoParams, page: 1 };
     const targetVersion = `${baseVersion}${commitHeader ? `-${commitHeader}` : ''}`;
-    const linuxPlatform = platform.name === 'linux' && !platform.distro
+    const linuxPlatform = platform.name === 'linux' && !platform.distro && assetType !== 'AppImage'
       ? await getDistroInfo()
-      : platform;
+      : platform.name === 'linux' && platform.distro
+      ? platform
+      : undefined;
+    const targetPlatform = linuxPlatform
+      ? `${platform.name}${linuxPlatform.codeName ? `-${linuxPlatform.codeName}` : ''}`
+      : platform.friendlyName;
+    const targetAssetType = assetType
+      ? assetType
+      : platform.name === 'win32'
+      ? 'portable'
+      : undefined;
+
     let baseVersionFound = false;
 
     while (true) {
@@ -158,31 +175,29 @@ export class BuildDownloadService {
       };
       for (const gitRelease of gitReleases.data) {
         if (gitRelease.tag_name === targetVersion) {
-          const targetAsset = gitRelease.assets.find(asset => {
-            const platformName = platform.name === 'linux' ? platform.name : platform.friendlyName;
-            return asset.name.includes(platformName)
-              && asset.name.includes(linuxPlatform.codeName ?? '')
-              && asset.name.includes(platform.architecture);
+          const targetAssets = gitRelease.assets.filter(asset => {
+            return asset.name.includes(targetPlatform)
+              && asset.name.includes(platform.architecture ?? '')
+              && asset.name.includes(targetAssetType ?? '');
           });
-          if (targetAsset) {
-            const validFileExtension = OpenRCT2Module.BuildFileExtensionArray.find(ext => {
+
+          const matchingBuilds: DownloadInfo[] = [];
+          for (const targetAsset of targetAssets) {
+            const validFileExtension = OpenRCT2.BuildFileExtensionArray.find(ext => {
               const fileName = targetAsset.name.toLocaleLowerCase();
               return fileName.endsWith(ext);
             });
             if (validFileExtension) {
               let fileName = `${targetVersion}_${platform.friendlyName}`;
-              if (linuxPlatform.codeName) {
-                fileName += `-${linuxPlatform.codeName}`;
-              };
-              fileName += platform.architecture === 'x86_64' ? '_x86-64' : `_${platform.architecture}`;
-              return {
-                downloadUrl: targetAsset.browser_download_url,
+              fileName += targetAsset.name.includes('x86_64') ? '_x86-64' : `_${platform.architecture}`;
+              matchingBuilds.push({
+                url: targetAsset.browser_download_url,
+                originalFileName: targetAsset.name,
                 fileName: `${fileName}${validFileExtension}`
-              };
+              });
             };
-            throw new Error(`Unsupported file was returned. ${targetAsset.name}`);
           };
-          throw new Error(`Failed to find a build for OS: ${platform.name} ${platform.version} ${platform.architecture}`); 
+          return matchingBuilds;
         } else if (gitRelease.tag_name.includes(`${baseVersion}-`)) {
           baseVersionFound = true;
         } else if (baseVersionFound && !gitRelease.tag_name.includes(`${baseVersion}-`)) {
