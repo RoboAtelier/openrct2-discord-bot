@@ -33,6 +33,8 @@ export class ModulePluginFile extends PluginFile {
           const value = typeof keyValues[1] === 'string' ? `'${applicableKeyValue[1]}'` : JSON.stringify(applicableKeyValue[1]);
           fileDataLines[index] = `var ${applicableKeyValue[0]} = ${value};`;
         };
+      } else if (line.startsWith('//')) {
+        continue;
       } else {
         break;
       };
