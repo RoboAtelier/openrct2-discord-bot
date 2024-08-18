@@ -100,11 +100,6 @@ export class OpenRCT2Server extends EventEmitter {
     gameInstance.on('error', err => this.onError(err));
     if (this.pluginAdapter) {
       this.pluginAdapter.on('data', data => this.onPluginData(data));
-      this.pluginAdapter
-        .sendRequest('server.status', `${this.id}`)
-        .then(response => {
-          this.onPluginData(new PluginEventArgs('server.status', response));
-        });
     };
   };
 
