@@ -270,15 +270,23 @@ export abstract class SubcommandsDiscordBotCommand<
     for (const option of selectedSubcommand.options ?? []) {
       const interactionOption = interaction.options.get(option.name);
       if (interactionOption) {
-        if (option.permissionLevel && option.permissionLevel > userLevel) {
-          deniedValues.deniedOptions.push(option.name);
-        } else if (selectedSubcommand.permissionLevel && selectedSubcommand.permissionLevel > userLevel) {
-          deniedValues.deniedSubcommand = selectedSubcommand.name;
-        } else if (selectedGroup?.permissionLevel && selectedGroup.permissionLevel > userLevel) {
-          deniedValues.deniedSubcommandGroup = selectedGroup.name;
+        if (option.permissionLevel) {
+          if (option.permissionLevel > userLevel) {
+            deniedValues.deniedOptions.push(option.name);
+          };
+        } else if (selectedSubcommand.permissionLevel) {
+          if (selectedSubcommand.permissionLevel > userLevel) {
+            deniedValues.deniedSubcommand = selectedSubcommand.name;
+          };
+        } else if (selectedGroup?.permissionLevel) {
+          if (selectedGroup.permissionLevel > userLevel) {
+            deniedValues.deniedSubcommandGroup = selectedGroup.name;
+          };
         } else if (this.permissionLevel > userLevel) {
           deniedValues.deniedOptions.push(option.name);
         };
+      } else {
+        deniedValues.deniedOptions.push(option.name);
       };
     };
 
