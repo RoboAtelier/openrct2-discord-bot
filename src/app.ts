@@ -14,7 +14,6 @@ import {
 import { EventNotifier } from '@modules/discord/runtime/index.js';
 import { BotDataRepository } from '@modules/discord/data/repositories/index.js';
 import { Logger } from '@modules/logging/index.js';
-import { OpenRCT2 } from '@modules/openrct2/index.js';
 import { OpenRCT2ServerController } from '@modules/openrct2/controllers/index.js';
 import { 
   BuildRepository,
@@ -60,6 +59,7 @@ async function main() {
   const openRCT2ServerController = new OpenRCT2ServerController(logger, openRCT2ProcessEngine, pluginService, scenarioRepo, serverHostRepo);
   const commandFactory = new CommandFactory(
     config,
+    discordClient,
     logger,
     botDataRepo,
     buildRepo,
@@ -93,7 +93,7 @@ async function main() {
       Routes.applicationGuildCommands(config.getValue('clientId'), guildInfo.guildId),
       { body: commandFactory.commandDataArray }
       //{ body: [] }
-      //{ body: commandFactory.commandDataArray.filter(cmd => cmd.name === 'build') }
+      //{ body: commandFactory.commandDataArray.filter(cmd => cmd.name === 'role') }
     );
 
     console.log(`${discordClient.user.tag} has logged in!`);

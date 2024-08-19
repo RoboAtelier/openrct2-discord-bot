@@ -112,7 +112,7 @@ const GameBuildSubcommands = <const>[
 ];
   
 /** Represents a command for downloading, installing, and managing OpenRCT2 builds. */
-export class GameBuildCommand extends SubcommandsDiscordBotCommand<
+export class BuildCommand extends SubcommandsDiscordBotCommand<
   undefined,
   typeof GameBuildSubcommands[number]
 > {

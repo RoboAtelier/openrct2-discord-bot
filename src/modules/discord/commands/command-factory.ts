@@ -1,3 +1,4 @@
+import { Client } from 'discord.js';
 import { Configuration } from '@modules/configuration/index.js';
 import * as Commands from '@modules/discord/commands/index.js';
 import { BotDataRepository } from '@modules/discord/data/repositories/index.js';
@@ -14,6 +15,7 @@ export class CommandFactory {
 
   constructor(
     config: Configuration,
+    discordClient: Client<true>,
     logger: Logger,
     botDataRepo: BotDataRepository,
     buildRepo: OpenRCT2Repositories.BuildRepository,
@@ -25,16 +27,17 @@ export class CommandFactory {
   ) {
     const commands: Commands.DiscordBotCommand[] = [
       new Commands.ChannelCommand(botDataRepo),
-      new Commands.GameBuildCommand(logger, buildRepo, buildDownloadService),
+      new Commands.ChatCommand(logger, botDataRepo, openRCT2ServerController),
+      new Commands.BuildCommand(logger, buildRepo, buildDownloadService),
+      new Commands.GroupCommand(logger, botDataRepo, openRCT2ServerController),
       new Commands.MasterServerCommand(config, openRCT2MasterServer),
       new Commands.ScenarioCommand(scenarioRepo),
       new Commands.ServerCommand(botDataRepo, buildRepo, scenarioRepo, serverRepo, openRCT2ServerController),
       new Commands.SnapshotCommand(logger, botDataRepo, serverRepo, openRCT2ServerController),
-      new Commands.VoteCommand(logger, botDataRepo, scenarioRepo, serverRepo, openRCT2ServerController),
-      new Commands.ChatCommand(logger, botDataRepo, openRCT2ServerController),
-      new Commands.GroupCommand(logger, botDataRepo, openRCT2ServerController),
       new Commands.PauseCommand(logger, botDataRepo, openRCT2ServerController),
       new Commands.PlayerCommand(logger, botDataRepo, openRCT2ServerController),
+      new Commands.RoleCommand(discordClient, botDataRepo),
+      new Commands.VoteCommand(logger, botDataRepo, scenarioRepo, serverRepo, openRCT2ServerController)
     ];
     commands.push(new Commands.HelpCommand(commands.map(command => command.data)));
     for (const command of commands) {
