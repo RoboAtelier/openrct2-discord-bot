@@ -86,54 +86,38 @@ export abstract class OptionsDiscordBotCommand<O extends CommandOption> extends 
   };
 
   override confirmCommandAccess(interaction: ChatInputCommandInteraction, userLevel: CommandPermissionLevel) {
-    const accessResult = new CommandAccessResultBuilder();
-
-    if (this.options.length) {
-      const deniedOptions = this.confirmCommandOptionPermissions(interaction, userLevel);
-      deniedOptions.length
-        ? accessResult.withDeniedOptions(...deniedOptions)
-        : accessResult.withAccess(true);
-    } else {
-      accessResult.withAccess(this.confirmCommandUsagePermissions(interaction, userLevel));
-    };
-
-    return accessResult.resolve();
+    return this.confirmCommandOptionPermissions(interaction, userLevel).resolve();
   };
 
   /**
    * Checks that a user has enough permissions to use this command's options.
    * @param interaction The Discord chat command interaction.
    * @param userLevel The command permission level of the user that called the command.
-   * @returns An array of any denied options due to insufficient permissions. 
+   * @returns A command access result.
    */
   protected confirmCommandOptionPermissions(
     interaction: ChatInputCommandInteraction,
     userLevel: CommandPermissionLevel
   ) {
-    const deniedOptions = [];
-    for (const option of this.options) {
-      const interactionOption = interaction.options.get(option.name);
-      if (
-        interactionOption
-        && (option.permissionLevel ?? this.permissionLevel) > userLevel
-      ) {
-        deniedOptions.push(option.name);
-      };
+    const accessResult = new CommandAccessResultBuilder();
+    
+    if (interaction.commandName !== this.name) {
+      return accessResult.withAccess(false);
     };
-    return deniedOptions;
-  };
 
-  /**
-   * Checks that a user has enough permissions to call this command.
-   * @param interaction The Discord chat command interaction.
-   * @param userLevel The command permission level of the user that called the command.
-   * @returns `true` if the user permission level is sufficient; otherwise, `false`.
-   */
-  protected confirmCommandUsagePermissions(
-    interaction: ChatInputCommandInteraction,
-    userLevel: CommandPermissionLevel
-  ) {
-    return interaction.commandName === this.name && userLevel >= this.permissionLevel;
+    const selectedOptions = this.options.filter(option => interaction.options.get(option.name) != null);
+    if (selectedOptions.length) {
+      for (const option of selectedOptions) {
+        if ((option.permissionLevel ?? this.permissionLevel) > userLevel) {
+          accessResult.withDeniedOptions(option.name);
+        };
+      };
+      accessResult.withAccess(true);
+    } else {
+      accessResult.withAccess(this.permissionLevel <= userLevel);
+    };
+
+    return accessResult;
   };
 
   /**
@@ -213,84 +197,71 @@ export abstract class SubcommandsDiscordBotCommand<
   };
   
   override confirmCommandAccess(interaction: ChatInputCommandInteraction, userLevel: CommandPermissionLevel) {
-    const accessResult = new CommandAccessResultBuilder();
-
-    const deniedValues = this.confirmCommandSubcommandPermissions(interaction, userLevel);
-    if (deniedValues.deniedSubcommandGroup) {
-      accessResult.withDeniedSubcommandGroup(deniedValues.deniedSubcommandGroup);
-    };
-    if (deniedValues.deniedSubcommand) {
-      accessResult.withDeniedSubcommand(deniedValues.deniedSubcommand);
-    };
-    if (deniedValues.deniedOptions.length) {
-      accessResult.withDeniedOptions(...deniedValues.deniedOptions);
-    };
-    accessResult.withAccess(
-      !(deniedValues.deniedSubcommandGroup || deniedValues.deniedSubcommand || deniedValues.deniedOptions.length)
-    );
-
-    return accessResult.resolve();
+    return this.confirmCommandSubcommandPermissions(interaction, userLevel).resolve();
   };
 
   /**
    * Checks that a user has enough permissions to use a subcommand and its options.
    * @param interaction The Discord chat command interaction.
    * @param userLevel The command permission level of the user that called the command.
-   * @returns An object that contains any denied command values due to insufficient permissions. 
+   * @returns A command access result.
    */
   protected confirmCommandSubcommandPermissions(
     interaction: ChatInputCommandInteraction,
     userLevel: CommandPermissionLevel
   ) {
-    const deniedValues: {
-      deniedSubcommandGroup?: string,
-      deniedSubcommand?: string,
-      deniedOptions: string[]
-    } = { deniedOptions: [] };
+    const accessResult = new CommandAccessResultBuilder();
+
+    if (interaction.commandName !== this.name) {
+      return accessResult.withAccess(false);
+    };
+
     const groupName = interaction.options.getSubcommandGroup();
     const subcommandName = interaction.options.getSubcommand();
     let selectedGroup: SubcommandGroup | undefined;
     let selectedSubcommand: Subcommand | undefined;
 
     if (groupName) {
-      selectedGroup = this.groups?.find(group => group.name === groupName)!;
-      if ((selectedGroup.permissionLevel ?? this.permissionLevel) > userLevel) {
-        deniedValues.deniedSubcommandGroup = groupName;
-        return deniedValues;
+      selectedGroup = this.groups?.find(group => group.name === groupName);
+      if (!selectedGroup) {
+        throw new Error('An invalid command group was specified.');
       };
-      selectedSubcommand = selectedGroup.subcommands.find(subcommand => subcommand.name === subcommandName)!;
+      selectedSubcommand = selectedGroup.subcommands.find(subcommand => subcommand.name === subcommandName);
     } else {
-      selectedSubcommand = this.subcommands?.find(subcommand => subcommand.name === subcommandName)!;
+      selectedSubcommand = this.subcommands?.find(subcommand => subcommand.name === subcommandName);
     };
-    
     if (!selectedSubcommand) {
-      throw new Error('Could not find a valid subcommand.');
+      throw new Error('An invalid command subcommand was specified.');
     };
 
-    for (const option of selectedSubcommand.options ?? []) {
-      const interactionOption = interaction.options.get(option.name);
-      if (interactionOption) {
-        if (option.permissionLevel) {
-          if (option.permissionLevel > userLevel) {
-            deniedValues.deniedOptions.push(option.name);
+    accessResult.withAccess(true);
+    if (selectedSubcommand.options?.length) {
+      const selectedOptions = selectedSubcommand.options.filter(option => interaction.options.get(option.name) != null);
+      if (selectedOptions.length) {
+        for (const option of selectedSubcommand.options) {
+          if (
+            (
+              option.permissionLevel
+              ?? selectedSubcommand.permissionLevel
+              ?? selectedGroup?.permissionLevel
+              ?? this.permissionLevel
+            ) > userLevel
+          ) {
+            accessResult.withDeniedOptions(option.name);
           };
-        } else if (selectedSubcommand.permissionLevel) {
-          if (selectedSubcommand.permissionLevel > userLevel) {
-            deniedValues.deniedSubcommand = selectedSubcommand.name;
-          };
-        } else if (selectedGroup?.permissionLevel) {
-          if (selectedGroup.permissionLevel > userLevel) {
-            deniedValues.deniedSubcommandGroup = selectedGroup.name;
-          };
-        } else if (this.permissionLevel > userLevel) {
-          deniedValues.deniedOptions.push(option.name);
         };
-      } else {
-        deniedValues.deniedOptions.push(option.name);
+        return accessResult;
       };
     };
+    if (selectedSubcommand.permissionLevel && selectedSubcommand.permissionLevel > userLevel) {
+      accessResult.withDeniedSubcommand(subcommandName);
+    } else if (selectedGroup?.permissionLevel && selectedGroup.permissionLevel > userLevel) {
+      accessResult.withDeniedSubcommand(selectedGroup.name);
+    } else if (this.permissionLevel > userLevel) {
+      accessResult.withAccess(false);
+    };
 
-    return deniedValues;
+    return accessResult;
   };
 
   protected getInteractionSubcommandGroupName(interaction: ChatInputCommandInteraction) {
