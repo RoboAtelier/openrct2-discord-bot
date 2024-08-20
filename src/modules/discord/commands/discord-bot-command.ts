@@ -253,10 +253,14 @@ export abstract class SubcommandsDiscordBotCommand<
         return accessResult;
       };
     };
-    if (selectedSubcommand.permissionLevel && selectedSubcommand.permissionLevel > userLevel) {
-      accessResult.withDeniedSubcommand(subcommandName);
-    } else if (selectedGroup?.permissionLevel && selectedGroup.permissionLevel > userLevel) {
-      accessResult.withDeniedSubcommand(selectedGroup.name);
+    if (selectedSubcommand.permissionLevel) {
+      if (selectedSubcommand.permissionLevel > userLevel) {
+        accessResult.withDeniedSubcommand(subcommandName);
+      };
+    } else if (selectedGroup?.permissionLevel) {
+      if (selectedGroup.permissionLevel > userLevel) {
+        accessResult.withDeniedSubcommandGroup(selectedGroup.name);
+      };
     } else if (this.permissionLevel > userLevel) {
       accessResult.withAccess(false);
     };
