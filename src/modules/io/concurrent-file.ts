@@ -93,7 +93,7 @@ export class ConcurrentFile extends ConcurrentFileSystemObject {
   ) {
     this.validateActive();
     if (this.ioMutex.isLocked() && this.transactionKey === transactionKey) {
-      return readFile(this.objPath, options);
+      return writeFile(this.objPath, data, options);
     };
     return this.ioMutex.runExclusive(async () => {
       return writeFile(this.objPath, data, options);
