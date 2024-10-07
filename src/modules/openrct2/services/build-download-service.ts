@@ -184,9 +184,10 @@ export class BuildDownloadService {
 
           const matchingBuilds: DownloadInfo[] = [];
           for (const targetAsset of targetAssets) {
-            const validFileExtension = OpenRCT2.BuildFileExtensionArray.find(ext => {
-              const fileName = targetAsset.name.toLocaleLowerCase();
-              return fileName.endsWith(ext);
+            const assetNameLowercase = targetAsset.name.toLocaleLowerCase();
+            const lowerCaseExts = OpenRCT2.BuildFileExtensionArray.map(ext => ext.toLocaleLowerCase());
+            const validFileExtension = lowerCaseExts.find(ext => {
+              return assetNameLowercase.endsWith(ext.toLocaleLowerCase());
             });
             if (validFileExtension) {
               let fileName = `${targetVersion}_${platform.friendlyName}`;
