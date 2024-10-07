@@ -176,9 +176,10 @@ export class BuildDownloadService {
       for (const gitRelease of gitReleases.data) {
         if (gitRelease.tag_name === targetVersion) {
           const targetAssets = gitRelease.assets.filter(asset => {
-            return asset.name.includes(targetPlatform)
-              && asset.name.includes(platform.architecture ?? '')
-              && asset.name.includes(targetAssetType ?? '');
+            const assetNameLowercase = asset.name.toLocaleLowerCase();
+            return assetNameLowercase.includes(targetPlatform)
+              && assetNameLowercase.includes(platform.architecture ?? '')
+              && assetNameLowercase.includes(targetAssetType ?? '');
           });
 
           const matchingBuilds: DownloadInfo[] = [];

@@ -41,7 +41,14 @@ export abstract class DiscordBotCommand {
 
     /** Gets the type of this bot command. */
     public readonly type = CommandType.Bot
-  ) { };
+  ) {
+    const typedDescription = type !== CommandType.Bot
+      ? `[${CommandType[type]}] ${description}`
+      : description
+    this.data
+      .setName(name)
+      .setDescription(typedDescription);
+  };
 
   /**
    * Runs the command.
@@ -79,9 +86,6 @@ export abstract class OptionsDiscordBotCommand<O extends CommandOption> extends 
     type = CommandType.Bot
   ) {
     super(name, description, permissionLevel, type);
-    this.data
-      .setName(name)
-      .setDescription(description);
     buildSlashCommandOptions(this.data, options);
   };
 
@@ -190,9 +194,6 @@ export abstract class SubcommandsDiscordBotCommand<
     type = CommandType.Bot
   ) {
     super(name, description, permissionLevel, type);
-    this.data
-      .setName(name)
-      .setDescription(description);
     buildSlashCommandSubcommands(this.data, groups, subcommands);
   };
   
