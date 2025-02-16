@@ -310,17 +310,21 @@ export class BuildCommand extends SubcommandsDiscordBotCommand<
   ) {
     const errorMsgSegments = [];
 
+    let searchStr = platform.friendlyName;
+    if (platform.version) {
+      searchStr += `_${platform.version}`;
+    }
+    if (platform.architecture) {
+      searchStr += `_${platform.architecture}`;
+    }
+
     if (downloads && downloads.length > 1) {
-      errorMsgSegments.push(`Multiple builds match ${
-        inlineCode(`${platform.friendlyName}_${platform.version ?? '?'}_${platform.architecture}`)
-      }:`, '');
+      errorMsgSegments.push(`Multiple builds match ${inlineCode(searchStr)}:`, '');
       for (const download of downloads.slice(0, 10)) {
         errorMsgSegments.push(`▸ ${inlineCode(download.originalFileName)}`);
       };
     } else {
-      errorMsgSegments.push(`Failed to find a build for ${
-        inlineCode(`${platform.friendlyName}_${platform.version ?? '?'}_${platform.architecture}`)
-      }`)
+      errorMsgSegments.push(`Failed to find a build for ${inlineCode(searchStr)}`)
     };
 
     return errorMsgSegments.join(EOL);

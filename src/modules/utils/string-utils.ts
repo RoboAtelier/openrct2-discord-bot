@@ -6,7 +6,7 @@
  */
 export function areStringsEqualCaseInsensitive(str1: string, ...strs: string[]) {
   if (strs.length > 0) {
-    const initial = str1.toUpperCase()
+    const initial = str1.toUpperCase();
     return (strs.every(str => initial === str.toUpperCase()));
   };
   return true;

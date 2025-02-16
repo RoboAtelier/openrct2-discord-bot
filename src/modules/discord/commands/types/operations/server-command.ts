@@ -953,9 +953,12 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     };
     const gameBuilds = await this.buildRepo.getBuildsByFuzzySearch(buildName);
     if (!gameBuilds.length) {
-      response.addErrorText('Specified parameters returned no OpenRCT2 builds.');
+      response.addErrorText(`Failed to find a build for ${inlineCode(buildName)}`);
     } else if (gameBuilds.length > 1) {
-      response.addErrorText('Specified parameters returned multiple OpenRCT2 builds.');
+      response.addErrorText(`Multiple builds match ${inlineCode(buildName)}:`, '');
+      for (const gameBuild of gameBuilds.slice(0, 10)) {
+        response.addErrorText(`▸ ${inlineCode(gameBuild.name)}`);
+      };
     } else {
       startupOptions.openRCT2ExecutablePath = gameBuilds[0].pathToExecutable;
       response.addText(`Changed to build ${bold(gameBuilds[0].name)}.`);

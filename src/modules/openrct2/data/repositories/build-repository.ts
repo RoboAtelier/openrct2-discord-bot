@@ -16,7 +16,7 @@ import {
 
 /** Represents a data repository for OpenRCT2 game release and development builds. */
 export class BuildRepository extends FileSystemRepository {
-  private static readonly fuseOptions = { keys: ['name'], threshold: 0.2 };
+  private static readonly fuseOptions = { keys: ['name'], threshold: 0.01 };
 
   private readonly activeExtractions = new Set<string>();
 
@@ -175,14 +175,14 @@ export class BuildRepository extends FileSystemRepository {
       };
     };
 
-    const buildNameRegex = new RegExp(`\\${path.sep}v\\d+\\.\\d+\\.\\d+(?:\\-[0-9a-f]{7})?_[a-z\\-]+_[a-z0-9\\-]+$`)
+    const buildNameRegex = new RegExp(`\\${path.sep}v\\d+[\\.\\d+]+(?:\\-[0-9a-f]{7})?_[a-z\\-]+_[a-z0-9\\-]+$`)
     const validRelPaths = buildRelPaths.filter(relPath => buildNameRegex.test(relPath));
     return validRelPaths.map(relPath => new BuildDirectory(path.join(this.dataDir.path, relPath)));
   };
 
   private async readVersionDirectories() {
     const dirs = await this.dataDir.getDirectoriesExclusive();
-    return dirs.filter(dir => /^v\d+\.\d+\.\d+$/.test(dir.name));
+    return dirs.filter(dir => /^v\d+[\.\d+]+$/.test(dir.name));
   };
 
   private validateBuildFileName(fileName: string) {

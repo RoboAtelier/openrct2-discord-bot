@@ -27,7 +27,7 @@ export class BuildDirectory {
     
     this.path = path;
     const nameSplit = this.name.split('_');
-    if (/^v\d+\.\d+\.\d+(?:\-[0-9a-f]{7})?$/.test(nameSplit[0])) {
+    if (/^v\d+[\.\d+]+(?:\-[0-9a-f]{7})?$/.test(nameSplit[0])) {
       if (nameSplit[0].includes('-')) {
         const versionSplit = nameSplit[0].split('-');
         this.baseVersion = versionSplit[0];
