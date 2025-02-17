@@ -1,10 +1,13 @@
 /// <reference path="../src/modules/openrct2/openrct2.d.ts" />
 /// <reference path="./messaging.d.ts" />
 
-var serverId = 0;
-var port = 0;
+class MessagingPluginVariables {
+  public static readonly pluginName: MessagingPlugin.Name = 'Messaging Plugin';
+  public static readonly serverId: number = 0;
+  public static readonly port: number = 0;
+};
 
-function startup() {
+function messagingPluginStartup() {
 	const server = network.createListener();
 	server.on('connection', conn => {
 		conn.on('data', data => {
@@ -72,7 +75,7 @@ function startup() {
 						playerObjects
 					));
 				} else if (actionOrQueryName === 'save') { // using legacy method, to change later
-					const saveFileName = 's'.concat(serverId.toString(), '_save');
+					const saveFileName = 's'.concat(MessagingPluginVariables.serverId.toString(), '_save');
 					console.executeLegacy('save_park '.concat(saveFileName));
 					conn.write(formatResponsePayload(actionOrQueryName, userId, saveFileName));
 				} else if (actionOrQueryName === 'scenario') {
@@ -133,8 +136,8 @@ function startup() {
 		context.subscribe('network.leave', eventArgs => onNetworkLeave(eventArgs, conn));
 	});
 
-	server.listen(port, 'localhost');
-	console.log(`${pluginName} for server ${serverId} is active!`);
+	server.listen(MessagingPluginVariables.port, 'localhost');
+	console.log(`${MessagingPluginVariables.pluginName} for server ${MessagingPluginVariables.serverId} is active!`);
 };
 
 // Event Handlers
@@ -220,13 +223,12 @@ class PlayerDto {
   ) {};
 };
 
-const pluginName: MessagingPlugin.Name = 'Messaging Plugin';
 registerPlugin({
-	name: pluginName,
+	name: MessagingPluginVariables.pluginName,
 	version: '0.1.2',
 	authors: ['Robo'],
 	type: 'remote',
 	licence: 'MIT',
 	targetApiVersion: 77,
-	main: startup
-})
+	main: messagingPluginStartup
+});

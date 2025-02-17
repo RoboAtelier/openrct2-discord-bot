@@ -1,7 +1,6 @@
 
 export namespace OpenRCT2 {
 
-
   /** Represents a supported file extension for precompiled OpenRCT2 builds. */
   export type BuildFileExtension = typeof BuildFileExtensionArray[number];
   export const BuildFileExtensionArray = <const>['.zip', '.tar.gz'];

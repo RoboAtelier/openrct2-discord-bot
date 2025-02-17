@@ -16,7 +16,7 @@ import {
 
 /** Represents a data repository for OpenRCT2 game release and development builds. */
 export class BuildRepository extends FileSystemRepository {
-  private static readonly fuseOptions = { keys: ['name'], threshold: 0.01 };
+  private static readonly fuseOptions = { keys: ['name'], threshold: 0.05 };
 
   private readonly activeExtractions = new Set<string>();
 

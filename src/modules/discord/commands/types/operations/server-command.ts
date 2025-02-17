@@ -27,6 +27,7 @@ import {
   ScenarioRepository,
   ServerRepository
 } from '@modules/openrct2/data/repositories/index.js';
+import { PluginService } from '@modules/openrct2/services/plugin-service.js';
 import { fisherYatesShuffle } from '@modules/utils/array-utils.js';
 import { isStringNullOrWhiteSpace } from '@modules/utils/string-utils.js';
 
@@ -640,6 +641,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
   private readonly buildRepo: BuildRepository;
   private readonly scenarioRepo: ScenarioRepository;
   private readonly serverRepo: ServerRepository;
+  private readonly pluginService: PluginService;
   private readonly openRCT2ServerController: OpenRCT2ServerController;
 
   constructor(
@@ -647,6 +649,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     buildRepo: BuildRepository,
     scenarioRepo: ScenarioRepository,
     serverRepo: ServerRepository,
+    pluginService: PluginService,
     openRCT2ServerController: OpenRCT2ServerController
   ) {
     super(
@@ -661,6 +664,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     this.buildRepo = buildRepo;
     this.scenarioRepo = scenarioRepo;
     this.serverRepo = serverRepo;
+    this.pluginService = pluginService;
     this.openRCT2ServerController = openRCT2ServerController;
   };
 
@@ -807,7 +811,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
             };
           };
   
-          await this.setServerWelcomeText(
+          await this.setWelcomePluginText(
             response,
             serverId,
             options.get('window-title')?.value as string,
@@ -840,7 +844,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
             };
           };
   
-          await this.setServerWelcomeFormat(
+          await this.setWelcomePluginFormat(
             response,
             serverId,
             options.get('window-title')?.value as TextFormat,
@@ -1090,6 +1094,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       response.addText('No changes were made.');
     } else if (!response.hasError) {
       await serverDir.updatePluginOptions(pluginOptions);
+      this.pluginService.resetServerSync(serverId);
       response.addTextToStart(`${underscore(italic(`Server ${serverId}`))}:${EOL}`);
       response.addText(`${EOL}The above changes require a server restart to apply.`);
     };
@@ -1115,12 +1120,13 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       response.addText('No changes were made.');
     } else if (!response.hasError) {
       await serverDir.updatePluginOptions(pluginOptions);
+      this.pluginService.resetServerSync(serverId);
       response.addTextToStart(`${underscore(italic(`Server ${serverId}`))}:${EOL}`);
       response.addText(`${EOL}The above changes require a server restart to apply.`);
     };
   }
 
-  private async setServerWelcomeText(
+  private async setWelcomePluginText(
     response: ResponseBuilder,
     serverId: number,
     windowTitle?: string,
@@ -1173,7 +1179,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     if (footerLines.size > 0) {
       const footerLinesMap = new Map(pluginOptions.welcomeMessage.footerLines ?? []);
       for (let i = 1; i <= 3; ++i) {
-        const inputLine = listLines.get(i);
+        const inputLine = footerLines.get(i);
         if (inputLine) {
           footerLinesMap.set(i, inputLine);
         };
@@ -1188,12 +1194,13 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       response.addText('No changes were made.');
     } else if (!response.hasError) {
       await serverDir.updatePluginOptions(pluginOptions);
+      this.pluginService.resetServerSync(serverId);
       response.addTextToStart(`${underscore(italic(`Server ${serverId}`))}:${EOL}`);
       response.addText(`${EOL}The above changes require a server restart to apply.`);
     };
   };
 
-  private async setServerWelcomeFormat(
+  private async setWelcomePluginFormat(
     response: ResponseBuilder,
     serverId: number,
     windowTitleFormat?: TextFormat,
@@ -1243,13 +1250,8 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
     };
 
     if (listTitleFormat != undefined) {
-      if (listTitleFormat === '[blank]') {
-        pluginOptions.welcomeMessage.listTitle = '';
-        response.addText(`Updated the welcome message list title to be blank.`);
-      } else {
-        pluginOptions.welcomeMessage.listTitle = undefined;
-        response.addText(`Cleared the welcome message list title.`);
-      }
+      pluginOptions.welcomeMessage.listTitle = '';
+      response.addText(`Cleared the welcome message list title.`);
     };
 
     if (listFormats.size > 0) {
@@ -1284,6 +1286,7 @@ export class ServerCommand extends SubcommandsDiscordBotCommand<
       response.addText('No changes were made.');
     } else if (!response.hasError) {
       await serverDir.updatePluginOptions(pluginOptions);
+      this.pluginService.resetServerSync(serverId);
       response.addTextToStart(`${underscore(italic(`Server ${serverId}`))}:${EOL}`);
       response.addText(`${EOL}The above changes require a server restart to apply.`);
     };

@@ -1,4 +1,3 @@
-//import 'module-alias/register.js';
 import { 
   Client,
   Events,
@@ -53,9 +52,9 @@ async function main() {
   const scenarioRepo = new ScenarioRepository(config);
   const serverHostRepo = new ServerRepository(config);
   const openRCT2ProcessEngine = new GameService();
-  const pluginService = new PluginService(pluginRepo, serverHostRepo);
-  const openRCT2MasterServer = new MasterServerService();
   const openRCT2BuildDownloader = new BuildDownloadService(buildRepo);
+  const openRCT2MasterServer = new MasterServerService();
+  const pluginService = new PluginService(pluginRepo, serverHostRepo);
   const openRCT2ServerController = new OpenRCT2ServerController(logger, openRCT2ProcessEngine, pluginService, scenarioRepo, serverHostRepo);
   const commandFactory = new CommandFactory(
     config,
@@ -67,6 +66,7 @@ async function main() {
     serverHostRepo,
     openRCT2BuildDownloader,
     openRCT2MasterServer,
+    pluginService,
     openRCT2ServerController
   );
   const commandExecutor = new CommandExecutor(discordClient, logger, commandFactory, botDataRepo);
@@ -93,7 +93,7 @@ async function main() {
       Routes.applicationGuildCommands(config.getValue('clientId'), guildInfo.guildId),
       { body: commandFactory.commandDataArray }
       //{ body: [] }
-      //{ body: commandFactory.commandDataArray.filter(cmd => cmd.name === 'role') }
+      //{ body: commandFactory.commandDataArray.filter(cmd => cmd.name === 'server') }
     );
 
     console.log(`${discordClient.user.tag} has logged in!`);

@@ -7,7 +7,8 @@ import { OpenRCT2ServerController } from '@modules/openrct2/controllers/index.js
 import * as OpenRCT2Repositories from '@modules/openrct2/data/repositories/index.js';
 import {
   BuildDownloadService,
-  MasterServerService
+  MasterServerService,
+  PluginService
 } from '@modules/openrct2/services/index.js';
 
 export class CommandFactory {
@@ -23,6 +24,7 @@ export class CommandFactory {
     serverRepo: OpenRCT2Repositories.ServerRepository,
     buildDownloadService: BuildDownloadService,
     openRCT2MasterServer: MasterServerService,
+    pluginService: PluginService,
     openRCT2ServerController: OpenRCT2ServerController,
   ) {
     const commands: Commands.DiscordBotCommand[] = [
@@ -32,7 +34,7 @@ export class CommandFactory {
       new Commands.GroupCommand(logger, botDataRepo, openRCT2ServerController),
       new Commands.MasterServerCommand(config, openRCT2MasterServer),
       new Commands.ScenarioCommand(scenarioRepo),
-      new Commands.ServerCommand(botDataRepo, buildRepo, scenarioRepo, serverRepo, openRCT2ServerController),
+      new Commands.ServerCommand(botDataRepo, buildRepo, scenarioRepo, serverRepo, pluginService, openRCT2ServerController),
       new Commands.SnapshotCommand(logger, botDataRepo, serverRepo, openRCT2ServerController),
       new Commands.PauseCommand(logger, botDataRepo, openRCT2ServerController),
       new Commands.PlayerCommand(logger, botDataRepo, openRCT2ServerController),

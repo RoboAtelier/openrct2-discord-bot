@@ -12,7 +12,11 @@ export class PluginService {
     private readonly serverHostRepo: ServerRepository
   ) { };
 
-  async syncServerPluginSettings(serverId: number) {
+  resetServerSync(serverId: number) {
+    this.synced.delete(serverId);
+  };
+
+  async syncServerPluginVariables(serverId: number) {
     const serverDir = await this.serverHostRepo.getServerDirectoryById(serverId);
     const pluginOptions = await serverDir.getPluginOptions();
     const availablePlugins = await this.pluginRepo.getPluginFiles();
@@ -34,11 +38,19 @@ export class PluginService {
       };
   
       for (const plugin of currentPlugins) {
-        if (plugin.name === OpenRCT2.PluginFileName.Messaging) {
-          await plugin.setGlobalVariables(
-            ['serverId', serverId],
-            ['port', pluginOptions.messagingPluginPort]
-          );
+        switch (plugin.name) {
+          case OpenRCT2.PluginFileName.Messaging:
+            await plugin.setGlobalVariables(
+              ['serverId', serverId],
+              ['port', pluginOptions.messagingPluginPort]
+            );
+            break;
+          case OpenRCT2.PluginFileName.Welcome:
+            const welcomeKeyValues =
+              (Object.getOwnPropertyNames(pluginOptions.welcomeMessage) as [keyof typeof pluginOptions.welcomeMessage])
+              .map(property => [property, pluginOptions.welcomeMessage[property]] as [string, any]);
+            await plugin.setGlobalVariables(...welcomeKeyValues);
+            break;
         };
       };
       this.synced.add(serverId);

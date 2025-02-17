@@ -165,7 +165,7 @@ export class OpenRCT2ServerController extends EventEmitter {
           await this.stopServer(serverId, false);
         };
   
-        await this.pluginService.syncServerPluginSettings(serverId);
+        await this.pluginService.syncServerPluginVariables(serverId);
         await wait(1, 's');
         const startupOptions = await serverDir.getStartupOptions();
         const pluginOptions = await serverDir.getPluginOptions();

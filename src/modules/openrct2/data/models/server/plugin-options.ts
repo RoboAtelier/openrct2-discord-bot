@@ -18,15 +18,20 @@ export class PluginOptions extends SerializableObject<PluginOptions> {
       title: string;
       bodyLines: [number, string][];
       bodyAlignment: 'left' | 'centred';
-      listTitle?: string;
-      listLines?: [number, string][];
-      listAlignment?: 'left' | 'centred';
-      footerLines?: [number, string][];
-      footerAlignment?: 'left' | 'centred';
+      listTitle: string;
+      listLines: [number, string][];
+      listAlignment: 'left' | 'centred';
+      footerLines: [number, string][];
+      footerAlignment: 'left' | 'centred';
     } = {
       title: '',
       bodyLines: [],
-      bodyAlignment: <const>'left'
+      bodyAlignment: 'left',
+      listTitle: '',
+      listLines: [],
+      listAlignment: 'left',
+      footerLines: [],
+      footerAlignment: 'left'
     }
   ) {
     super();

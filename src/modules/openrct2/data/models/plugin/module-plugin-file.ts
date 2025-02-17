@@ -9,14 +9,17 @@ export class ModulePluginFile extends PluginFile {
   constructor(path: string) { super(path); };
 
   /**
-   * Applies global variable values for an applicable plugin.
-   * Global variables must be declared at the very beginning of a valid plugin file.
+   * Applies variable values for an applicable plugin.
+   * Variables must be declared with a ...Variables class with static fields representing the plugin's variables.
+   * The ...Variables class must be declared near the beginning of the plugin file.
    * 
    * ```js
-   * var globalVariable = 'value';
-   * var globalVariable2 = false;
+   * class PluginVariables {
+   *   public static readonly pluginName = 'Plugin Name';
+   *   public static readonly someVariable = 'test';
+   * };
    * ...
-   * function pluginMain() {...}
+   * function pluginStartup() {...}
    * ```
    * 
    * @async
@@ -27,15 +30,17 @@ export class ModulePluginFile extends PluginFile {
     const fileDataLines = fileData.split('\n');
 
     for (const [index, line] of fileDataLines.entries()) {
-      if (line.startsWith('var ')) {
-        const applicableKeyValue = keyValues.find(keyValue => line.startsWith(`var ${keyValue[0]} =`))
+      if (line.includes('Variables.')) {
+        const applicableKeyValue = keyValues.find(keyValue => line.includes(`Variables.${keyValue[0]} =`))
         if (applicableKeyValue) {
           const value = typeof keyValues[1] === 'string' ? `'${applicableKeyValue[1]}'` : JSON.stringify(applicableKeyValue[1]);
-          fileDataLines[index] = `var ${applicableKeyValue[0]} = ${value};`;
+          const newLine = line.replace(
+            new RegExp(`Variables.${applicableKeyValue[0]}\\s*\\=.+;`),
+            `Variables.${applicableKeyValue[0]} = ${value};`
+          );
+          fileDataLines[index] = newLine;
         };
-      } else if (line.startsWith('//')) {
-        continue;
-      } else {
+      } else if (line.includes('return ')) {
         break;
       };
     };
